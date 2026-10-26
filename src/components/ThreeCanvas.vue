@@ -215,6 +215,14 @@ function loadRealTerrainAssets() {
   const normalUrl = prefix + 'textures/shaanxi_normal.png';
   const demUrl = prefix + 'textures/shaanxi_dem.png';
 
+  // 8秒兜底安全计时器，防止在极端弱网或离线环境下遮罩死锁
+  setTimeout(() => {
+    if (isLoadingData.value) {
+      console.warn('Terrain assets load timeout fallback activated.');
+      isLoadingData.value = false;
+    }
+  }, 8000);
+
   textureLoader.load(
     satUrl,
     (satTexture) => {
@@ -228,29 +236,47 @@ function loadRealTerrainAssets() {
           normalTexture.generateMipmaps = true;
 
           const demImg = new Image();
+          demImg.crossOrigin = 'anonymous';
           demImg.src = demUrl;
           demImg.onload = () => {
-            demCanvas = document.createElement('canvas');
-            demCanvas.width = demImg.width;
-            demCanvas.height = demImg.height;
-            const ctx = demCanvas.getContext('2d');
-            ctx.drawImage(demImg, 0, 0);
+            try {
+              demCanvas = document.createElement('canvas');
+              demCanvas.width = demImg.width;
+              demCanvas.height = demImg.height;
+              const ctx = demCanvas.getContext('2d');
+              ctx.drawImage(demImg, 0, 0);
 
-            buildRealMacroTerrain(satTexture, normalTexture, ctx, demCanvas.width, demCanvas.height);
-            buildShaanxiBorder();
-            buildRivers();
-            buildQinlingLine();
-            buildSilkRoad();
-            buildSpatialPins();
-            buildBonsaiBlock();
-            buildEvolutionModel();
-            buildCampaignVisuals();
-
-            isLoadingData.value = false;
+              buildRealMacroTerrain(satTexture, normalTexture, ctx, demCanvas.width, demCanvas.height);
+              buildShaanxiBorder();
+              buildRivers();
+              buildQinlingLine();
+              buildSilkRoad();
+              buildSpatialPins();
+              buildBonsaiBlock();
+              buildEvolutionModel();
+              buildCampaignVisuals();
+            } catch (err) {
+              console.error('Error initializing 3D terrain assets:', err);
+            } finally {
+              isLoadingData.value = false;
+            }
           };
           demImg.onerror = () => {
-            buildRealMacroTerrain(satTexture, normalTexture, null, 0, 0);
-            isLoadingData.value = false;
+            try {
+              buildRealMacroTerrain(satTexture, normalTexture, null, 0, 0);
+              buildShaanxiBorder();
+              buildRivers();
+              buildQinlingLine();
+              buildSilkRoad();
+              buildSpatialPins();
+              buildBonsaiBlock();
+              buildEvolutionModel();
+              buildCampaignVisuals();
+            } catch (e) {
+              console.error(e);
+            } finally {
+              isLoadingData.value = false;
+            }
           };
         },
         undefined,
@@ -281,7 +307,11 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
   const pos = geo.attributes.position;
   let demData = null;
   if (demCtx) {
-    demData = demCtx.getImageData(0, 0, demW, demH).data;
+    try {
+      demData = demCtx.getImageData(0, 0, demW, demH).data;
+    } catch (e) {
+      console.warn('DEM getImageData failed, falling back to analytic formula:', e);
+    }
   }
 
   // 1. 根据 DEM 置换网格顶部高程
@@ -424,17 +454,17 @@ function buildRivers() {
     opacity: 0.88
   });
 
-  REAL_RIVERS.forEach((river) => {
-    if (river.points.length < 2) return;
+  Object.entries(REAL_RIVERS).forEach(([key, ptsArray]) => {
+    if (!ptsArray || ptsArray.length < 2) return;
 
     // 平滑曲线与细化半径 (主河 0.20，支流 0.14，紧密吸附谷底)
-    const curvePoints = river.points.map(p => new THREE.Vector3(p[0], p[1] + 0.12, p[2]));
+    const curvePoints = ptsArray.map(p => new THREE.Vector3(p[0], p[1] + 0.12, p[2]));
     const curve = new THREE.CatmullRomCurve3(curvePoints);
-    const radius = river.name.includes("黄河") || river.name.includes("渭河") ? 0.20 : 0.14;
+    const radius = (key.includes("yellow") || key.includes("wei")) ? 0.20 : 0.14;
     const tubeGeo = new THREE.TubeGeometry(curve, 160, radius, 8, false);
 
     const mesh = new THREE.Mesh(tubeGeo, riverMat);
-    mesh.name = river.name;
+    mesh.name = key;
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     riversSubGroup.add(mesh);
