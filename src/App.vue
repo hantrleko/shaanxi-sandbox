@@ -50,8 +50,10 @@
         :chapter="currentChapter"
         :total-chapters="currentChapters.length"
         :current-theme-title="currentTheme.title"
+        :is-playing="isPlaying"
         @listen-current="onListenCurrent"
         @focus-feature="onFocusFeature"
+        @fly-strata="onFlyToStrata"
       />
 
       <!-- 宏观沙盘模式：底部时间轴流 -->
@@ -95,6 +97,8 @@
         :current-mode="currentMode"
         :stages="EVOLUTION_STAGES"
         :current-stage="activeModelStage"
+        :active-lab-id="activeLabId"
+        :current-tectonic-stage="currentTectonicStage"
         @select-stage="stage => activeModelStage = stage"
         @prev-stage="onPrevStage"
         @next-stage="onNextStage"
@@ -375,6 +379,12 @@ const onChangeTectonicStage = (stageIdx) => {
 const onFlyToLandmark = (pos) => {
   if (threeRef.value) {
     threeRef.value.flyTo([pos[0] + 6, pos[1] + 16, pos[2] + 20], [pos[0], pos[1], pos[2]], 2.0);
+  }
+};
+
+const onFlyToStrata = (pos) => {
+  if (threeRef.value && pos) {
+    threeRef.value.flyTo([pos[0] + 5, pos[1] + 18, pos[2] + 22], [pos[0], pos[1], pos[2]], 2.0);
   }
 };
 

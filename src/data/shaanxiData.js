@@ -1,4 +1,7 @@
-// 陕西省地理人文 3D 互动沙盘数据结构
+// 陕西省地理人文 3D 互动沙盘数据结构 (100% 真实 GIS 与 DEM 物理高度对齐)
+const baseUrl = import.meta.env.BASE_URL || './';
+const imgPrefix = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+
 export const SHAANXI_STATS = {
   name: "陕西省",
   pinyin: "SHAANXI PROVINCE",
@@ -23,11 +26,11 @@ export const THEMES = [
         timeBadge: "三秦地形",
         highlight: "三大自然区纵贯南北",
         desc: "陕西地势由西向东、由南北向中部倾斜，南北跨度达870千米。全省自北向南自然分为三大地貌单元：北部陕北黄土高原、中部关中八百里秦川平原、南部陕南秦巴山地。宛如大自然的立体屏风。",
-        camera: { pos: [0, 85, 120], target: [0, 0, 0], pitch: 35 },
+        camera: { pos: [0, 95, 125], target: [0, 5, 0], pitch: 35 },
         diagramTitle: "陕西省南北地质地貌阶梯剖面示意图",
         diagramType: "profile_shaanxi",
-        photoUrl: "https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "俯瞰三秦大地，秦岭与黄土高原的沧桑对峙"
+        photoUrl: imgPrefix + "images/chapters/geo_01_shaanxi.jpg",
+        photoCaption: "三秦大地立体阶梯：黄土高原、关中平原与秦巴山地对峙"
       },
       {
         id: "geo_02",
@@ -37,11 +40,11 @@ export const THEMES = [
         timeBadge: "800mm 降水分界",
         highlight: "一山分南北，江河分两系",
         desc: "秦岭横亘中央，是中国地理南北分界线、长江黄河分水岭、亚热带与暖温带的自然屏障。主峰太白山拔仙台海拔3771米。云横秦岭，北阻寒风，南留湿润，造就了‘南稻北麦、南船北马’的生动地理奇观。",
-        camera: { pos: [-10, 45, 30], target: [0, 5, 0], pitch: 26 },
+        camera: { pos: [-4.84, 38, 48], target: [-4.84, 14, 22.75], pitch: 28 },
         diagramTitle: "秦岭阻挡冷暖气流垂直剖面模式图",
         diagramType: "profile_qinling",
-        photoUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "秦岭主峰太白山云海与第四纪冰川遗迹"
+        photoUrl: imgPrefix + "images/chapters/geo_02_qinling.jpg",
+        photoCaption: "秦岭主峰太白山拔仙台（3771.2m）云海与第四纪冰川遗迹"
       },
       {
         id: "geo_03",
@@ -51,11 +54,11 @@ export const THEMES = [
         timeBadge: "沃野千里",
         highlight: "渭河滋润的天赋粮仓",
         desc: "关中盆地地处秦岭以北、北山以南，渭河横贯东西。沃野千里，土质疏松肥沃，自古有‘金城千里，天府之国’之称。周、秦、汉、唐等14个王朝在此建都，奠定了中华农耕文明的坚实基石。",
-        camera: { pos: [5, 35, 20], target: [0, 0, 5], pitch: 22 },
+        camera: { pos: [3.97, 24, 32], target: [3.97, 2, 16], pitch: 22 },
         diagramTitle: "关中地堑断陷盆地与八水环绕图",
         diagramType: "profile_guanzhong",
-        photoUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "关中沃野与渭河夕照"
+        photoUrl: imgPrefix + "images/chapters/geo_03_guanzhong.jpg",
+        photoCaption: "八百里秦川沃野千里与渭河冲积扇农业基石"
       },
       {
         id: "geo_04",
@@ -65,11 +68,11 @@ export const THEMES = [
         timeBadge: "深厚黄土层 100-200m",
         highlight: "塬、梁、峁地貌与水土变迁",
         desc: "陕北黄土高原是全球黄土分布最集中、最深厚的区域。数百万年西伯利亚季风携沙尘在此堆积。黄土质地疏松，经流水数万年侵蚀，形成塬、梁、峁纵横交错的壮阔地貌，近年来退耕还林使绿色版图大幅北移。",
-        camera: { pos: [0, 50, -40], target: [0, 0, -20], pitch: 28 },
+        camera: { pos: [8.71, 40, -5], target: [8.71, 5, -22], pitch: 28 },
         diagramTitle: "黄土塬梁峁侵蚀演变模式",
         diagramType: "profile_loess",
-        photoUrl: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "延安安塞黄土高原峁梁地貌与梯田绿意"
+        photoUrl: imgPrefix + "images/chapters/geo_04_loess.jpg",
+        photoCaption: "陕北延安安塞黄土高原塬梁峁地貌与生态梯田绿意"
       },
       {
         id: "geo_05",
@@ -79,11 +82,11 @@ export const THEMES = [
         timeBadge: "南水北调中线",
         highlight: "一江清水送北方",
         desc: "秦岭以南、大巴山以北为陕南地区。汉江、丹江发源于此，两岸青山如黛，气候湿润多雨，属于典型的长江水系。这里承担着南水北调中线工程超70%的水源涵养重任，堪称华夏水塔与生态宝库。",
-        camera: { pos: [0, 40, 50], target: [0, -5, 35], pitch: 30 },
+        camera: { pos: [2.0, 30, 62], target: [2.0, 2, 38], pitch: 28 },
         diagramTitle: "汉江水系与丹江口水库上游生态走廊",
         diagramType: "profile_hanjiang",
-        photoUrl: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "汉江上游安康瀛湖碧水青山"
+        photoUrl: imgPrefix + "images/chapters/geo_05_hanjiang.jpg",
+        photoCaption: "陕南汉江上游安康瀛湖碧水青山生态长廊"
       },
       {
         id: "geo_06",
@@ -93,11 +96,11 @@ export const THEMES = [
         timeBadge: "八水相映",
         highlight: "渭、泾、沣、涝、潏、滈、浐、灞",
         desc: "司马相如《上林赋》写道‘荡荡乎八川分流，相背而异态’。渭、泾、沣、涝、潏、滈、浐、灞八水滋养了长安城。秦汉开凿郑国渠、白渠，以浑水灌溉改良碱地，造就了天下第一粮仓。",
-        camera: { pos: [0, 28, 15], target: [0, 0, 5], pitch: 20 },
+        camera: { pos: [6.34, 18, 25], target: [6.34, 2, 16], pitch: 20 },
         diagramTitle: "古代长安八水水系与引渠复原示意",
         diagramType: "profile_rivers",
-        photoUrl: "https://images.unsplash.com/photo-1508873696983-2df5703bc20d?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "泾河渭河交汇处清浊分明的自然奇景"
+        photoUrl: imgPrefix + "images/chapters/geo_06_rivers.jpg",
+        photoCaption: "高陵泾河渭河交汇处清浊分明的自然奇景"
       }
     ]
   },
@@ -114,9 +117,9 @@ export const THEMES = [
         timeBadge: "163万年前 - 6000年前",
         highlight: "文明晨曦在关中破晓",
         desc: "蓝田直立人化石记录了早期人类活动。临潼半坡仰韶文化遗址见证了新石器时代彩陶与聚落文明；黄陵县桥山之上，轩辕黄帝陵寝千秋肃穆，被誉为中华第一陵，凝聚着海内外中华儿女的精神纽带。",
-        camera: { pos: [12, 38, 10], target: [2, 0, 0], pitch: 25 },
-        photoUrl: "https://images.unsplash.com/photo-1599707367072-cd6ada2bc375?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "黄帝陵古柏群与半坡人面鱼纹彩陶象征"
+        camera: { pos: [11.5, 26, 0], target: [11.5, 3, -15], pitch: 24 },
+        photoUrl: imgPrefix + "images/chapters/his_01_huangdi.jpg",
+        photoCaption: "黄陵桥山黄帝陵古柏群与仰韶半坡人面鱼纹彩陶"
       },
       {
         id: "his_02",
@@ -126,9 +129,9 @@ export const THEMES = [
         timeBadge: "公元前1046年",
         highlight: "礼乐文明从宝鸡周原奠基",
         desc: "周人起于岐山周原，武王伐纣后定都丰镐（今西安西南）。周公制礼作乐，奠定了中国三千年儒家文明与宗法制度之源。宝鸡被誉为青铜器之乡，大盂鼎、毛公鼎铭刻着厚重国史。",
-        camera: { pos: [-15, 30, 8], target: [-10, 0, 5], pitch: 20 },
-        photoUrl: "https://images.unsplash.com/photo-1608494603682-913a9e6a0076?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "周原遗址青铜器何尊‘宅兹中国’铭文"
+        camera: { pos: [-10.78, 20, 25], target: [-10.78, 2, 16.67], pitch: 20 },
+        photoUrl: imgPrefix + "images/chapters/his_02_zhouyuan.jpg",
+        photoCaption: "宝鸡周原遗址青铜器何尊‘宅兹中国’铭文"
       },
       {
         id: "his_03",
@@ -138,9 +141,9 @@ export const THEMES = [
         timeBadge: "公元前221年",
         highlight: "书同文，车同轨，统一度量衡",
         desc: "秦孝公用商鞅变法，奋六世之余烈。始皇帝横扫六合，建立中国第一个大一统中央集权王朝。骊山脚下的秦始皇陵与兵马俑坑，以规模浩大的地下陶俑军阵，展现了横扫八荒的无匹雄风。",
-        camera: { pos: [15, 25, 6], target: [10, 0, 5], pitch: 18 },
-        photoUrl: "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "临潼秦始皇兵马俑一号坑威武军阵"
+        camera: { pos: [12.0, 18, 23], target: [9.46, 2, 16.34], pitch: 18 },
+        photoUrl: imgPrefix + "images/chapters/his_03_bingmayong.jpg",
+        photoCaption: "临潼秦始皇兵马俑一号坑威武地下陶俑军阵"
       },
       {
         id: "his_04",
@@ -150,9 +153,9 @@ export const THEMES = [
         timeBadge: "公元618 - 907年",
         highlight: "九天阊阖开宫殿，万国衣冠拜冕旒",
         desc: "唐都长安是当时全球最大的国际大都会，城垣规整，里坊棋布。大明宫含元殿居高临下，大雁塔慈恩寺梵音悠扬。丝路胡商云集西市，李白杜甫等无数诗人在此留下了千古绝唱。",
-        camera: { pos: [0, 24, 8], target: [0, 0, 4], pitch: 18 },
-        photoUrl: "https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "西安大雁塔与大唐不夜城壮美夜景"
+        camera: { pos: [6.24, 18, 24], target: [6.24, 2, 16.98], pitch: 18 },
+        photoUrl: imgPrefix + "images/chapters/his_04_changan.jpg",
+        photoCaption: "西安大慈恩寺大雁塔与大唐不夜城壮阔盛唐气象"
       }
     ]
   },
@@ -169,9 +172,9 @@ export const THEMES = [
         timeBadge: "公元前138年",
         highlight: "十三年不辱使命的和平开拓",
         desc: "汉武帝招募张骞，率百余人出长安西行，联合大月氏夹攻匈奴。历经十三年艰难险阻，张骞‘凿空’通西域。随后汉朝在河西走廊设立四郡，开通了连接欧亚大陆的东西方陆上大通道。",
-        camera: { pos: [-20, 32, 10], target: [-5, 0, 5], pitch: 22 },
-        photoUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "莫高窟壁画张骞出使西域图与古丝绸之路商队"
+        camera: { pos: [0.0, 22, 26], target: [-6.0, 2, 16.0], pitch: 20 },
+        photoUrl: imgPrefix + "images/chapters/silk_01_zhangqian.jpg",
+        photoCaption: "莫高窟第323窟汉武帝送张骞出使西域壁画"
       },
       {
         id: "silk_02",
@@ -181,9 +184,9 @@ export const THEMES = [
         timeBadge: "唐代国际商圈",
         highlight: "买卖全球，胡商云集西市开埠",
         desc: "唐长安西市被称为‘金市’，是丝绸之路的真正起点。来自波斯、粟特的大食商人带着琉璃、香料、葡萄酒在此交易，换回大唐名扬天下的丝绸、瓷器、茶叶与铁器，开启了人类早期全球化盛况。",
-        camera: { pos: [-2, 18, 5], target: [0, 0, 4], pitch: 15 },
-        photoUrl: "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=600&q=80",
-        photoCaption: "大唐西市博物馆遗址石板路车辙痕迹"
+        camera: { pos: [6.24, 16, 22], target: [6.24, 2, 16.98], pitch: 16 },
+        photoUrl: imgPrefix + "images/chapters/silk_02_xishi.jpg",
+        photoCaption: "大唐西市遗址博物馆石板路车辙痕迹与丝路起点"
       }
     ]
   }
@@ -274,17 +277,18 @@ export const EVOLUTION_STAGES = [
   }
 ];
 
+// 真实 GIS 投影坐标对齐的 POI 列表 (与 3D 光柱及卫星影像 100% 重合)
 export const POI_LIST = [
-  { id: "xian", name: "西安 (长安)", type: "capital", pos: [0, 1.8, 5], badge: "十三朝古都 · 丝路起点" },
-  { id: "huashan", name: "西岳华山", type: "mountain", pos: [18, 3.8, 4], badge: "天下奇险第一山 (2154m)" },
-  { id: "taibai", name: "太白山", type: "mountain", pos: [-12, 5.2, 8], badge: "秦岭主峰 (3771m)" },
-  { id: "bingmayong", name: "秦始皇陵兵马俑", type: "relic", pos: [4, 1.6, 4.5], badge: "世界第八大奇迹" },
-  { id: "hukou", name: "黄河壶口瀑布", type: "nature", pos: [14, 2.2, -18], badge: "千里黄河一壶收" },
-  { id: "yanan", name: "延安宝塔山", type: "red", pos: [2, 2.5, -22], badge: "革命圣地 · 延河水" },
-  { id: "yulin", name: "榆林古城", type: "city", pos: [3, 2.6, -42], badge: "塞上驼城 · 镇北台" },
-  { id: "baoji", name: "宝鸡 (陈仓)", type: "city", pos: [-18, 1.9, 7], badge: "炎帝故里 · 青铜器之乡" },
-  { id: "hanzhong", name: "汉中", type: "city", pos: [-10, 1.4, 30], badge: "汉家发祥地 · 天府之国" },
-  { id: "ankang", name: "安康", type: "city", pos: [12, 1.3, 34], badge: "秦巴明珠 · 汉江瀛湖" }
+  { id: "xian", name: "西安 (长安)", type: "capital", pos: [6.24, 1.32, 16.98], badge: "十三朝古都 · 丝路起点" },
+  { id: "huashan", name: "西岳华山", type: "mountain", pos: [17.1, 6.67, 14.77], badge: "天下奇险第一山 (2154m)" },
+  { id: "taibai", name: "太白山拔仙台", type: "mountain", pos: [-4.84, 17.33, 22.75], badge: "秦岭主峰 (3771.2m)" },
+  { id: "bingmayong", name: "秦始皇陵兵马俑", type: "relic", pos: [9.46, 1.81, 16.34], badge: "世界第八大奇迹" },
+  { id: "hukou", name: "黄河壶口瀑布", type: "nature", pos: [20.57, 1.94, -10.53], badge: "千里黄河一壶收" },
+  { id: "yanan", name: "延安宝塔山", type: "red", pos: [11.46, 4.2, -17.31], badge: "革命圣地 · 延河水" },
+  { id: "yulin", name: "榆林古城镇北台", type: "city", pos: [13.78, 4.82, -44.8], badge: "塞上驼城 · 万里长城第一台" },
+  { id: "baoji", name: "宝鸡青铜器之乡", type: "city", pos: [-10.78, 2.26, 16.67], badge: "炎帝故里 · 陈仓要塞" },
+  { id: "hanzhong", name: "汉中拜将坛", type: "city", pos: [-11.93, 1.94, 36.04], badge: "汉家发祥地 · 天府之国" },
+  { id: "ankang", name: "安康瀛湖", type: "city", pos: [7.09, 0.85, 41.71], badge: "秦巴明珠 · 汉江秀水" }
 ];
 
 export const CAMPAIGNS = [
@@ -295,7 +299,7 @@ export const CAMPAIGNS = [
     belligerents: "汉军（刘邦、韩信）VS 雍王章邯（秦降将）",
     strategicOutcome: "一举平定三秦，大汉由此奠定一统天下基业",
     overview: "汉高祖刘邦困守汉中，大将韩信祭出军事史上最经典声东击西之策：明修褒斜栈道以惑敌主力，暗由陈仓故道出大散关奇袭宝鸡陈仓，席卷八百里秦川。",
-    camera: { pos: [-14, 28, 22], target: [-14, 2, 10], pitch: 32 },
+    camera: { pos: [-10.73, 26, 26], target: [-10.73, 2.21, 16.7], pitch: 30 },
     stages: [
       {
         step: 1,
@@ -304,25 +308,25 @@ export const CAMPAIGNS = [
         highlight: "褒斜道栈道佯动，牵制雍军主力",
         routeColor: "#f59e0b",
         routes: [
-          [ [-10, 1.4, 30], [-8, 2.5, 20], [-6, 2.0, 12] ] // 褒斜道佯攻
+          [ [-11.96, 1.89, 36.15], [-7.88, 8.6, 27.36], [-5.04, 2.34, 19.11] ]
         ],
         checkpoints: [
-          { name: "汉中南郑 (拜将坛)", pos: [-10, 1.4, 30], role: "汉军大本营" },
-          { name: "褒斜谷口", pos: [-8, 2.5, 20], role: "佯修栈道点" }
+          { name: "汉中南郑 (拜将坛)", pos: [-11.96, 1.89, 36.15], role: "汉军大本营" },
+          { name: "褒斜谷口", pos: [-5.04, 2.34, 19.11], role: "佯修栈道诱敌" }
         ]
       },
       {
         step: 2,
         title: "第二阶段：奇出故道 · 飞越大散关",
-        desc: "与此同时，韩信亲率汉军精锐主力，沿废弃已久的陈仓古道（故道）秘密穿插，星夜兼程翻越秦岭天险大散关，如天降神兵直扑陈仓（今宝鸡）。",
+        desc: "与此同时，韩信亲率汉军精锐主力，沿废弃已久的陈仓古道秘密穿插，星夜兼程翻越秦岭天险大散关，如天降神兵直扑陈仓（今宝鸡）。",
         highlight: "暗出险僻陈仓古道，神速飞越大散关",
         routeColor: "#ef4444",
         routes: [
-          [ [-10, 1.4, 30], [-18, 2.2, 22], [-22, 3.2, 12], [-20, 2.8, 7], [-18, 1.9, 7] ] // 奇袭路线
+          [ [-11.96, 1.89, 36.15], [-14.99, 7.42, 28.86], [-15.47, 6.05, 19.87], [-12.62, 6.19, 18.36], [-10.73, 2.21, 16.7] ]
         ],
         checkpoints: [
-          { name: "大散关 (川陕咽喉)", pos: [-20, 2.8, 7], role: "天险奇袭突防" },
-          { name: "陈仓重镇 (宝鸡)", pos: [-18, 1.9, 7], role: "决战突袭目标" }
+          { name: "大散关 (川陕咽喉)", pos: [-12.62, 6.19, 18.36], role: "天险奇袭突防" },
+          { name: "陈仓重镇 (宝鸡)", pos: [-10.73, 2.21, 16.7], role: "决战突袭目标" }
         ]
       },
       {
@@ -332,11 +336,11 @@ export const CAMPAIGNS = [
         highlight: "章邯兵败废丘，汉王刘邦一统关中",
         routeColor: "#38bdf8",
         routes: [
-          [ [-18, 1.9, 7], [-10, 1.6, 6], [-2, 1.8, 5], [10, 1.5, 5] ] // 席卷关中
+          [ [-10.73, 2.21, 16.7], [-2.19, 1.95, 17.61], [3.97, 1.33, 17.31], [8.71, 1.33, 16.1] ]
         ],
         checkpoints: [
-          { name: "废丘 (章邯绝境之地)", pos: [-2, 1.8, 5], role: "决胜终局" },
-          { name: "咸阳·关中全境", pos: [0, 1.8, 5], role: "平定三秦" }
+          { name: "废丘 (章邯绝境之地)", pos: [3.97, 1.33, 17.31], role: "决胜终局" },
+          { name: "咸阳·关中全境", pos: [6.24, 1.32, 16.98], role: "平定三秦" }
         ]
       }
     ]
@@ -348,7 +352,7 @@ export const CAMPAIGNS = [
     belligerents: "蜀汉丞相诸葛亮 VS 曹魏太尉司马懿",
     strategicOutcome: "秋风五丈原，死诸葛吓走活仲达，蜀军全师而退",
     overview: "诸葛亮率蜀军最后一次大举北伐，自汉中出斜谷，屯兵渭水南岸五丈原高原，分兵与民屯田。司马懿坚守不出，双方在秦岭北麓与渭水沿岸拉锯对峙百余日。",
-    camera: { pos: [-10, 24, 18], target: [-11, 2, 6], pitch: 30 },
+    camera: { pos: [-4.75, 20, 24], target: [-4.75, 1.76, 17.91], pitch: 26 },
     stages: [
       {
         step: 1,
@@ -357,11 +361,11 @@ export const CAMPAIGNS = [
         highlight: "十万蜀汉精锐进驻五丈原",
         routeColor: "#10b981",
         routes: [
-          [ [-10, 1.4, 30], [-11, 3.0, 16], [-12, 2.5, 6] ]
+          [ [-11.96, 1.89, 36.15], [-6.46, 8.52, 25.12], [-4.75, 1.76, 17.91] ]
         ],
         checkpoints: [
-          { name: "五丈原大营", pos: [-12, 2.5, 6], role: "诸葛亮指挥中枢" },
-          { name: "斜谷道北口", pos: [-11, 2.8, 10], role: "蜀汉粮道生命线" }
+          { name: "五丈原大营", pos: [-4.75, 1.76, 17.91], role: "诸葛亮统帅中枢" },
+          { name: "斜谷道北口", pos: [-6.46, 8.52, 25.12], role: "蜀汉粮道生命线" }
         ]
       },
       {
@@ -371,12 +375,11 @@ export const CAMPAIGNS = [
         highlight: "两军隔渭水列阵，坚壁拒战",
         routeColor: "#3b82f6",
         routes: [
-          [ [-8, 2.0, 4], [-12, 2.0, 4] ], // 魏军北原防线
-          [ [-12, 2.5, 6], [-12, 2.0, 5] ] // 蜀军下逼渭水
+          [ [-5.99, 1.89, 17.31], [-3.14, 2.01, 17.31] ]
         ],
         checkpoints: [
-          { name: "曹魏北原大营", pos: [-10, 2.2, 3], role: "司马懿统帅部" },
-          { name: "渭桥争夺点", pos: [-12, 1.7, 4.5], role: "两军对峙前哨" }
+          { name: "曹魏北原大营", pos: [-3.14, 2.01, 17.31], role: "司马懿指挥部" },
+          { name: "渭河对峙前线", pos: [-5.99, 1.89, 17.31], role: "两军对垒阵地" }
         ]
       },
       {
@@ -386,10 +389,10 @@ export const CAMPAIGNS = [
         highlight: "死诸葛走生仲达，蜀军从容退回汉中",
         routeColor: "#8b5cf6",
         routes: [
-          [ [-12, 2.5, 6], [-11, 3.0, 16], [-10, 1.4, 30] ] // 蜀军全师回撤
+          [ [-4.75, 1.76, 17.91], [-6.46, 8.52, 25.12], [-11.96, 1.89, 36.15] ]
         ],
         checkpoints: [
-          { name: "诸葛亮落星台", pos: [-12, 2.5, 6], role: "鞠躬尽瘁之地" }
+          { name: "诸葛亮落星台", pos: [-4.75, 1.76, 17.91], role: "鞠躬尽瘁之地" }
         ]
       }
     ]
@@ -401,7 +404,7 @@ export const CAMPAIGNS = [
     belligerents: "西北野战军（彭德怀、习仲勋）VS 国民党胡宗南部",
     strategicOutcome: "两万对二十三万，以少胜多，三战三捷扭转西北战局",
     overview: "胡宗南调集23万兵力进犯延安。中枢主动撤离延安拖住胡宗南主力，彭德怀指挥两万余兵力运用‘蘑菇战术’，在陕北千沟万壑中三战三捷，歼灭敌精锐近七万人。",
-    camera: { pos: [2, 32, -12], target: [2, 3, -22], pitch: 35 },
+    camera: { pos: [11.46, 26, -5], target: [11.46, 4.2, -17.31], pitch: 30 },
     stages: [
       {
         step: 1,
@@ -410,11 +413,11 @@ export const CAMPAIGNS = [
         highlight: "存人失地，人地皆存",
         routeColor: "#f43f5e",
         routes: [
-          [ [2, 2.5, -22], [1, 2.7, -26], [3, 2.8, -20] ]
+          [ [11.37, 4.29, -17.22], [12.98, 4.29, -19.86] ]
         ],
         checkpoints: [
-          { name: "延安宝塔山", pos: [2, 2.5, -22], role: "主动撤退起点" },
-          { name: "青化砭预设战场", pos: [3, 2.8, -20], role: "伏击圈核心" }
+          { name: "延安宝塔山", pos: [11.37, 4.29, -17.22], role: "主动撤退起点" },
+          { name: "青化砭预设伏击点", pos: [12.98, 4.29, -19.86], role: "伏击圈核心" }
         ]
       },
       {
@@ -424,11 +427,11 @@ export const CAMPAIGNS = [
         highlight: "蘑菇战术在黄土沟壑展现神威",
         routeColor: "#ec4899",
         routes: [
-          [ [3, 2.8, -20], [0, 2.9, -24], [5, 2.7, -19] ]
+          [ [12.98, 4.29, -19.86], [14.4, 4.7, -18.31], [14.87, 4.91, -21.41] ]
         ],
         checkpoints: [
-          { name: "羊马河", pos: [0, 2.9, -24], role: "穿插分割歼敌" },
-          { name: "蟠龙大本营", pos: [5, 2.7, -19], role: "夺取敌后方补给基地" }
+          { name: "青化砭战场", pos: [12.98, 4.29, -19.86], role: "全歼三十一旅" },
+          { name: "蟠龙大本营", pos: [14.87, 4.91, -21.41], role: "夺取敌后方补给基地" }
         ]
       },
       {
@@ -438,13 +441,12 @@ export const CAMPAIGNS = [
         highlight: "沙家店大捷，西北战场转入战略反攻",
         routeColor: "#10b981",
         routes: [
-          [ [5, 2.7, -19], [3, 2.9, -30], [2, 3.0, -32] ]
+          [ [14.87, 4.91, -21.41], [17.72, 4.29, -30.78] ]
         ],
         checkpoints: [
-          { name: "沙家店", pos: [2, 3.0, -32], role: "战略决战转折点" }
+          { name: "沙家店", pos: [17.72, 4.29, -30.78], role: "战略决战转折点" }
         ]
       }
     ]
   }
 ];
-

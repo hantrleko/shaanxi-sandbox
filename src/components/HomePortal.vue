@@ -68,14 +68,14 @@
           <div class="theme-card-action">从这里开始 ➔</div>
         </div>
 
-        <div class="theme-card special" @click="$emit('select-mode', 'bonsai', 'geo')">
+        <div class="theme-card special" @click="$emit('select-mode', 'bonsai', 'bonsai_huashan')">
           <div class="theme-card-tag">05 · 微观盆景</div>
           <div class="theme-card-title">名山大川 3D 地形切块</div>
           <div class="theme-card-desc">西岳华山垂直天险、壶口瀑布十里龙槽、太白山拔仙台第四纪冰川。</div>
           <div class="theme-card-action">探索微观切块 ➔</div>
         </div>
 
-        <div class="theme-card special" @click="$emit('select-mode', 'model', 'geo')">
+        <div class="theme-card special" @click="$emit('select-mode', 'model', 'loess')">
           <div class="theme-card-tag">06 · 科学演变</div>
           <div class="theme-card-title">黄土高原地貌演化</div>
           <div class="theme-card-desc">深厚沉积 → 原始塬面 → 细沟侵蚀 → 梁峁割裂 → 现代退耕还林 7阶互动。</div>

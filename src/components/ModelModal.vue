@@ -96,18 +96,27 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
   currentMode: { type: String, required: true },
   stages: { type: Array, required: true },
-  currentStage: { type: Number, default: 1 }
+  currentStage: { type: Number, default: 1 },
+  activeLabId: { type: String, default: 'loess' },
+  currentTectonicStage: { type: Number, default: 0 }
 });
 
 const emit = defineEmits(['select-stage', 'prev-stage', 'next-stage', 'back-to-macro', 'change-lab', 'change-tectonic-stage']);
 
-const activeLabId = ref('loess'); // 'loess' | 'tectonic' | 'climate' | 'globe'
-const currentTectonicStage = ref(0);
+const activeLabId = ref(props.activeLabId || 'loess');
+const currentTectonicStage = ref(props.currentTectonicStage || 0);
+
+watch(() => props.activeLabId, (newLab) => {
+  if (newLab) activeLabId.value = newLab;
+});
+watch(() => props.currentTectonicStage, (newStage) => {
+  if (newStage !== undefined) currentTectonicStage.value = newStage;
+});
 
 const LABS = [
   { id: 'loess', name: '黄土高原侵蚀演化 (7阶)', icon: '🌾', tag: 'GEOMORPHOLOGY · 黄土塬梁峁' },
