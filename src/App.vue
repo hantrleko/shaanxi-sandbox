@@ -1,6 +1,6 @@
 <template>
   <div class="app-root">
-    <!-- 3D 核心视口 (支持真实 DEM 与高精卫星贴图) -->
+    <!-- 3D 核心视口 (支持真实 DEM 与高精遥感贴图) -->
     <ThreeCanvas
       ref="threeRef"
       :current-mode="currentMode"
@@ -10,6 +10,9 @@
       :active-campaign="currentCampaign"
       :active-campaign-stage-index="activeCampaignStageIndex"
       :lighting-mode="lightingMode"
+      :layers="layers"
+      :active-lab-id="activeLabId"
+      :current-tectonic-stage="currentTectonicStage"
       @camera-update="onCameraUpdate"
       @select-poi="onPoiSelected"
     />
@@ -38,9 +41,10 @@
         @reset-north="onResetNorth"
         @toggle-fullscreen="onToggleFullscreen"
         @change-lighting="onLightingChange"
+        @open-quiz="isQuizOpen = true"
       />
 
-      <!-- 宏观沙盘模式：左侧图文卡片 -->
+      <!-- 宏观沙盘模式：左侧图文卡片 (含专业地质剖面与逐句高亮) -->
       <LeftInfoPanel
         v-if="currentMode === 'macro' && currentChapter"
         :chapter="currentChapter"
@@ -75,17 +79,18 @@
         @back-to-macro="currentMode = 'macro'"
       />
 
-      <!-- 微观盆景专属控制器 -->
+      <!-- 微观盆景专属控制器 (支持 Zoom 12 与再次提取) -->
       <BonsaiModal
         :current-mode="currentMode"
         :bonsais="BONSAIS"
         :current-bonsai-id="activeBonsaiId"
         @select-bonsai="onSelectBonsai"
         @update-exaggeration="val => bonsaiExaggeration = val"
+        @re-extract="onReExtractBonsai"
         @back-to-macro="currentMode = 'macro'"
       />
 
-      <!-- 地貌演变专属控制器 -->
+      <!-- 科学演化实验台控制器 (4大实验台) -->
       <ModelModal
         :current-mode="currentMode"
         :stages="EVOLUTION_STAGES"
@@ -93,22 +98,45 @@
         @select-stage="stage => activeModelStage = stage"
         @prev-stage="onPrevStage"
         @next-stage="onNextStage"
+        @change-lab="onChangeLab"
+        @change-tectonic-stage="onChangeTectonicStage"
         @back-to-macro="currentMode = 'macro'"
       />
 
-      <!-- 右下角姿态罗盘与倾角指示器 -->
+      <!-- 陕西之最地标图鉴与互动测验模态框 -->
+      <LandmarkQuizModal
+        :is-open="isQuizOpen"
+        @close="isQuizOpen = false"
+        @fly-to="onFlyToLandmark"
+      />
+
+      <!-- 地图图层开关与动态指北针控制器 (原视频同款功能) -->
+      <LayerControl
+        v-if="currentMode === 'macro'"
+        :azimuth="cameraAzimuth"
+        @update-layers="onUpdateLayers"
+        @reset-north="onResetNorth"
+      />
+
+      <!-- 沉浸式语音讲解横幅字幕条 -->
+      <div v-if="isPlaying && narrationSubtitle" class="voice-marquee glass-panel">
+        <span class="speaker-icon">🔊</span>
+        <span class="voice-text">{{ narrationSubtitle }}</span>
+      </div>
+
+      <!-- 右下角遥感高程遥测信息 -->
       <div class="hud-telemetry glass-panel">
         <div class="tele-item">
           <span class="tele-lbl">遥感高程源</span>
-          <span class="tele-val">AWS DEM + ESRI</span>
+          <span class="tele-val">DEM 30m + 遥感正射</span>
         </div>
         <div class="tele-item">
           <span class="tele-lbl">俯仰视角</span>
           <span class="tele-val">{{ cameraPitch }}°</span>
         </div>
         <div class="tele-item">
-          <span class="tele-lbl">比例尺</span>
-          <span class="tele-val">50 km</span>
+          <span class="tele-lbl">方位角</span>
+          <span class="tele-val">{{ cameraAzimuth }}°</span>
         </div>
       </div>
     </template>
@@ -116,7 +144,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import ThreeCanvas from './components/ThreeCanvas.vue';
 import HomePortal from './components/HomePortal.vue';
 import HudHeader from './components/HudHeader.vue';
@@ -125,6 +153,8 @@ import BottomTimeline from './components/BottomTimeline.vue';
 import BonsaiModal from './components/BonsaiModal.vue';
 import ModelModal from './components/ModelModal.vue';
 import CampaignModal from './components/CampaignModal.vue';
+import LandmarkQuizModal from './components/LandmarkQuizModal.vue';
+import LayerControl from './components/LayerControl.vue';
 import { THEMES, BONSAIS, EVOLUTION_STAGES, CAMPAIGNS } from './data/shaanxiData.js';
 import { narrator } from './utils/speech.js';
 
@@ -137,16 +167,31 @@ const currentChapterIndex = ref(0);
 
 const activeBonsaiId = ref('bonsai_huashan');
 const bonsaiExaggeration = ref(1.5);
+
+const activeLabId = ref('loess'); // 'loess' | 'tectonic' | 'climate' | 'globe'
+const currentTectonicStage = ref(0);
 const activeModelStage = ref(1);
 
 const activeCampaignId = ref('camp_chencang');
 const activeCampaignStageIndex = ref(0);
 const lightingMode = ref('dawn'); // 'dawn' | 'noon' | 'sunset'
 
+const isQuizOpen = ref(false);
 const isPlaying = ref(false);
 const isMuted = ref(false);
 const isAutoPlaying = ref(false);
+const narrationSubtitle = ref('');
 const cameraPitch = ref(35);
+const cameraAzimuth = ref(0);
+
+const layers = reactive({
+  border: true,
+  rivers: true,
+  qinlingLine: true,
+  silkRoad: true,
+  regions: true,
+  pois: true
+});
 
 const currentTheme = computed(() => {
   return THEMES.find(t => t.id === currentThemeId.value) || THEMES[0];
@@ -177,6 +222,10 @@ const onPortalSelectMode = (mode, param) => {
   } else if (mode === 'campaign') {
     activeCampaignId.value = param || 'camp_chencang';
     activeCampaignStageIndex.value = 0;
+  } else if (mode === 'bonsai') {
+    activeBonsaiId.value = param || 'bonsai_huashan';
+  } else if (mode === 'model') {
+    activeLabId.value = param || 'loess';
   }
   showPortal.value = false;
 };
@@ -193,6 +242,7 @@ const onSwitchMode = (mode) => {
   narrator.stop();
   isPlaying.value = false;
   isAutoPlaying.value = false;
+  narrationSubtitle.value = '';
   if (mode === 'campaign') {
     activeCampaignStageIndex.value = 0;
   }
@@ -200,6 +250,10 @@ const onSwitchMode = (mode) => {
 
 const onLightingChange = (mode) => {
   lightingMode.value = mode;
+};
+
+const onUpdateLayers = (newLayers) => {
+  Object.assign(layers, newLayers);
 };
 
 const flyToCurrentChapter = () => {
@@ -234,8 +288,10 @@ const playCurrentNarration = () => {
   if (!currentChapter.value) return;
   const text = `${currentChapter.value.title}。${currentChapter.value.desc}`;
   isPlaying.value = true;
+  narrationSubtitle.value = text;
   narrator.speak(text, () => {
     isPlaying.value = false;
+    narrationSubtitle.value = '';
     if (isAutoPlaying.value) {
       if (currentChapterIndex.value < currentChapters.value.length - 1) {
         onNextChapter();
@@ -257,12 +313,16 @@ const onToggleAutoplay = () => {
   } else {
     narrator.stop();
     isPlaying.value = false;
+    narrationSubtitle.value = '';
   }
 };
 
 const onToggleVoice = () => {
   isMuted.value = narrator.toggleMute();
-  if (isMuted.value) isPlaying.value = false;
+  if (isMuted.value) {
+    isPlaying.value = false;
+    narrationSubtitle.value = '';
+  }
 };
 
 const onFocusFeature = () => {
@@ -285,6 +345,9 @@ const onToggleFullscreen = () => {
 
 const onCameraUpdate = (data) => {
   cameraPitch.value = data.pitch;
+  if (data.azimuth !== undefined) {
+    cameraAzimuth.value = data.azimuth;
+  }
 };
 
 const onPoiSelected = (poi) => {
@@ -293,6 +356,26 @@ const onPoiSelected = (poi) => {
 
 const onSelectBonsai = (id) => {
   activeBonsaiId.value = id;
+};
+
+const onReExtractBonsai = () => {
+  if (threeRef.value) {
+    threeRef.value.reExtractBonsai();
+  }
+};
+
+const onChangeLab = (labId) => {
+  activeLabId.value = labId;
+};
+
+const onChangeTectonicStage = (stageIdx) => {
+  currentTectonicStage.value = stageIdx;
+};
+
+const onFlyToLandmark = (pos) => {
+  if (threeRef.value) {
+    threeRef.value.flyTo([pos[0] + 6, pos[1] + 16, pos[2] + 20], [pos[0], pos[1], pos[2]], 2.0);
+  }
 };
 
 const onSelectCampaign = (id) => {
@@ -332,6 +415,48 @@ const onNextStage = () => {
   position: relative;
   overflow: hidden;
   background: #06090e;
+}
+
+.voice-marquee {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 24px;
+  border-radius: 30px;
+  max-width: 680px;
+  background: rgba(10, 15, 24, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { border-color: rgba(56, 189, 248, 0.35); box-shadow: 0 4px 20px rgba(56, 189, 248, 0.2); }
+  50% { border-color: rgba(56, 189, 248, 0.75); box-shadow: 0 4px 28px rgba(56, 189, 248, 0.45); }
+}
+
+.speaker-icon {
+  font-size: 16px;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.voice-text {
+  font-size: 13.5px;
+  color: #f0f9ff;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hud-telemetry {

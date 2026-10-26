@@ -25,12 +25,12 @@
       <!-- 各模式专有标签指示 -->
       <div class="mode-indicator" v-else>
         <span class="mode-tag camp-tag" v-if="currentMode === 'campaign'">⚔️ 历史战役 · 军事沙盘推演</span>
-        <span class="mode-tag" v-if="currentMode === 'bonsai'">微观盆景 · 3D切块</span>
-        <span class="mode-tag" v-if="currentMode === 'model'">科学演化 · 黄土高原千沟万壑</span>
+        <span class="mode-tag bonsai-tag" v-if="currentMode === 'bonsai'">🏔️ 微观高精盆景 · Zoom 12 切块</span>
+        <span class="mode-tag" v-if="currentMode === 'model'">🔬 科学演化 · 4大互动实验台</span>
       </div>
     </div>
 
-    <!-- 顶部中央模式切换胶囊 (新增历史战役) -->
+    <!-- 顶部中央模式切换胶囊 -->
     <div class="header-center">
       <button
         class="mode-btn"
@@ -58,13 +58,18 @@
         :class="{ active: currentMode === 'model' }"
         @click="$emit('switch-mode', 'model')"
       >
-        地貌演化 7阶
+        科学模型 4台
       </button>
     </div>
 
-    <!-- 顶部右侧状态、光照与语音控制器 -->
+    <!-- 顶部右侧状态、地标图鉴、光照与语音控制器 -->
     <div class="header-right">
-      <!-- 电影级光照时序切换 (晨曦 / 正午 / 暮色) -->
+      <!-- 地标图鉴与测验入口 (原视频同款特色) -->
+      <button class="special-feature-btn" @click="$emit('open-quiz')" title="陕西之最地标图鉴与探究测验">
+        <span>📖 图鉴与测验</span>
+      </button>
+
+      <!-- 光照时序切换 (晨曦 / 正午 / 暮色) -->
       <div class="lighting-group">
         <button
           class="light-btn"
@@ -72,7 +77,7 @@
           @click="$emit('change-lighting', 'dawn')"
           title="晨曦拂晓 (金色低角侧光)"
         >
-          🌅 晨曦
+          🌅
         </button>
         <button
           class="light-btn"
@@ -80,7 +85,7 @@
           @click="$emit('change-lighting', 'noon')"
           title="晴空万里 (高空纯净阳光)"
         >
-          ☀️ 正午
+          ☀️
         </button>
         <button
           class="light-btn"
@@ -88,7 +93,7 @@
           @click="$emit('change-lighting', 'sunset')"
           title="落日暮色 (晚霞余晖长影)"
         >
-          🌄 暮色
+          🌄
         </button>
       </div>
 
@@ -100,16 +105,16 @@
       </div>
 
       <button class="icon-tool-btn" :class="{ muted: isMuted }" @click="$emit('toggle-voice')" title="讲解语音开关">
-        <span v-if="!isMuted">🔊 语音 开</span>
-        <span v-else>🔇 语音 关</span>
+        <span v-if="!isMuted">🔊</span>
+        <span v-else>🔇</span>
       </button>
 
       <button class="icon-tool-btn" @click="$emit('reset-north')" title="镜头复位至正北">
-        🧭 复位正北
+        🧭 复位
       </button>
 
       <button class="icon-tool-btn" @click="$emit('toggle-fullscreen')" title="全屏查看">
-        ⛶ 全屏
+        ⛶
       </button>
     </div>
   </header>
@@ -132,7 +137,8 @@ defineEmits([
   'toggle-voice',
   'reset-north',
   'toggle-fullscreen',
-  'change-lighting'
+  'change-lighting',
+  'open-quiz'
 ]);
 </script>
 
@@ -217,7 +223,7 @@ defineEmits([
 }
 
 .mode-tag {
-  font-size: 13px;
+  font-size: 12px;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
   padding: 4px 10px;
@@ -229,6 +235,12 @@ defineEmits([
   color: #f87171;
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.35);
+}
+
+.mode-tag.bonsai-tag {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .header-center {
@@ -264,7 +276,24 @@ defineEmits([
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
-/* 光照时序按钮组 */
+.special-feature-btn {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.3));
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.special-feature-btn:hover {
+  background: rgba(245, 158, 11, 0.35);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
 .lighting-group {
   display: flex;
   background: rgba(0, 0, 0, 0.25);
@@ -276,22 +305,15 @@ defineEmits([
 .light-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
-  font-size: 11px;
-  padding: 4px 8px;
+  font-size: 13px;
+  padding: 4px 6px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.light-btn:hover {
-  color: #fff;
-}
-
 .light-btn.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fbbf24;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .status-pill {
@@ -328,7 +350,7 @@ defineEmits([
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #cbd5e1;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: 8px;
   font-size: 12px;
   cursor: pointer;

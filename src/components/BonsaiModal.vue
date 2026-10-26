@@ -2,7 +2,10 @@
   <div class="bonsai-controller" v-if="currentMode === 'bonsai'">
     <!-- 左侧微观盆景专有卡片 -->
     <aside class="bonsai-info-panel glass-panel">
-      <div class="panel-tag">BONSAI · 微观盆景</div>
+      <div class="panel-tag">
+        <span class="tag-icon">🏔️</span>
+        <span>BONSAI · 微观高精 3D 盆景切块</span>
+      </div>
       <h2 class="bonsai-title">{{ currentBonsai.title }}</h2>
       <div class="bonsai-loc">{{ currentBonsai.location }}</div>
 
@@ -19,9 +22,14 @@
 
       <p class="bonsai-desc">{{ currentBonsai.desc }}</p>
 
+      <!-- 动作按钮：从沙盘上“再取出来一次” (原视频经典交互) -->
+      <button class="extract-btn" @click="$emit('re-extract')">
+        <span>🔄 从沙盘上“再取出来一次”</span>
+      </button>
+
       <!-- 立体海拔标尺图例 -->
       <div class="ruler-legend">
-        <div class="ruler-title">三维海拔刻度标尺</div>
+        <div class="ruler-title">三维物理高程刻度标尺</div>
         <div class="ruler-items">
           <span v-for="mark in currentBonsai.elevationMarks" :key="mark" class="ruler-tag">
             {{ mark }}
@@ -32,7 +40,7 @@
       <!-- 高差夸大滑动调节器 -->
       <div class="slider-box">
         <div class="slider-header">
-          <span>垂直高差放大倍数</span>
+          <span>垂直高差放大倍数 (当前真实地形)</span>
           <span class="slider-val">{{ exaggeration.toFixed(1) }}x</span>
         </div>
         <input
@@ -53,7 +61,7 @@
 
     <!-- 底部盆景切换选择卡片流 -->
     <div class="bonsai-bottom-bar glass-panel">
-      <div class="bar-title">微观盆景选择：从沙盘上“切出”这块地，自由旋转俯仰缩放</div>
+      <div class="bar-title">微观盆景选择：从沙盘上“切出”这块地，用 Zoom 12 更精细的高程和影像做成 3D 模型</div>
       <div class="bonsai-cards-row">
         <div
           v-for="b in bonsais"
@@ -79,7 +87,7 @@ const props = defineProps({
   currentBonsaiId: { type: String, required: true }
 });
 
-defineEmits(['select-bonsai', 'update-exaggeration', 'back-to-macro']);
+defineEmits(['select-bonsai', 'update-exaggeration', 'back-to-macro', 're-extract']);
 
 const exaggeration = ref(1.5);
 
@@ -93,7 +101,9 @@ const currentBonsai = computed(() => {
   position: absolute;
   top: 80px;
   left: 20px;
-  width: 360px;
+  width: 380px;
+  max-height: calc(100vh - 185px);
+  overflow-y: auto;
   padding: 20px;
   z-index: 15;
   display: flex;
@@ -102,6 +112,9 @@ const currentBonsai = computed(() => {
 }
 
 .panel-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 700;
   color: #10b981;
@@ -152,6 +165,28 @@ const currentBonsai = computed(() => {
   color: #cbd5e1;
 }
 
+.extract-btn {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.extract-btn:hover {
+  background: rgba(16, 185, 129, 0.3);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+}
+
 .ruler-legend {
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -170,15 +205,15 @@ const currentBonsai = computed(() => {
 
 .ruler-items {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .ruler-tag {
   background: rgba(56, 189, 248, 0.12);
   border: 1px solid rgba(56, 189, 248, 0.25);
   color: #38bdf8;
-  font-size: 10px;
+  font-size: 10.5px;
   padding: 2px 6px;
   border-radius: 4px;
 }
