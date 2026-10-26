@@ -1,6 +1,6 @@
 <template>
   <div class="app-root">
-    <!-- 3D 核心视口 (支持真实 DEM 与高精遥感贴图) -->
+    <!-- 3D 核心视口 (真实遥感 DEM + 实心地质切面 + 智能避让) -->
     <ThreeCanvas
       ref="threeRef"
       :current-mode="currentMode"
@@ -13,6 +13,7 @@
       :layers="layers"
       :active-lab-id="activeLabId"
       :current-tectonic-stage="currentTectonicStage"
+      :active-chapter-id="currentChapter?.id"
       @camera-update="onCameraUpdate"
       @select-poi="onPoiSelected"
     />
@@ -38,13 +39,12 @@
         @change-theme="onChangeTheme"
         @switch-mode="onSwitchMode"
         @toggle-voice="onToggleVoice"
-        @reset-north="onResetNorth"
         @toggle-fullscreen="onToggleFullscreen"
         @change-lighting="onLightingChange"
         @open-quiz="isQuizOpen = true"
       />
 
-      <!-- 宏观沙盘模式：左侧图文卡片 (含专业地质剖面与逐句高亮) -->
+      <!-- 宏观沙盘模式：左侧图文卡片 (精炼紧凑高密度 + 选项卡媒体) -->
       <LeftInfoPanel
         v-if="currentMode === 'macro' && currentChapter"
         :chapter="currentChapter"
@@ -56,7 +56,7 @@
         @fly-strata="onFlyToStrata"
       />
 
-      <!-- 宏观沙盘模式：底部时间轴流 -->
+      <!-- 宏观沙盘模式：底部居中自适应浮动坞 (零遮挡、零撞车) -->
       <BottomTimeline
         v-if="currentMode === 'macro'"
         :chapters="currentChapters"
@@ -81,7 +81,7 @@
         @back-to-macro="currentMode = 'macro'"
       />
 
-      <!-- 微观盆景专属控制器 (支持 Zoom 12 与再次提取) -->
+      <!-- 微观盆景专属控制器 (Zoom 12 实体切块与再次提取) -->
       <BonsaiModal
         :current-mode="currentMode"
         :bonsais="BONSAIS"
@@ -114,7 +114,7 @@
         @fly-to="onFlyToLandmark"
       />
 
-      <!-- 地图图层开关与动态指北针控制器 (原视频同款功能) -->
+      <!-- 右下角图层控制与指北针 (清爽独立、零重叠) -->
       <LayerControl
         v-if="currentMode === 'macro'"
         :azimuth="cameraAzimuth"
@@ -122,26 +122,26 @@
         @reset-north="onResetNorth"
       />
 
+      <!-- 右下角紧凑遥测数据栈 (堆叠于图层控制上方) -->
+      <div class="hud-telemetry glass-panel">
+        <div class="tele-item">
+          <span class="tele-lbl">遥感源</span>
+          <span class="tele-val">DEM 30m</span>
+        </div>
+        <div class="tele-item">
+          <span class="tele-lbl">视角</span>
+          <span class="tele-val">{{ cameraPitch }}°</span>
+        </div>
+        <div class="tele-item">
+          <span class="tele-lbl">航向</span>
+          <span class="tele-val">{{ cameraAzimuth }}°</span>
+        </div>
+      </div>
+
       <!-- 沉浸式语音讲解横幅字幕条 -->
       <div v-if="isPlaying && narrationSubtitle" class="voice-marquee glass-panel">
         <span class="speaker-icon">🔊</span>
         <span class="voice-text">{{ narrationSubtitle }}</span>
-      </div>
-
-      <!-- 右下角遥感高程遥测信息 -->
-      <div class="hud-telemetry glass-panel">
-        <div class="tele-item">
-          <span class="tele-lbl">遥感高程源</span>
-          <span class="tele-val">DEM 30m + 遥感正射</span>
-        </div>
-        <div class="tele-item">
-          <span class="tele-lbl">俯仰视角</span>
-          <span class="tele-val">{{ cameraPitch }}°</span>
-        </div>
-        <div class="tele-item">
-          <span class="tele-lbl">方位角</span>
-          <span class="tele-val">{{ cameraAzimuth }}°</span>
-        </div>
       </div>
     </template>
   </div>
@@ -193,7 +193,6 @@ const layers = reactive({
   rivers: true,
   qinlingLine: true,
   silkRoad: true,
-  regions: true,
   pois: true
 });
 
@@ -429,41 +428,29 @@ const onNextStage = () => {
 
 .voice-marquee {
   position: absolute;
-  top: 76px;
+  top: 72px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 24px;
-  border-radius: 30px;
-  max-width: 680px;
-  background: rgba(10, 15, 24, 0.88);
+  gap: 10px;
+  padding: 6px 20px;
+  border-radius: 24px;
+  max-width: 640px;
+  background: rgba(10, 15, 24, 0.92);
   border: 1px solid rgba(56, 189, 248, 0.4);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  animation: pulse-glow 2s infinite ease-in-out;
-}
-
-@keyframes pulse-glow {
-  0%, 100% { border-color: rgba(56, 189, 248, 0.35); box-shadow: 0 4px 20px rgba(56, 189, 248, 0.2); }
-  50% { border-color: rgba(56, 189, 248, 0.75); box-shadow: 0 4px 28px rgba(56, 189, 248, 0.45); }
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
 }
 
 .speaker-icon {
-  font-size: 16px;
-  animation: bounce 1s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
+  font-size: 14px;
 }
 
 .voice-text {
-  font-size: 13.5px;
+  font-size: 12.5px;
   color: #f0f9ff;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -471,29 +458,33 @@ const onNextStage = () => {
 
 .hud-telemetry {
   position: absolute;
-  bottom: 16px;
+  bottom: 74px;
   right: 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 6px 14px;
+  gap: 12px;
+  padding: 5px 12px;
+  border-radius: 8px;
   z-index: 15;
+  background: rgba(10, 15, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .tele-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .tele-lbl {
-  font-size: 9px;
+  font-size: 8.5px;
   color: #64748b;
 }
 
 .tele-val {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 700;
   color: #38bdf8;
 }
 </style>

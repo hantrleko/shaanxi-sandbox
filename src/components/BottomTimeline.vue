@@ -5,19 +5,20 @@
         class="play-all-btn"
         :class="{ active: isAutoPlaying }"
         @click="$emit('toggle-autoplay')"
+        :title="isAutoPlaying ? '暂停全省连播' : '一键智能导览全省'"
       >
         <span class="btn-symbol">{{ isAutoPlaying ? '⏸' : '▶' }}</span>
         <div class="btn-text-group">
-          <span class="main-label">{{ isAutoPlaying ? '暂停连播' : '讲解全部' }}</span>
-          <span class="sub-label">{{ chapters.length }}段 · 智能导览</span>
+          <span class="main-label">{{ isAutoPlaying ? '暂停连播' : '智能导览' }}</span>
+          <span class="sub-label">{{ chapters.length }}个时空节点</span>
         </div>
       </button>
 
       <div class="nav-arrow-group">
-        <button class="arrow-btn" @click="$emit('prev-chapter')" :disabled="currentIndex === 0" title="上一段">
+        <button class="arrow-btn" @click="$emit('prev-chapter')" :disabled="currentIndex === 0" title="上一章节">
           ‹
         </button>
-        <button class="arrow-btn" @click="$emit('next-chapter')" :disabled="currentIndex === chapters.length - 1" title="下一段">
+        <button class="arrow-btn" @click="$emit('next-chapter')" :disabled="currentIndex === chapters.length - 1" title="下一章节">
           ›
         </button>
       </div>
@@ -60,21 +61,28 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 <style scoped>
 .bottom-timeline {
   position: absolute;
-  bottom: 16px;
-  left: 20px;
-  right: 20px;
-  height: 84px;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 500px);
+  max-width: 820px;
+  min-width: 440px;
+  height: 72px;
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  gap: 16px;
+  padding: 6px 12px;
+  gap: 12px;
   z-index: 15;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  transition: all 0.3s ease;
 }
 
 .timeline-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -83,11 +91,11 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   border: 1px solid rgba(56, 189, 248, 0.4);
   color: #fff;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: all 0.2s;
 }
 
@@ -102,7 +110,7 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 }
 
 .btn-symbol {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .btn-text-group {
@@ -112,7 +120,7 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 }
 
 .main-label {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -124,17 +132,17 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 
 .nav-arrow-group {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 
 .arrow-btn {
-  width: 32px;
-  height: 48px;
+  width: 28px;
+  height: 42px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #fff;
   border-radius: 6px;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -154,23 +162,28 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 
 .cards-scroll-container {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
   flex-grow: 1;
-  padding: 4px 0;
+  padding: 2px 0;
   scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.cards-scroll-container::-webkit-scrollbar {
+  display: none;
 }
 
 .chapter-card {
   flex-shrink: 0;
-  width: 200px;
-  height: 64px;
+  width: 170px;
+  height: 54px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  padding: 6px;
+  padding: 5px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -185,11 +198,11 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 .chapter-card.active {
   background: rgba(56, 189, 248, 0.15);
   border-color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
 }
 
 .card-thumb {
-  width: 52px;
+  width: 44px;
   height: 100%;
   border-radius: 4px;
   overflow: hidden;
@@ -205,14 +218,14 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 
 .card-idx {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  background: rgba(0, 0, 0, 0.7);
+  top: 1px;
+  left: 1px;
+  background: rgba(0, 0, 0, 0.75);
   color: #38bdf8;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 0 3px;
+  border-radius: 2px;
 }
 
 .card-body {
@@ -223,7 +236,7 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 }
 
 .card-title {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #fff;
   white-space: nowrap;
@@ -232,12 +245,12 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 }
 
 .card-subtitle {
-  font-size: 10px;
+  font-size: 9px;
   color: #94a3b8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .card-active-indicator {
@@ -248,5 +261,14 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   height: 2px;
   background: #38bdf8;
   box-shadow: 0 0 6px #38bdf8;
+}
+
+@media (max-width: 1024px) {
+  .bottom-timeline {
+    width: calc(100% - 40px);
+    left: 20px;
+    transform: none;
+    max-width: none;
+  }
 }
 </style>

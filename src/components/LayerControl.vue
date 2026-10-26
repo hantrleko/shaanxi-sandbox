@@ -3,7 +3,7 @@
     <!-- 图层开关折叠面板 -->
     <div class="layer-panel glass-panel" v-if="isOpen">
       <div class="panel-header">
-        <span class="title">图例与图层显隐</span>
+        <span class="title">地图图层显隐</span>
         <button class="close-btn" @click="isOpen = false">✕</button>
       </div>
 
@@ -11,19 +11,19 @@
         <label class="layer-item">
           <input type="checkbox" v-model="layers.border" @change="emitChange" />
           <span class="color-dot" style="background: #38bdf8;"></span>
-          <span class="text">真实省界与十地市境界</span>
+          <span class="text">真实十地市行政境界</span>
         </label>
 
         <label class="layer-item">
           <input type="checkbox" v-model="layers.rivers" @change="emitChange" />
           <span class="color-dot" style="background: #06b6d4;"></span>
-          <span class="text">三大骨干水系 (黄河/渭河/汉江)</span>
+          <span class="text">四大骨干水系 (黄/渭/汉/泾)</span>
         </label>
 
         <label class="layer-item">
           <input type="checkbox" v-model="layers.qinlingLine" @change="emitChange" />
           <span class="color-dot" style="background: #10b981;"></span>
-          <span class="text">秦岭南北地理分界线 (800mm)</span>
+          <span class="text">秦岭气候界线 (800mm)</span>
         </label>
 
         <label class="layer-item">
@@ -33,31 +33,26 @@
         </label>
 
         <label class="layer-item">
-          <input type="checkbox" v-model="layers.regions" @change="emitChange" />
-          <span class="color-dot" style="background: #a855f7;"></span>
-          <span class="text">山脉地貌三维贴地大字</span>
-        </label>
-
-        <label class="layer-item">
           <input type="checkbox" v-model="layers.pois" @change="emitChange" />
-          <span class="color-dot" style="background: #f43f5e;"></span>
-          <span class="text">重点历史人文与名山 POI</span>
+          <span class="color-dot" style="background: #ec4899;"></span>
+          <span class="text">重点历史人文与名山地标</span>
         </label>
       </div>
     </div>
 
-    <!-- 悬浮触发按钮与指北针 -->
+    <!-- 紧凑悬浮控制条：指北针 + 图层按钮 -->
     <div class="control-bar">
-      <!-- 动态旋转指北针 -->
-      <button class="compass-btn glass-panel" @click="$emit('reset-north')" title="点击正北复位">
+      <!-- 动态旋转指北针 (点击一键正北复位) -->
+      <button class="compass-btn glass-panel" @click="$emit('reset-north')" title="点击正北复位 (Alt+N)">
         <div class="compass-dial" :style="{ transform: `rotate(${-azimuth}deg)` }">
-          <span class="needle-n">▲ N</span>
+          <span class="needle-n">▲</span>
+          <span class="compass-n-text">N</span>
         </div>
       </button>
 
-      <!-- 图层面板展开按钮 -->
-      <button class="layer-toggle-btn glass-panel" :class="{ active: isOpen }" @click="isOpen = !isOpen">
-        <span>🗺️ 图例·图层</span>
+      <!-- 图层开关按钮 -->
+      <button class="layer-toggle-btn glass-panel" :class="{ active: isOpen }" @click="isOpen = !isOpen" title="展开/收起图层显隐">
+        <span>🗺️ 图层</span>
       </button>
     </div>
   </div>
@@ -79,7 +74,6 @@ const layers = reactive({
   rivers: true,
   qinlingLine: true,
   silkRoad: true,
-  regions: true,
   pois: true
 });
 
@@ -91,7 +85,7 @@ const emitChange = () => {
 <style scoped>
 .layer-control-wrap {
   position: absolute;
-  bottom: 60px;
+  bottom: 18px;
   right: 20px;
   z-index: 18;
   display: flex;
@@ -100,33 +94,104 @@ const emitChange = () => {
   gap: 8px;
 }
 
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compass-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(10, 15, 24, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.compass-btn:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  transform: scale(1.06);
+}
+
+.compass-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s linear;
+  line-height: 1;
+}
+
+.needle-n {
+  color: #ef4444;
+  font-size: 11px;
+}
+
+.compass-n-text {
+  color: #38bdf8;
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+
+.layer-toggle-btn {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f0f9ff;
+  cursor: pointer;
+  background: rgba(10, 15, 24, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.layer-toggle-btn:hover, .layer-toggle-btn.active {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+
 .layer-panel {
   width: 220px;
   padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  animation: fadeIn 0.2s ease-out;
+  border-radius: 12px;
+  background: rgba(10, 15, 24, 0.94);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+  animation: slide-up 0.2s ease-out;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  justify-content: space-between;
+  margin-bottom: 10px;
   padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.panel-header .title {
-  font-size: 11px;
+.title {
+  font-size: 12px;
   font-weight: 700;
   color: #38bdf8;
-  letter-spacing: 0.05em;
 }
 
 .close-btn {
@@ -134,7 +199,7 @@ const emitChange = () => {
   border: none;
   color: #94a3b8;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .close-btn:hover {
@@ -151,15 +216,13 @@ const emitChange = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 11.5px;
   color: #cbd5e1;
   cursor: pointer;
-  user-select: none;
 }
 
-.layer-item input {
-  accent-color: #38bdf8;
-  cursor: pointer;
+.layer-item:hover {
+  color: #fff;
 }
 
 .color-dot {
@@ -169,53 +232,7 @@ const emitChange = () => {
   flex-shrink: 0;
 }
 
-.control-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compass-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: all 0.2s;
-}
-
-.compass-btn:hover {
-  border-color: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
-}
-
-.compass-dial {
-  font-size: 10px;
-  font-weight: 800;
-  color: #f43f5e;
-  transition: transform 0.1s linear;
-}
-
-.needle-n {
-  letter-spacing: 1px;
-}
-
-.layer-toggle-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  color: #cbd5e1;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.layer-toggle-btn:hover, .layer-toggle-btn.active {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
-  color: #fff;
+.text {
+  user-select: none;
 }
 </style>
