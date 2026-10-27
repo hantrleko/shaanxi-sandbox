@@ -3,10 +3,19 @@
     <div class="portal-backdrop"></div>
 
     <div class="portal-content">
+      <!-- Eugene Finance 品牌顶标 -->
+      <div class="portal-brand-badge">
+        <img src="/images/brand/eugene_logo_badge.png" class="portal-brand-img" alt="Eugene Finance" />
+        <div class="portal-brand-titles">
+          <span class="corp-name">EUGENE FINANCE 呈现</span>
+          <span class="sys-name">三秦三维数字地貌与文明探源</span>
+        </div>
+      </div>
+
       <!-- 顶部标注 -->
       <div class="top-tagline">
         <span class="tag-dot"></span>
-        <span>陕西地理人文沙盘 · 探究式三维交互系统 (卫星遥感 DEM 实景增强版)</span>
+        <span>探究式三维地理交互沙盘 · 真实高精遥感与物理 DEM 增强版</span>
       </div>
 
       <!-- 主标题 -->
@@ -36,6 +45,25 @@
           <div class="metric-value">10<span class="metric-unit">个地级市</span></div>
           <div class="metric-label">陕北、关中、陕南三大板块</div>
         </div>
+      </div>
+
+      <!-- 沉浸式特色探索捷径 -->
+      <div class="hero-actions-row">
+        <button class="hero-pill-btn tour-pill" @click="$emit('start-tour')">
+          <span class="pill-icon">🎬</span>
+          <div class="pill-text">
+            <span class="pill-head">开启《航拍三秦》电影级巡航导览</span>
+            <span class="pill-sub">自动运镜 · 空间音效 · 沉浸有声叙事 ➔</span>
+          </div>
+        </button>
+
+        <button class="hero-pill-btn detective-pill" @click="$emit('start-detective')">
+          <span class="pill-icon">🎯</span>
+          <div class="pill-text">
+            <span class="pill-head">开启“寻迹三秦”空间探秘挑战</span>
+            <span class="pill-sub">5大地理历史谜题 · 赢取荣誉文牒 ➔</span>
+          </div>
+        </button>
       </div>
 
       <!-- 主题探索入口卡片阵列 (新增军事战役) -->
@@ -95,7 +123,7 @@
 </template>
 
 <script setup>
-defineEmits(['enter-sandbox', 'select-mode']);
+defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective']);
 </script>
 
 <style scoped>
@@ -351,3 +379,109 @@ defineEmits(['enter-sandbox', 'select-mode']);
   font-size: 18px;
 }
 </style>
+
+.portal-brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 6px 16px;
+  border-radius: 30px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  margin-bottom: 8px;
+}
+
+.portal-brand-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+}
+
+.portal-brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.corp-name {
+  font-size: 11px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sys-name {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.hero-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+  max-width: 900px;
+  margin: 10px 0 16px;
+}
+
+.hero-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.25s;
+}
+
+.tour-pill {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.25));
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fef08a;
+}
+.tour-pill:hover {
+  background: rgba(245, 158, 11, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
+}
+
+.detective-pill {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.25));
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #a7f3d0;
+}
+.detective-pill:hover {
+  background: rgba(16, 185, 129, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+}
+
+.pill-icon {
+  font-size: 26px;
+}
+
+.pill-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.pill-head {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pill-sub {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+@media (max-width: 680px) {
+  .hero-actions-row {
+    grid-template-columns: 1fr;
+  }
+}

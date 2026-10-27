@@ -66,7 +66,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import gsap from 'gsap';
-import { POI_LIST } from '../data/shaanxiData.js';
+import { POI_LIST, CULTURAL_ITEMS } from '../data/shaanxiData.js';
 import { CITY_BOUNDARIES, REAL_RIVERS, REAL_POIS, REAL_REGIONS, REAL_CAMPAIGN_ROUTES } from '../data/shaanxiGeoVectors.js';
 
 const props = defineProps({
@@ -83,10 +83,12 @@ const props = defineProps({
   },
   activeLabId: { type: String, default: 'loess' },
   currentTectonicStage: { type: Number, default: 0 },
-  activeChapterId: { type: String, default: 'geo_01' }
+  activeChapterId: { type: String, default: 'geo_01' },
+  isProfilingActive: { type: Boolean, default: false },
+  isChallengeActive: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['camera-update', 'select-poi']);
+const emit = defineEmits(['camera-update', 'select-poi', 'profile-calculated', 'challenge-click', 'select-culture']);
 
 const containerRef = ref(null);
 const selectedPoiId = ref('xian');
@@ -97,7 +99,7 @@ const isLoadingData = ref(true);
 
 let scene, camera, renderer, controls;
 let macroGroup, bonsaiGroup, modelGroup, campaignGroup;
-let borderSubGroup, riversSubGroup, qinlingSubGroup, silkRoadSubGroup, poisSubGroup;
+let borderSubGroup, riversSubGroup, qinlingSubGroup, silkRoadSubGroup, poisSubGroup, culturalSubGroup, profilingMeasureGroup;
 let terrainMesh, sunLight, skyFillLight;
 let silkRoadLine = null;
 let qinlingLineMesh = null;
@@ -133,7 +135,8 @@ const initThree = () => {
   renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: false,
-    powerPreference: 'high-performance'
+    powerPreference: 'high-performance',
+    preserveDrawingBuffer: true
   });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -184,11 +187,17 @@ const initThree = () => {
   silkRoadSubGroup = new THREE.Group();
   poisSubGroup = new THREE.Group();
 
+  culturalSubGroup = new THREE.Group();
+  profilingMeasureGroup = new THREE.Group();
   macroGroup.add(borderSubGroup);
   macroGroup.add(riversSubGroup);
   macroGroup.add(qinlingSubGroup);
   macroGroup.add(silkRoadSubGroup);
   macroGroup.add(poisSubGroup);
+  macroGroup.add(culturalSubGroup);
+  macroGroup.add(profilingMeasureGroup);
+
+  renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown);
 
   scene.add(macroGroup);
   scene.add(bonsaiGroup);
@@ -252,6 +261,7 @@ function loadRealTerrainAssets() {
               buildQinlingLine();
               buildSilkRoad();
               buildSpatialPins();
+              buildCulturalHotspots();
               buildBonsaiBlock();
               buildEvolutionModel();
               buildCampaignVisuals();
@@ -1280,6 +1290,7 @@ watch(() => props.layers, (newLayers) => {
   if (qinlingSubGroup) qinlingSubGroup.visible = !!newLayers.qinlingLine;
   if (silkRoadSubGroup) silkRoadSubGroup.visible = !!newLayers.silkRoad;
   if (poisSubGroup) poisSubGroup.visible = !!newLayers.pois;
+  if (culturalSubGroup) culturalSubGroup.visible = !!newLayers.cultural;
 }, { deep: true, immediate: true });
 
 // 盆景参数监听
@@ -1342,11 +1353,247 @@ onBeforeUnmount(() => {
   if (renderer) renderer.dispose();
 });
 
+
+// 构建人文风物地标 (非遗/美食/戏曲)
+function buildCulturalHotspots() {
+  while (culturalSubGroup.children.length > 0) {
+    culturalSubGroup.remove(culturalSubGroup.children[0]);
+  }
+
+  CULTURAL_ITEMS.forEach((item) => {
+    const cultGroup = new THREE.Group();
+    cultGroup.position.set(item.pos[0], item.pos[1], item.pos[2]);
+
+    const stemGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.0, 10);
+    const stemMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      metalness: 0.9,
+      roughness: 0.2
+    });
+    const stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.position.y = 1.0;
+    cultGroup.add(stem);
+
+    const sphereGeo = new THREE.SphereGeometry(0.42, 16, 16);
+    const sphereMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.8,
+      metalness: 0.3,
+      roughness: 0.3
+    });
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    sphere.position.y = 2.0;
+    cultGroup.add(sphere);
+
+    // Emoji 图标 Sprite
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(64, 64, 56, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = '52px sans-serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(item.icon, 64, 66);
+
+    const iconTex = new THREE.CanvasTexture(canvas);
+    const iconSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: iconTex }));
+    iconSprite.position.y = 3.1;
+    iconSprite.scale.set(2.4, 2.4, 1);
+    cultGroup.add(iconSprite);
+
+    cultGroup.userData = { culturalItem: item };
+    culturalSubGroup.add(cultGroup);
+  });
+}
+
+// 射线碰撞与空间交互逻辑 (剖面测绘、挑战答题、风物点击)
+const raycaster = new THREE.Raycaster();
+const pointerVec = new THREE.Vector2();
+let profilingPoints = [];
+
+const onCanvasPointerDown = (e) => {
+  if (!renderer || !camera || e.target !== renderer.domElement) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointerVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointerVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(pointerVec, camera);
+
+  // 1. 探秘答题模式碰撞
+  if (props.isChallengeActive) {
+    if (terrainMesh) {
+      const hits = raycaster.intersectObject(terrainMesh);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        emit('challenge-click', [pt.x, pt.y, pt.z]);
+      }
+    }
+    return;
+  }
+
+  // 2. 剖面测绘模式碰撞
+  if (props.isProfilingActive) {
+    if (terrainMesh) {
+      const hits = raycaster.intersectObject(terrainMesh);
+      if (hits.length > 0) {
+        handleProfilingHit(hits[0].point);
+      }
+    }
+    return;
+  }
+
+  // 3. 人文风物图标点击
+  if (props.layers?.cultural && culturalSubGroup) {
+    const hits = raycaster.intersectObjects(culturalSubGroup.children, true);
+    if (hits.length > 0) {
+      let obj = hits[0].object;
+      while (obj.parent && !obj.userData?.culturalItem) obj = obj.parent;
+      if (obj.userData?.culturalItem) {
+        emit('select-culture', obj.userData.culturalItem);
+      }
+    }
+  }
+};
+
+const handleProfilingHit = (point) => {
+  if (profilingPoints.length >= 2) {
+    clearProfiling();
+  }
+
+  profilingPoints.push(point.clone());
+
+  // 创建标记针
+  const isStart = profilingPoints.length === 1;
+  const pinGeo = new THREE.CylinderGeometry(0.1, 0.1, 3.5, 12);
+  const pinMat = new THREE.MeshBasicMaterial({ color: isStart ? 0x10b981 : 0xef4444 });
+  const pin = new THREE.Mesh(pinGeo, pinMat);
+  pin.position.set(point.x, point.y + 1.75, point.z);
+  profilingMeasureGroup.add(pin);
+
+  if (profilingPoints.length === 2) {
+    const ptA = profilingPoints[0];
+    const ptB = profilingPoints[1];
+
+    const sampleCount = 60;
+    const sampledPoints = [];
+    const curvePts = [];
+    const width = 80;
+    const depth = 140;
+
+    let demData = null;
+    if (demCanvas) {
+      try {
+        demData = demCanvas.getContext("2d").getImageData(0, 0, demCanvas.width, demCanvas.height).data;
+      } catch (e) {}
+    }
+
+    let minH = 9999;
+    let maxH = -9999;
+    let totalAscent = 0;
+    let prevH = null;
+
+    for (let i = 0; i <= sampleCount; i++) {
+      const t = i / sampleCount;
+      const x = ptA.x + t * (ptB.x - ptA.x);
+      const z = ptA.z + t * (ptB.z - ptA.z);
+
+      const u = (x / width) + 0.5;
+      const v = (z / depth) + 0.5;
+
+      let elevationM = 400;
+      let y = 1.0;
+
+      if (demData && u >= 0 && u <= 1 && v >= 0 && v <= 1) {
+        const px = Math.floor(u * (demCanvas.width - 1));
+        const py = Math.floor(v * (demCanvas.height - 1));
+        const pIdx = (py * demCanvas.width + px) * 4;
+        const grey = demData[pIdx];
+        y = Math.pow(grey / 255.0, 1.1) * 18.5;
+        elevationM = Math.round(180 + Math.pow(grey / 255.0, 1.1) * 3591);
+      }
+
+      if (elevationM < minH) minH = elevationM;
+      if (elevationM > maxH) maxH = elevationM;
+
+      if (prevH !== null && elevationM > prevH) {
+        totalAscent += (elevationM - prevH);
+      }
+      prevH = elevationM;
+
+      curvePts.push(new THREE.Vector3(x, y + 0.25, z));
+
+      const distKm = ptA.distanceTo(new THREE.Vector3(x, y, z)) * 6.21;
+      sampledPoints.push({
+        distKm,
+        elevationM,
+        x, y, z
+      });
+    }
+
+    // 绘制发光测绘激光缎带
+    const laserCurve = new THREE.CatmullRomCurve3(curvePts);
+    const laserGeo = new THREE.TubeGeometry(laserCurve, 80, 0.22, 8, false);
+    const laserMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.9,
+      roughness: 0.2
+    });
+    const laserMesh = new THREE.Mesh(laserGeo, laserMat);
+    profilingMeasureGroup.add(laserMesh);
+
+    const totalDistanceKm = ptA.distanceTo(ptB) * 6.21;
+    const avgSlope = (Math.abs(maxH - minH) / (totalDistanceKm * 1000)) * 100;
+
+    emit('profile-calculated', {
+      points: sampledPoints,
+      totalDistanceKm,
+      minElevation: minH,
+      maxElevation: maxH,
+      totalAscent,
+      averageSlope: avgSlope
+    });
+  }
+};
+
+const clearProfiling = () => {
+  profilingPoints = [];
+  while (profilingMeasureGroup.children.length > 0) {
+    profilingMeasureGroup.remove(profilingMeasureGroup.children[0]);
+  }
+};
+
+// 截取当前沙盘超高清画面用于海报生成
+const captureSnapshot = () => {
+  if (!renderer || !scene || !camera) return "";
+  renderer.render(scene, camera);
+  return renderer.domElement.toDataURL("image/png");
+};
+
+// 电影巡航平滑运镜
+const flyToWaypoint = (wp) => {
+  if (!wp || !wp.camera) return;
+  flyTo(wp.camera.pos, wp.camera.target, wp.camera.duration || 3.5);
+};
+
 defineExpose({
   flyTo,
   resetNorth,
   setLighting,
-  reExtractBonsai
+  reExtractBonsai,
+  clearProfiling,
+  captureSnapshot,
+  flyToWaypoint
 });
 </script>
 

@@ -1,6 +1,6 @@
 <template>
   <div class="app-root">
-    <!-- 3D 核心视口 (真实遥感 DEM + 实心地质切面 + 智能避让) -->
+    <!-- 3D 核心视口 (真实遥感 DEM + 实心地质切面 + 智能避让 + 剖面测绘 + 探秘互动) -->
     <ThreeCanvas
       ref="threeRef"
       :current-mode="currentMode"
@@ -14,39 +14,49 @@
       :active-lab-id="activeLabId"
       :current-tectonic-stage="currentTectonicStage"
       :active-chapter-id="currentChapter?.id"
+      :is-profiling-active="isProfilingActive"
+      :is-challenge-active="isDetectiveActive"
       @camera-update="onCameraUpdate"
       @select-poi="onPoiSelected"
+      @profile-calculated="onProfileCalculated"
+      @challenge-click="onChallengeClick"
+      @select-culture="onSelectCulture"
     />
 
-    <!-- 首页门户大屏欢迎遮罩 -->
+    <!-- 首页门户大屏欢迎遮罩 (带 EUGENE FINANCE 品牌徽章与沉浸入口) -->
     <HomePortal
       v-if="showPortal"
       @enter-sandbox="closePortal"
       @select-mode="onPortalSelectMode"
+      @start-tour="onOpenTour"
+      @start-detective="onOpenDetective"
     />
 
     <!-- HUD 界面层 (非门户模式时呈现) -->
     <template v-else>
-      <!-- 顶部 HUD 导航 -->
+      <!-- 顶部 HUD 导航 (带品牌徽章与创新功能快捷胶囊) -->
       <HudHeader
+        v-if="!isTourActive"
         :themes="THEMES"
         :current-theme-id="currentThemeId"
         :current-mode="currentMode"
-        :is-playing="isPlaying"
-        :is-muted="isMuted"
         :lighting-mode="lightingMode"
+        :is-profiling-active="isProfilingActive"
         @open-portal="showPortal = true"
         @change-theme="onChangeTheme"
         @switch-mode="onSwitchMode"
-        @toggle-voice="onToggleVoice"
         @toggle-fullscreen="onToggleFullscreen"
         @change-lighting="onLightingChange"
-        @open-quiz="isQuizOpen = true"
+        @open-tour="onOpenTour"
+        @toggle-profiling="onToggleProfiling"
+        @open-detective="onOpenDetective"
+        @open-wargame="onOpenWargame"
+        @open-poster="onOpenPoster"
       />
 
-      <!-- 宏观沙盘模式：左侧图文卡片 (精炼紧凑高密度 + 选项卡媒体) -->
+      <!-- 宏观沙盘模式：左侧图文卡片 (选项卡媒体 + 剖面联动) -->
       <LeftInfoPanel
-        v-if="currentMode === 'macro' && currentChapter"
+        v-if="currentMode === 'macro' && currentChapter && !isTourActive && !isProfilingActive && !isDetectiveActive"
         :chapter="currentChapter"
         :total-chapters="currentChapters.length"
         :current-theme-title="currentTheme.title"
@@ -58,7 +68,7 @@
 
       <!-- 宏观沙盘模式：底部居中自适应浮动坞 (零遮挡、零撞车) -->
       <BottomTimeline
-        v-if="currentMode === 'macro'"
+        v-if="currentMode === 'macro' && !isTourActive && !isProfilingActive && !isDetectiveActive"
         :chapters="currentChapters"
         :current-index="currentChapterIndex"
         :is-auto-playing="isAutoPlaying"
@@ -70,6 +80,7 @@
 
       <!-- 历史战役沙盘推演专属控制器 -->
       <CampaignModal
+        v-if="!isTourActive"
         :current-mode="currentMode"
         :campaigns="CAMPAIGNS"
         :current-campaign-id="activeCampaignId"
@@ -83,6 +94,7 @@
 
       <!-- 微观盆景专属控制器 (Zoom 12 实体切块与再次提取) -->
       <BonsaiModal
+        v-if="!isTourActive"
         :current-mode="currentMode"
         :bonsais="BONSAIS"
         :current-bonsai-id="activeBonsaiId"
@@ -94,6 +106,7 @@
 
       <!-- 科学演化实验台控制器 (4大实验台) -->
       <ModelModal
+        v-if="!isTourActive"
         :current-mode="currentMode"
         :stages="EVOLUTION_STAGES"
         :current-stage="activeModelStage"
@@ -107,23 +120,65 @@
         @back-to-macro="currentMode = 'macro'"
       />
 
-      <!-- 陕西之最地标图鉴与互动测验模态框 -->
-      <LandmarkQuizModal
-        :is-open="isQuizOpen"
-        @close="isQuizOpen = false"
-        @fly-to="onFlyToLandmark"
+      <!-- 🎬 电影级自动巡航导览模式浮层 -->
+      <CinematicTour
+        :active="isTourActive"
+        :current-index="currentTourIndex"
+        @close-tour="isTourActive = false"
+        @next-station="onNextTourStation"
+        @prev-station="onPrevTourStation"
+        @select-station="flyToTourStation"
       />
 
-      <!-- 右下角图层控制与指北针 (清爽独立、零重叠) -->
+      <!-- 📐 沙盘任意拉线剖面测绘分析仪 -->
+      <ElevationProfiler
+        :active="isProfilingActive && !!profileData"
+        :profile-data="profileData"
+        @close="isProfilingActive = false; profileData = null"
+        @reset-line="onResetProfileLine"
+      />
+
+      <!-- ⚔️ 历史战役双路线兵棋推演多维对比模态框 -->
+      <TacticalWargameModal
+        :active="isWargameActive"
+        :comparison-data="currentWargameData"
+        @close="isWargameActive = false"
+      />
+
+      <!-- 🎯 寻迹三秦空间探秘挑战模态框 -->
+      <GeoDetectiveModal
+        ref="detectiveRef"
+        :active="isDetectiveActive"
+        @close="isDetectiveActive = false"
+        @focus-target="onFocusChallengeTarget"
+      />
+
+      <!-- 📸 国风 3D 地理明信片海报生成器 -->
+      <PosterModal
+        :active="isPosterActive"
+        :snapshot-url="snapshotUrl"
+        :telemetry="{ pitch: cameraPitch, azimuth: cameraAzimuth }"
+        :chapter-title="currentChapter?.title"
+        @close="isPosterActive = false"
+      />
+
+      <!-- 🍜 人文风物详情交互浮窗 -->
+      <CulturalCard
+        :cultural-item="selectedCulturalItem"
+        @close="selectedCulturalItem = null"
+        @fly-to="onFlyToCulture"
+      />
+
+      <!-- 右下角图层控制与指北针 -->
       <LayerControl
-        v-if="currentMode === 'macro'"
+        v-if="currentMode === 'macro' && !isTourActive"
         :azimuth="cameraAzimuth"
         @update-layers="onUpdateLayers"
         @reset-north="onResetNorth"
       />
 
-      <!-- 右下角紧凑遥测数据栈 (堆叠于图层控制上方) -->
-      <div class="hud-telemetry glass-panel">
+      <!-- 右下角紧凑遥测数据栈 -->
+      <div v-if="!isTourActive" class="hud-telemetry glass-panel">
         <div class="tele-item">
           <span class="tele-lbl">遥感源</span>
           <span class="tele-val">DEM 30m</span>
@@ -136,12 +191,6 @@
           <span class="tele-lbl">航向</span>
           <span class="tele-val">{{ cameraAzimuth }}°</span>
         </div>
-      </div>
-
-      <!-- 沉浸式语音讲解横幅字幕条 -->
-      <div v-if="isPlaying && narrationSubtitle" class="voice-marquee glass-panel">
-        <span class="speaker-icon">🔊</span>
-        <span class="voice-text">{{ narrationSubtitle }}</span>
       </div>
     </template>
   </div>
@@ -157,12 +206,18 @@ import BottomTimeline from './components/BottomTimeline.vue';
 import BonsaiModal from './components/BonsaiModal.vue';
 import ModelModal from './components/ModelModal.vue';
 import CampaignModal from './components/CampaignModal.vue';
-import LandmarkQuizModal from './components/LandmarkQuizModal.vue';
 import LayerControl from './components/LayerControl.vue';
-import { THEMES, BONSAIS, EVOLUTION_STAGES, CAMPAIGNS } from './data/shaanxiData.js';
+import CinematicTour from './components/CinematicTour.vue';
+import ElevationProfiler from './components/ElevationProfiler.vue';
+import TacticalWargameModal from './components/TacticalWargameModal.vue';
+import GeoDetectiveModal from './components/GeoDetectiveModal.vue';
+import PosterModal from './components/PosterModal.vue';
+import CulturalCard from './components/CulturalCard.vue';
+import { THEMES, BONSAIS, EVOLUTION_STAGES, CAMPAIGNS, WARGAME_COMPARISONS, CINEMATIC_WAYPOINTS } from './data/shaanxiData.js';
 import { narrator } from './utils/speech.js';
 
 const threeRef = ref(null);
+const detectiveRef = ref(null);
 const showPortal = ref(true);
 
 const currentMode = ref('macro'); // 'macro' | 'bonsai' | 'model' | 'campaign'
@@ -180,20 +235,29 @@ const activeCampaignId = ref('camp_chencang');
 const activeCampaignStageIndex = ref(0);
 const lightingMode = ref('dawn'); // 'dawn' | 'noon' | 'sunset'
 
-const isQuizOpen = ref(false);
 const isPlaying = ref(false);
-const isMuted = ref(false);
 const isAutoPlaying = ref(false);
-const narrationSubtitle = ref('');
 const cameraPitch = ref(35);
 const cameraAzimuth = ref(0);
+
+// 新增功能状态
+const isTourActive = ref(false);
+const currentTourIndex = ref(0);
+const isProfilingActive = ref(false);
+const profileData = ref(null);
+const isWargameActive = ref(false);
+const isDetectiveActive = ref(false);
+const isPosterActive = ref(false);
+const snapshotUrl = ref('');
+const selectedCulturalItem = ref(null);
 
 const layers = reactive({
   border: true,
   rivers: true,
   qinlingLine: true,
   silkRoad: true,
-  pois: true
+  pois: true,
+  cultural: true
 });
 
 const currentTheme = computed(() => {
@@ -210,6 +274,11 @@ const currentChapter = computed(() => {
 
 const currentCampaign = computed(() => {
   return CAMPAIGNS.find(c => c.id === activeCampaignId.value) || CAMPAIGNS[0];
+});
+
+const currentWargameData = computed(() => {
+  if (activeCampaignId.value === 'camp_chencang') return WARGAME_COMPARISONS.camp_chencang;
+  return WARGAME_COMPARISONS.camp_north;
 });
 
 const closePortal = () => {
@@ -233,11 +302,100 @@ const onPortalSelectMode = (mode, param) => {
   showPortal.value = false;
 };
 
+// 🎬 电影级自动巡航
+const onOpenTour = () => {
+  showPortal.value = false;
+  isTourActive.value = true;
+  currentMode.value = 'macro';
+  currentTourIndex.value = 0;
+  flyToTourStation(0);
+};
+
+const flyToTourStation = (idx) => {
+  currentTourIndex.value = idx;
+  const st = CINEMATIC_WAYPOINTS[idx];
+  if (st && threeRef.value) {
+    threeRef.value.flyToWaypoint(st);
+  }
+};
+
+const onNextTourStation = () => {
+  if (currentTourIndex.value < CINEMATIC_WAYPOINTS.length - 1) {
+    flyToTourStation(currentTourIndex.value + 1);
+  }
+};
+
+const onPrevTourStation = () => {
+  if (currentTourIndex.value > 0) {
+    flyToTourStation(currentTourIndex.value - 1);
+  }
+};
+
+// 📐 剖面测绘
+const onToggleProfiling = () => {
+  isProfilingActive.value = !isProfilingActive.value;
+  if (!isProfilingActive.value) {
+    profileData.value = null;
+    if (threeRef.value) threeRef.value.clearProfiling();
+  }
+};
+
+const onProfileCalculated = (data) => {
+  profileData.value = data;
+};
+
+const onResetProfileLine = () => {
+  profileData.value = null;
+  if (threeRef.value) threeRef.value.clearProfiling();
+};
+
+// ⚔️ 兵棋推演
+const onOpenWargame = () => {
+  isWargameActive.value = true;
+};
+
+// 🎯 寻迹探秘挑战
+const onOpenDetective = () => {
+  showPortal.value = false;
+  isDetectiveActive.value = true;
+  currentMode.value = 'macro';
+};
+
+const onChallengeClick = (coords) => {
+  if (detectiveRef.value) {
+    detectiveRef.value.handleTerrainClick(coords);
+  }
+};
+
+const onFocusChallengeTarget = (target) => {
+  if (threeRef.value) {
+    threeRef.value.flyTo([target[0] + 5, target[1] + 16, target[2] + 18], target, 2.0);
+  }
+};
+
+// 📸 拍照打卡与海报
+const onOpenPoster = () => {
+  if (threeRef.value) {
+    snapshotUrl.value = threeRef.value.captureSnapshot();
+    isPosterActive.value = true;
+  }
+};
+
+// 🍜 人文风物
+const onSelectCulture = (item) => {
+  selectedCulturalItem.value = item;
+};
+
+const onFlyToCulture = (pos) => {
+  if (threeRef.value) {
+    threeRef.value.flyTo([pos[0] + 4, pos[1] + 14, pos[2] + 16], pos, 1.8);
+  }
+};
+
 const onChangeTheme = (themeId) => {
   currentThemeId.value = themeId;
   currentChapterIndex.value = 0;
   flyToCurrentChapter();
-  if (isAutoPlaying.value) playCurrentNarration();
 };
 
 const onSwitchMode = (mode) => {
@@ -245,10 +403,9 @@ const onSwitchMode = (mode) => {
   narrator.stop();
   isPlaying.value = false;
   isAutoPlaying.value = false;
-  narrationSubtitle.value = '';
-  if (mode === 'campaign') {
-    activeCampaignStageIndex.value = 0;
-  }
+  isTourActive.value = false;
+  isProfilingActive.value = false;
+  isDetectiveActive.value = false;
 };
 
 const onLightingChange = (mode) => {
@@ -270,9 +427,6 @@ const flyToCurrentChapter = () => {
 const onSelectChapter = (idx) => {
   currentChapterIndex.value = idx;
   flyToCurrentChapter();
-  if (isAutoPlaying.value) {
-    playCurrentNarration();
-  }
 };
 
 const onPrevChapter = () => {
@@ -287,45 +441,17 @@ const onNextChapter = () => {
   }
 };
 
-const playCurrentNarration = () => {
+const onListenCurrent = () => {
   if (!currentChapter.value) return;
   const text = `${currentChapter.value.title}。${currentChapter.value.desc}`;
   isPlaying.value = true;
-  narrationSubtitle.value = text;
   narrator.speak(text, () => {
     isPlaying.value = false;
-    narrationSubtitle.value = '';
-    if (isAutoPlaying.value) {
-      if (currentChapterIndex.value < currentChapters.value.length - 1) {
-        onNextChapter();
-      } else {
-        isAutoPlaying.value = false;
-      }
-    }
   });
-};
-
-const onListenCurrent = () => {
-  playCurrentNarration();
 };
 
 const onToggleAutoplay = () => {
   isAutoPlaying.value = !isAutoPlaying.value;
-  if (isAutoPlaying.value) {
-    playCurrentNarration();
-  } else {
-    narrator.stop();
-    isPlaying.value = false;
-    narrationSubtitle.value = '';
-  }
-};
-
-const onToggleVoice = () => {
-  isMuted.value = narrator.toggleMute();
-  if (isMuted.value) {
-    isPlaying.value = false;
-    narrationSubtitle.value = '';
-  }
 };
 
 const onFocusFeature = () => {
@@ -375,12 +501,6 @@ const onChangeTectonicStage = (stageIdx) => {
   currentTectonicStage.value = stageIdx;
 };
 
-const onFlyToLandmark = (pos) => {
-  if (threeRef.value) {
-    threeRef.value.flyTo([pos[0] + 6, pos[1] + 16, pos[2] + 20], [pos[0], pos[1], pos[2]], 2.0);
-  }
-};
-
 const onFlyToStrata = (pos) => {
   if (threeRef.value && pos) {
     threeRef.value.flyTo([pos[0] + 5, pos[1] + 18, pos[2] + 22], [pos[0], pos[1], pos[2]], 2.0);
@@ -424,36 +544,6 @@ const onNextStage = () => {
   position: relative;
   overflow: hidden;
   background: #06090e;
-}
-
-.voice-marquee {
-  position: absolute;
-  top: 72px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 20px;
-  border-radius: 24px;
-  max-width: 640px;
-  background: rgba(10, 15, 24, 0.92);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
-}
-
-.speaker-icon {
-  font-size: 14px;
-}
-
-.voice-text {
-  font-size: 12.5px;
-  color: #f0f9ff;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .hud-telemetry {

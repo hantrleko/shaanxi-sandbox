@@ -37,6 +37,12 @@
           <span class="color-dot" style="background: #ec4899;"></span>
           <span class="text">重点历史人文与名山地标</span>
         </label>
+
+        <label class="layer-item">
+          <input type="checkbox" v-model="layers.cultural" @change="emitChange" />
+          <span class="color-dot" style="background: #f59e0b;"></span>
+          <span class="text">🍜 人文风物 (美食/非遗/戏曲)</span>
+        </label>
       </div>
     </div>
 
