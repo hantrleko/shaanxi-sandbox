@@ -76,6 +76,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import gsap from 'gsap';
 import { POI_LIST, CULTURAL_ITEMS } from '../data/shaanxiData.js';
 import { CITY_BOUNDARIES, REAL_RIVERS, REAL_POIS, REAL_REGIONS, REAL_CAMPAIGN_ROUTES } from '../data/shaanxiGeoVectors.js';
+import { soundscape } from '../utils/soundscape.js';
 
 const props = defineProps({
   currentMode: { type: String, default: 'macro' }, // 'macro' | 'bonsai' | 'model' | 'campaign'
@@ -85,6 +86,7 @@ const props = defineProps({
   activeCampaign: { type: Object, default: null },
   activeCampaignStageIndex: { type: Number, default: 0 },
   lightingMode: { type: String, default: 'dawn' }, // 'dawn' | 'noon' | 'sunset'
+  seasonMode: { type: String, default: 'natural' }, // 'natural' | 'spring' | 'summer' | 'autumn' | 'winter'
   layers: {
     type: Object,
     default: () => ({ border: true, rivers: true, qinlingLine: true, silkRoad: true, pois: true })
@@ -93,11 +95,20 @@ const props = defineProps({
   currentTectonicStage: { type: Number, default: 0 },
   activeChapterId: { type: String, default: 'geo_01' },
   isProfilingActive: { type: Boolean, default: false },
+  isRoadbookActive: { type: Boolean, default: false },
   isChallengeActive: { type: Boolean, default: false },
   isPortalActive: { type: Boolean, default: true }
 });
 
-const emit = defineEmits(['camera-update', 'select-poi', 'profile-calculated', 'challenge-click', 'select-culture']);
+const emit = defineEmits([
+  'camera-update',
+  'select-poi',
+  'profile-calculated',
+  'challenge-click',
+  'select-culture',
+  'cancel-profiling',
+  'roadbook-point-added'
+]);
 
 const containerRef = ref(null);
 const selectedPoiId = ref('xian');
@@ -117,6 +128,32 @@ let qinlingLineMesh = null;
 let animFrameId = null;
 let flowOffset = 0;
 let demCanvas = null;
+
+// 四季片元着色器 Uniforms
+let seasonUniforms = {
+  uSeason: { value: 0.0 },
+  uPrevSeason: { value: 0.0 },
+  uSeasonBlend: { value: 1.0 }
+};
+
+const seasonCodeMap = {
+  natural: 0.0,
+  spring: 1.0,
+  summer: 2.0,
+  autumn: 3.0,
+  winter: 4.0
+};
+
+// 3D 路书与 FPV 飞行状态
+let roadbookGroup = null;
+let currentRoadbookRoute = null;
+let fpvActive = false;
+let fpvCurve = null;
+let fpvProgress = 0;
+let fpvSpeed = 0.00065;
+let fpvWaypoints = [];
+let fpvCallback = null;
+let preFpvCameraState = null;
 
 // 动态模拟系统变量
 let loessWaterParticles = null;
@@ -387,6 +424,86 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
     metalness: 0.08,
     flatShading: false
   });
+
+  // 注入四季地貌片元着色器 (GLSL Four Seasons Shader)
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uSeason = seasonUniforms.uSeason;
+    shader.uniforms.uPrevSeason = seasonUniforms.uPrevSeason;
+    shader.uniforms.uSeasonBlend = seasonUniforms.uSeasonBlend;
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vTerrainWorldPos;`
+    );
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+       vTerrainWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;`
+    );
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+       uniform float uSeason;
+       uniform float uPrevSeason;
+       uniform float uSeasonBlend;
+       varying vec3 vTerrainWorldPos;
+
+       vec3 calcSeasonCol(float s, vec3 orig, vec3 pos) {
+         if (s < 0.5) return orig;
+         float h = pos.y;
+         float z = pos.z;
+         
+         if (s < 1.5) {
+           // 春·秦巴花海与关中新绿
+           float flowerMask = smoothstep(18.0, 32.0, z) * (1.0 - smoothstep(4.0, 9.0, h));
+           vec3 rapeseedGold = vec3(0.96, 0.82, 0.16);
+           vec3 springGreen = vec3(0.38, 0.68, 0.28);
+           vec3 col = mix(orig, springGreen, 0.35);
+           col = mix(col, rapeseedGold, flowerMask * 0.72);
+           if (h > 13.5) col = mix(col, vec3(0.92, 0.96, 1.0), 0.4);
+           return col;
+         } else if (s < 2.5) {
+           // 夏·翠峦云海
+           vec3 lushEmerald = vec3(0.16, 0.52, 0.20);
+           vec3 deepForest = vec3(0.10, 0.40, 0.16);
+           float mountainMask = smoothstep(2.5, 9.0, h);
+           vec3 forest = mix(lushEmerald, deepForest, mountainMask);
+           return mix(orig, forest, 0.48);
+         } else if (s < 3.5) {
+           // 秋·太白金枫与高原暖阳
+           vec3 loessWarm = vec3(0.86, 0.64, 0.28);
+           float loessMask = 1.0 - smoothstep(-8.0, 16.0, z);
+           float mapleMask = smoothstep(0.0, 16.0, z) * smoothstep(4.2, 7.8, h) * (1.0 - smoothstep(12.5, 15.0, h));
+           vec3 mapleRed = vec3(0.86, 0.28, 0.16);
+           vec3 larchGold = vec3(0.92, 0.70, 0.18);
+           vec3 foliage = mix(larchGold, mapleRed, 0.62);
+           vec3 col = mix(orig, loessWarm, loessMask * 0.42);
+           col = mix(col, foliage, mapleMask * 0.70);
+           return col;
+         } else {
+           // 冬·北国雪原与秦岭冰封 (动量雪线覆盖)
+           float northSnow = 1.0 - smoothstep(-25.0, 10.0, z);
+           float altitudeSnow = smoothstep(5.0, 9.8, h);
+           float snowMask = clamp(northSnow * 0.88 + altitudeSnow * 0.95, 0.0, 1.0);
+           float shannanProtect = smoothstep(24.0, 42.0, z) * (1.0 - smoothstep(3.5, 7.5, h));
+           snowMask *= (1.0 - shannanProtect * 0.85);
+           vec3 snowCol = vec3(0.95, 0.97, 1.02);
+           return mix(orig * vec3(0.82, 0.88, 0.96), snowCol, snowMask * 0.86);
+         }
+       }`
+    );
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      `#include <map_fragment>
+       vec3 colPrev = calcSeasonCol(uPrevSeason, diffuseColor.rgb, vTerrainWorldPos);
+       vec3 colCurr = calcSeasonCol(uSeason, diffuseColor.rgb, vTerrainWorldPos);
+       diffuseColor.rgb = mix(colPrev, colCurr, uSeasonBlend);`
+    );
+  };
 
   terrainMesh = new THREE.Mesh(geo, mat);
   terrainMesh.receiveShadow = true;
@@ -1319,6 +1436,46 @@ const animate = () => {
     globeMesh.rotation.y += 0.003;
   }
 
+  // 🚀 FPV 贴地低空飞行预演推演
+  if (fpvActive && fpvCurve) {
+    fpvProgress += fpvSpeed;
+    if (fpvProgress >= 1.0) {
+      fpvProgress = 1.0;
+      stopFPVFlight();
+      if (fpvCallback && fpvCallback.onComplete) {
+        fpvCallback.onComplete();
+      }
+    } else {
+      const pos = fpvCurve.getPointAt(fpvProgress);
+      const lookT = Math.min(1.0, fpvProgress + 0.045);
+      const lookPos = fpvCurve.getPointAt(lookT);
+
+      const currentGroundY = getTerrainHeightAt(pos.x, pos.z);
+      const camY = Math.max(pos.y, currentGroundY) + 2.2;
+      const targetY = Math.max(lookPos.y, getTerrainHeightAt(lookPos.x, lookPos.z)) + 2.0;
+
+      camera.position.set(pos.x, camY, pos.z);
+      controls.target.set(lookPos.x, targetY, lookPos.z);
+      camera.lookAt(lookPos.x, targetY, lookPos.z);
+
+      const altM = camY * 120 + 380;
+      let currentWp = null;
+      if (fpvWaypoints && fpvWaypoints.length > 0) {
+        const segIdx = Math.min(fpvWaypoints.length - 1, Math.floor(fpvProgress * (fpvWaypoints.length - 1)));
+        currentWp = fpvWaypoints[segIdx];
+      }
+
+      if (fpvCallback && fpvCallback.onProgress) {
+        fpvCallback.onProgress(fpvProgress, altM, currentWp);
+      }
+    }
+  }
+
+  // 🎧 Web Audio 三维空间自然音景空间自适应调制
+  if (camera && controls) {
+    soundscape.updateCameraSpatial(camera.position, controls.target, fpvActive ? 2.5 : 0);
+  }
+
   if (camera && controls) {
     const pitch = Math.round((camera.rotation.x * 180) / Math.PI);
     const dir = new THREE.Vector3();
@@ -1544,10 +1701,21 @@ const onCanvasPointerDown = (e) => {
       }
     }
   }
+
+  // 4. 自定义 3D 路书打点交互
+  if (props.isRoadbookActive) {
+    if (terrainMesh) {
+      const hits = raycaster.intersectObject(terrainMesh);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        emit('roadbook-point-added', { x: pt.x, y: pt.y, z: pt.z });
+      }
+    }
+  }
 };
 
 const onCanvasPointerMove = (e) => {
-  if (!renderer || !camera || (!props.isProfilingActive && !props.isChallengeActive)) {
+  if (!renderer || !camera || (!props.isProfilingActive && !props.isChallengeActive && !props.isRoadbookActive)) {
     if (terrainReticleMesh) terrainReticleMesh.visible = false;
     return;
   }
@@ -1694,6 +1862,182 @@ const flyToWaypoint = (wp) => {
   flyTo(wp.camera.pos, wp.camera.target, wp.camera.duration || 3.5);
 };
 
+// 获取地形 (x, z) 处物理高度
+function getTerrainHeightAt(x, z) {
+  const width = 80;
+  const depth = 140;
+  const u = (x / width) + 0.5;
+  const v = (z / depth) + 0.5;
+  if (demCanvas && u >= 0 && u <= 1 && v >= 0 && v <= 1) {
+    try {
+      const ctx = demCanvas.getContext('2d');
+      const px = Math.floor(u * (demCanvas.width - 1));
+      const py = Math.floor(v * (demCanvas.height - 1));
+      const pData = ctx.getImageData(px, py, 1, 1).data;
+      return Math.pow(pData[0] / 255.0, 1.1) * 18.5;
+    } catch (_) {}
+  }
+  return (z > 12) ? Math.max(0, 1 - Math.abs(z - 18) / 14) * 14 : 1.5;
+}
+
+// 四季模式平滑切换
+function setSeason(seasonId) {
+  const targetCode = seasonCodeMap[seasonId] ?? 0.0;
+  if (!seasonUniforms) return;
+  seasonUniforms.uPrevSeason.value = seasonUniforms.uSeason.value;
+  seasonUniforms.uSeason.value = targetCode;
+  seasonUniforms.uSeasonBlend.value = 0.0;
+
+  const start = performance.now();
+  const duration = 1200;
+  function updateBlend(now) {
+    const elapsed = now - start;
+    const t = Math.min(1.0, elapsed / duration);
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    seasonUniforms.uSeasonBlend.value = ease;
+    if (t < 1.0) {
+      requestAnimationFrame(updateBlend);
+    }
+  }
+  requestAnimationFrame(updateBlend);
+
+  if (sunLight) {
+    if (seasonId === 'winter') {
+      sunLight.color.setHex(0xe0f2fe);
+      sunLight.intensity = 1.15;
+    } else if (seasonId === 'autumn') {
+      sunLight.color.setHex(0xfef08a);
+      sunLight.intensity = 1.35;
+    } else if (seasonId === 'spring') {
+      sunLight.color.setHex(0xfef9c3);
+      sunLight.intensity = 1.4;
+    } else if (seasonId === 'summer') {
+      sunLight.color.setHex(0xffffff);
+      sunLight.intensity = 1.5;
+    } else {
+      sunLight.color.setHex(0xffffff);
+      sunLight.intensity = 1.35;
+    }
+  }
+}
+
+watch(() => props.seasonMode, (newVal) => {
+  setSeason(newVal);
+});
+
+// 3D 路书绘制与清理
+function clearRoadbook() {
+  if (roadbookGroup) {
+    while (roadbookGroup.children.length > 0) {
+      const child = roadbookGroup.children[0];
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+      roadbookGroup.remove(child);
+    }
+  }
+  currentRoadbookRoute = null;
+}
+
+function drawRoadbookRoute(route) {
+  clearRoadbook();
+  if (!route || !route.waypoints || route.waypoints.length < 2) return;
+  currentRoadbookRoute = route;
+
+  if (!roadbookGroup) {
+    roadbookGroup = new THREE.Group();
+    macroGroup.add(roadbookGroup);
+  }
+
+  const pts = route.waypoints.map(wp => {
+    const px = wp.pos[0];
+    const pz = wp.pos[2];
+    const py = getTerrainHeightAt(px, pz) + 0.45;
+    return new THREE.Vector3(px, py, pz);
+  });
+
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.25);
+  const tubeGeo = new THREE.TubeGeometry(curve, 160, 0.25, 8, false);
+  const tubeMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.9,
+    roughness: 0.25,
+    metalness: 0.6
+  });
+  const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+  roadbookGroup.add(tubeMesh);
+
+  // 标绘各站点立体道钉与地面光环
+  route.waypoints.forEach((wp, idx) => {
+    const pt = pts[idx];
+    const isFirst = idx === 0;
+    const isLast = idx === route.waypoints.length - 1;
+    const colHex = isFirst ? 0x10b981 : isLast ? 0xef4444 : 0xf59e0b;
+    const emHex = isFirst ? 0x059669 : isLast ? 0xb91c1c : 0xd97706;
+
+    const pinGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.8, 12);
+    const pinMat = new THREE.MeshStandardMaterial({ color: colHex, emissive: emHex, emissiveIntensity: 0.8 });
+    const pin = new THREE.Mesh(pinGeo, pinMat);
+    pin.position.set(pt.x, pt.y + 1.4, pt.z);
+    roadbookGroup.add(pin);
+
+    const sphereGeo = new THREE.SphereGeometry(0.35, 16, 16);
+    const sphere = new THREE.Mesh(sphereGeo, pinMat);
+    sphere.position.set(pt.x, pt.y + 2.8, pt.z);
+    roadbookGroup.add(sphere);
+
+    const ringGeo = new THREE.RingGeometry(0.5, 0.75, 24);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({ color: colHex, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.set(pt.x, pt.y - 0.35, pt.z);
+    roadbookGroup.add(ring);
+  });
+}
+
+// 🚀 FPV 低空贴地飞行控制
+function startFPVFlight(options) {
+  const route = options.route || currentRoadbookRoute;
+  if (!route || !route.waypoints || route.waypoints.length < 2) return;
+
+  preFpvCameraState = {
+    pos: camera.position.clone(),
+    target: controls.target.clone()
+  };
+
+  const pts = route.waypoints.map(wp => {
+    const px = wp.pos[0];
+    const pz = wp.pos[2];
+    const py = getTerrainHeightAt(px, pz);
+    return new THREE.Vector3(px, py, pz);
+  });
+
+  fpvCurve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.25);
+  fpvWaypoints = route.waypoints;
+  fpvProgress = 0;
+  fpvSpeed = 0.00065;
+  fpvActive = true;
+  fpvCallback = options;
+
+  controls.enabled = false;
+}
+
+function stopFPVFlight() {
+  if (!fpvActive) return;
+  fpvActive = false;
+  controls.enabled = true;
+  if (preFpvCameraState) {
+    flyTo(
+      [preFpvCameraState.pos.x, preFpvCameraState.pos.y, preFpvCameraState.pos.z],
+      [preFpvCameraState.target.x, preFpvCameraState.target.y, preFpvCameraState.target.z],
+      1.5
+    );
+  }
+}
+
 defineExpose({
   flyTo,
   resetNorth,
@@ -1701,7 +2045,12 @@ defineExpose({
   reExtractBonsai,
   clearProfiling,
   captureSnapshot,
-  flyToWaypoint
+  flyToWaypoint,
+  drawRoadbookRoute,
+  clearRoadbook,
+  startFPVFlight,
+  stopFPVFlight,
+  setSeason
 });
 </script>
 

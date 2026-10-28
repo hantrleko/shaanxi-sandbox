@@ -1,6 +1,6 @@
 <template>
   <div class="app-root">
-    <!-- 3D 核心视口 (真实遥感 DEM + 实心地质切面 + 智能避让 + 剖面测绘 + 探秘互动) -->
+    <!-- 3D 核心视口 (真实遥感 DEM + 实心地质切面 + 四季气候着色 + 3D路书 + 智能避让) -->
     <ThreeCanvas
       ref="threeRef"
       :current-mode="currentMode"
@@ -10,11 +10,13 @@
       :active-campaign="currentCampaign"
       :active-campaign-stage-index="activeCampaignStageIndex"
       :lighting-mode="lightingMode"
+      :season-mode="seasonMode"
       :layers="layers"
       :active-lab-id="activeLabId"
       :current-tectonic-stage="currentTectonicStage"
       :active-chapter-id="currentChapter?.id"
       :is-profiling-active="isProfilingActive"
+      :is-roadbook-active="isRoadbookActive"
       :is-challenge-active="isDetectiveActive"
       :is-portal-active="showPortal"
       @camera-update="onCameraUpdate"
@@ -23,37 +25,45 @@
       @cancel-profiling="onToggleProfiling"
       @challenge-click="onChallengeClick"
       @select-culture="onSelectCulture"
+      @roadbook-point-added="onRoadbookPointAdded"
     />
 
-    <!-- 首页门户大屏欢迎遮罩 (带 EUGENE FINANCE 品牌徽章与沉浸入口) -->
+    <!-- 首页门户大屏欢迎遮罩 (带 EUGENE FINANCE 品牌徽章、V2.0 标识与沉浸入口) -->
     <HomePortal
       v-if="showPortal"
       @enter-sandbox="closePortal"
       @select-mode="onPortalSelectMode"
       @start-tour="onOpenTour"
       @start-detective="onOpenDetective"
+      @start-roadbook="onOpenRoadbook"
+      @open-changelog="onOpenChangelog"
     />
 
     <!-- HUD 界面层 (非门户模式时呈现) -->
     <template v-else>
-      <!-- 顶部 HUD 导航 (带品牌徽章与创新功能快捷胶囊) -->
+      <!-- 顶部 HUD 导航 (带品牌徽章、V2.0 演更日志、四季流转与 3D 路书) -->
       <HudHeader
         v-if="!isTourActive"
         :themes="THEMES"
         :current-theme-id="currentThemeId"
         :current-mode="currentMode"
         :lighting-mode="lightingMode"
+        :season-mode="seasonMode"
         :is-profiling-active="isProfilingActive"
+        :is-roadbook-active="isRoadbookActive"
         @open-portal="showPortal = true"
         @change-theme="onChangeTheme"
         @switch-mode="onSwitchMode"
         @toggle-fullscreen="onToggleFullscreen"
         @change-lighting="onLightingChange"
+        @change-season="onChangeSeason"
         @open-tour="onOpenTour"
+        @open-roadbook="onOpenRoadbook"
         @toggle-profiling="onToggleProfiling"
         @open-detective="onOpenDetective"
         @open-wargame="onOpenWargame"
         @open-poster="onOpenPoster"
+        @open-changelog="onOpenChangelog"
       />
 
       <!-- 宏观沙盘模式：左侧图文卡片 (选项卡媒体 + 剖面联动) -->
@@ -140,6 +150,18 @@
         @reset-line="onResetProfileLine"
       />
 
+      <!-- 🛣️ V2.0 3D 多点研学/自驾路书工坊与 FPV 低空贴地飞行预演 -->
+      <RouteWorkshopModal
+        :active="isRoadbookActive"
+        :custom-points="customRoadbookPoints"
+        @close="isRoadbookActive = false; onClearCustomRoadbook()"
+        @select-route="onSelectRoadbookRoute"
+        @start-fpv="onStartFPV"
+        @stop-fpv="onStopFPV"
+        @focus-waypoint="onFocusWaypoint"
+        @clear-custom="onClearCustomRoadbook"
+      />
+
       <!-- ⚔️ 历史战役双路线兵棋推演多维对比模态框 -->
       <TacticalWargameModal
         :active="isWargameActive"
@@ -195,6 +217,12 @@
         </div>
       </div>
     </template>
+
+    <!-- 📜 V2.0 版本更迭历史与架构升级日志中心 (全场景可随时呼出) -->
+    <ChangelogModal
+      :active="isChangelogActive"
+      @close="isChangelogActive = false"
+    />
   </div>
 </template>
 
@@ -211,12 +239,15 @@ import CampaignModal from './components/CampaignModal.vue';
 import LayerControl from './components/LayerControl.vue';
 import CinematicTour from './components/CinematicTour.vue';
 import ElevationProfiler from './components/ElevationProfiler.vue';
+import RouteWorkshopModal from './components/RouteWorkshopModal.vue';
 import TacticalWargameModal from './components/TacticalWargameModal.vue';
 import GeoDetectiveModal from './components/GeoDetectiveModal.vue';
 import PosterModal from './components/PosterModal.vue';
 import CulturalCard from './components/CulturalCard.vue';
+import ChangelogModal from './components/ChangelogModal.vue';
 import { THEMES, BONSAIS, EVOLUTION_STAGES, CAMPAIGNS, WARGAME_COMPARISONS, CINEMATIC_WAYPOINTS } from './data/shaanxiData.js';
 import { narrator } from './utils/speech.js';
+import { soundscape } from './utils/soundscape.js';
 
 const threeRef = ref(null);
 const detectiveRef = ref(null);
@@ -252,6 +283,12 @@ const isDetectiveActive = ref(false);
 const isPosterActive = ref(false);
 const snapshotUrl = ref('');
 const selectedCulturalItem = ref(null);
+
+// V2.0 旗舰版状态 (四季气候流转、3D路书工坊、版本更迭中心)
+const seasonMode = ref('natural');
+const isChangelogActive = ref(false);
+const isRoadbookActive = ref(false);
+const customRoadbookPoints = ref([]);
 
 const layers = reactive({
   border: true,
@@ -400,6 +437,76 @@ const onChangeTheme = (themeId) => {
   flyToCurrentChapter();
 };
 
+// 🌸 V2.0 四季地貌与气候流转
+const onChangeSeason = (sId) => {
+  seasonMode.value = sId;
+  if (threeRef.value) {
+    threeRef.value.setSeason(sId);
+  }
+};
+
+// 📜 V2.0 版本更迭与演化日志
+const onOpenChangelog = () => {
+  isChangelogActive.value = true;
+};
+
+// 🛣️ V2.0 3D 多点研学/自驾路书工坊
+const onOpenRoadbook = () => {
+  showPortal.value = false;
+  currentMode.value = 'macro';
+  isTourActive.value = false;
+  isProfilingActive.value = false;
+  isDetectiveActive.value = false;
+  isRoadbookActive.value = true;
+};
+
+const onSelectRoadbookRoute = (route) => {
+  if (threeRef.value) {
+    threeRef.value.drawRoadbookRoute(route);
+  }
+};
+
+const onRoadbookPointAdded = (pt) => {
+  customRoadbookPoints.value.push(pt);
+  if (threeRef.value) {
+    threeRef.value.drawRoadbookRoute({
+      id: 'custom',
+      title: '自由多点测绘路书',
+      waypoints: customRoadbookPoints.value.map((p, i) => ({
+        name: `途经点 ${i + 1}`,
+        elevation: Math.round(p.y * 180 + 380),
+        pos: [p.x, p.y, p.z],
+        desc: `坐标: (${p.x.toFixed(1)}, ${p.z.toFixed(1)})`
+      }))
+    });
+  }
+};
+
+const onClearCustomRoadbook = () => {
+  customRoadbookPoints.value = [];
+  if (threeRef.value) {
+    threeRef.value.clearRoadbook();
+  }
+};
+
+const onStartFPV = (options) => {
+  if (threeRef.value) {
+    threeRef.value.startFPVFlight(options);
+  }
+};
+
+const onStopFPV = () => {
+  if (threeRef.value) {
+    threeRef.value.stopFPVFlight();
+  }
+};
+
+const onFocusWaypoint = (wp) => {
+  if (threeRef.value && wp && wp.pos) {
+    threeRef.value.flyTo([wp.pos[0] + 4, wp.pos[1] + 12, wp.pos[2] + 16], wp.pos, 2.0);
+  }
+};
+
 const onSwitchMode = (mode) => {
   currentMode.value = mode;
   narrator.stop();
@@ -408,6 +515,7 @@ const onSwitchMode = (mode) => {
   isTourActive.value = false;
   isProfilingActive.value = false;
   isDetectiveActive.value = false;
+  isRoadbookActive.value = false;
 };
 
 const onLightingChange = (mode) => {

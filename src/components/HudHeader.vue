@@ -1,6 +1,6 @@
 <template>
   <header class="hud-header glass-panel">
-    <!-- 左区：Eugene Finance 品牌徽章与门户入口 -->
+    <!-- 左区：Eugene Finance 品牌徽章与版本标识 -->
     <div class="header-left">
       <div class="brand-badge-box" @click="$emit('open-portal')" title="返回首页大屏 · EUGENE FINANCE">
         <img :src="BRAND_LOGO_BADGE" alt="Eugene Finance" class="brand-logo" />
@@ -9,6 +9,12 @@
           <span class="brand-sub">三秦三维沙盒</span>
         </div>
       </div>
+
+      <!-- V2.0 PRO 版本更新日志入口胶囊 -->
+      <button class="ver-pill-badge" @click="$emit('open-changelog')" title="查看 v2.0.0 PRO 架构演进与版本升级日志">
+        <span class="ver-pulse-dot"></span>
+        <span class="ver-txt">v2.0 PRO</span>
+      </button>
 
       <div class="divider"></div>
 
@@ -68,7 +74,7 @@
       </button>
     </div>
 
-    <!-- 右区：专业工具集 (精密矢量图标 + 克制黑曜石质感) -->
+    <!-- 右区：专业工具集与 V2.0 空间智能模块 -->
     <div class="header-right">
       <!-- 航拍导览 -->
       <button class="tool-btn tour-tool" @click="$emit('open-tour')" title="开启《航拍三秦》电影级自动巡航导览">
@@ -78,18 +84,19 @@
         <span>航拍导览</span>
       </button>
 
-      <!-- 测绘剖面 -->
+      <!-- 🛣️ V2.0 3D 路书工坊 -->
       <button
-        class="tool-btn"
-        :class="{ active: isProfilingActive }"
-        @click="$emit('toggle-profiling')"
-        title="在沙盘上任意划线测绘真实 DEM 海拔起伏剖面"
+        class="tool-btn roadbook-tool"
+        :class="{ active: isRoadbookActive }"
+        @click="$emit('open-roadbook')"
+        title="开启 3D 多点研学/自驾路书工坊与 FPV 低空贴地飞行预演"
       >
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M2 12h20M2 12l5-5m15 5l-5 5"></path>
-          <path d="M7 6v12M17 6v12"></path>
+          <circle cx="6" cy="19" r="3"></circle>
+          <path d="M9 19h8.5a4.5 4.5 0 0 0 4.5-4.5v0a4.5 4.5 0 0 0-4.5-4.5H6"></path>
+          <circle cx="6" cy="5" r="3"></circle>
         </svg>
-        <span>{{ isProfilingActive ? '测绘中...' : '测绘剖面' }}</span>
+        <span>3D路书</span>
       </button>
 
       <!-- 寻迹探秘 -->
@@ -102,6 +109,15 @@
           <line x1="12" y1="22" x2="12" y2="18"></line>
         </svg>
         <span>寻迹探秘</span>
+      </button>
+
+      <!-- 拍照打卡海报 -->
+      <button class="tool-btn snapshot-tool" @click="$emit('open-poster')" title="生成 EUGENE FINANCE 认证数字地理明信片海报">
+        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        <span>拍照打卡</span>
       </button>
 
       <!-- 兵棋推演 (仅在战役模式显现) -->
@@ -118,13 +134,35 @@
         <span>兵棋对比</span>
       </button>
 
-      <!-- 拍照打卡海报 -->
-      <button class="tool-btn snapshot-tool" @click="$emit('open-poster')" title="生成 EUGENE FINANCE 认证数字地理明信片海报">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-          <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-        <span>拍照打卡</span>
+      <div class="divider"></div>
+
+      <!-- 🌸 V2.0 四季气候流转切换器 -->
+      <div class="season-group">
+        <button
+          v-for="s in seasons"
+          :key="s.id"
+          class="season-btn"
+          :class="{ active: seasonMode === s.id }"
+          @click="$emit('change-season', s.id)"
+          :title="`${s.name} · ${s.desc}`"
+        >
+          <span class="s-icon">{{ s.icon }}</span>
+        </button>
+      </div>
+
+      <!-- 🎧 V2.0 Web Audio 三维空间自然音景开关 -->
+      <button
+        class="tool-btn audio-tool-btn"
+        :class="{ active: !isAudioMuted }"
+        @click="onToggleAudio"
+        :title="isAudioMuted ? '点击开启 Web Audio 三维空间自然音景' : `正在播放：${soundZone}（点击静音）`"
+      >
+        <div class="sound-wave" :class="{ playing: !isAudioMuted }">
+          <span class="wave-bar wb-1"></span>
+          <span class="wave-bar wb-2"></span>
+          <span class="wave-bar wb-3"></span>
+        </div>
+        <span>{{ isAudioMuted ? '音景' : soundZone }}</span>
       </button>
 
       <div class="divider"></div>
@@ -190,13 +228,18 @@
 </template>
 
 <script setup>
-import { BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { BRAND_LOGO_BADGE, SEASONS_DATA } from '../data/shaanxiData.js';
+import { soundscape } from '../utils/soundscape.js';
+
 defineProps({
   themes: { type: Array, required: true },
   currentThemeId: { type: String, required: true },
   currentMode: { type: String, required: true },
   lightingMode: { type: String, default: 'dawn' },
-  isProfilingActive: { type: Boolean, default: false }
+  seasonMode: { type: String, default: 'natural' },
+  isProfilingActive: { type: Boolean, default: false },
+  isRoadbookActive: { type: Boolean, default: false }
 });
 
 defineEmits([
@@ -205,12 +248,36 @@ defineEmits([
   'switch-mode',
   'toggle-fullscreen',
   'change-lighting',
+  'change-season',
   'open-tour',
+  'open-roadbook',
   'toggle-profiling',
   'open-detective',
   'open-wargame',
-  'open-poster'
+  'open-poster',
+  'open-changelog'
 ]);
+
+const seasons = SEASONS_DATA;
+const isAudioMuted = ref(true);
+const soundZone = ref('高空风吟');
+let audioTimer = null;
+
+const onToggleAudio = () => {
+  const active = soundscape.toggleMute();
+  isAudioMuted.value = !active;
+  soundZone.value = soundscape.currentZone || '高空风吟';
+};
+
+onMounted(() => {
+  audioTimer = setInterval(() => {
+    soundZone.value = soundscape.currentZone || '高空风吟';
+  }, 1000);
+});
+
+onBeforeUnmount(() => {
+  if (audioTimer) clearInterval(audioTimer);
+});
 </script>
 
 <style scoped>
@@ -475,6 +542,132 @@ defineEmits([
   border-color: #38bdf8;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.15);
+}
+
+/* V2.0 版本更迭日志按钮徽章 */
+.ver-pill-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ver-pill-badge:hover {
+  background: rgba(56, 189, 248, 0.22);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+  transform: translateY(-1px);
+}
+
+.ver-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+  animation: pulseVer 1.6s infinite;
+}
+
+@keyframes pulseVer {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+.ver-txt {
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.04em;
+  font-family: monospace;
+}
+
+/* V2.0 四季流转选择器 */
+.season-group {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.65);
+  padding: 2px 3px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 2px;
+}
+
+.season-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.season-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.season-btn.active {
+  background: rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+.s-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* V2.0 Web Audio 音景波形动态条 */
+.audio-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sound-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+}
+
+.wave-bar {
+  width: 2px;
+  height: 4px;
+  background: #94a3b8;
+  border-radius: 1px;
+  transition: all 0.2s;
+}
+
+.sound-wave.playing .wave-bar {
+  background: #38bdf8;
+}
+
+.sound-wave.playing .wb-1 {
+  animation: soundJump 0.8s ease-in-out infinite alternate;
+}
+.sound-wave.playing .wb-2 {
+  animation: soundJump 0.6s ease-in-out 0.2s infinite alternate;
+}
+.sound-wave.playing .wb-3 {
+  animation: soundJump 0.9s ease-in-out 0.4s infinite alternate;
+}
+
+@keyframes soundJump {
+  0% { height: 3px; }
+  100% { height: 11px; }
+}
+
+.roadbook-tool.active {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
 }
 
 @media (max-width: 1100px) {

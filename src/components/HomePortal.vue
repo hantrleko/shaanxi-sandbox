@@ -4,13 +4,20 @@
     <div class="portal-backdrop"></div>
 
     <div class="portal-content">
-      <!-- Eugene Finance 官方品牌微标 -->
-      <div class="portal-brand-badge">
-        <img :src="BRAND_LOGO_BADGE" class="portal-brand-img" alt="Eugene Finance" />
-        <div class="portal-brand-titles">
-          <span class="corp-name">EUGENE FINANCE 呈现</span>
-          <span class="sys-name">三秦三维数字地貌与文明探源</span>
+      <!-- Eugene Finance 官方品牌微标与 V2.0 旗舰标识 -->
+      <div class="portal-brand-badge-row">
+        <div class="portal-brand-badge">
+          <img :src="BRAND_LOGO_BADGE" class="portal-brand-img" alt="Eugene Finance" />
+          <div class="portal-brand-titles">
+            <span class="corp-name">EUGENE FINANCE 呈现</span>
+            <span class="sys-name">三秦三维数字地貌与文明探源</span>
+          </div>
         </div>
+
+        <button class="portal-ver-pill" @click="$emit('open-changelog')" title="点击查看 v2.0.0 PRO 架构演更与升级日志">
+          <span class="pv-dot"></span>
+          <span>v2.0 PRO 旗舰版 · 更新日志 ➔</span>
+        </button>
       </div>
 
       <!-- 主标题区 (杂志级大标题排版) -->
@@ -18,7 +25,7 @@
         <h1 class="portal-title">陕西地理沙盘</h1>
         <div class="portal-en-title">SHAANXI GEOGRAPHY & HUMANITIES 3D SANDBOX</div>
         <p class="portal-desc">
-          三秦大地，华夏之根。集成真实遥感卫星影像与 30m 物理 DEM 高程，融汇自然地理大格局、经典军事战役、大秦盛唐史诗与古丝绸之路。
+          三秦大地，华夏之根。集成真实遥感卫星影像与 30m 物理 DEM 高程，融汇自然地理大格局、四季气候着色流转、3D 贴地自驾路书与古丝绸之路。
         </p>
       </div>
 
@@ -42,7 +49,7 @@
         </div>
       </div>
 
-      <!-- 沉浸式特色探索捷径 (2大高阶体验) -->
+      <!-- 沉浸式特色探索捷径 (3大高阶体验) -->
       <div class="hero-actions-row">
         <button class="hero-action-btn tour-btn" @click="$emit('start-tour')">
           <div class="btn-glow-bar"></div>
@@ -54,6 +61,21 @@
           <div class="btn-text-wrap">
             <span class="btn-main-label">开启《航拍三秦》电影级巡航导览</span>
             <span class="btn-sub-label">自动运镜 · 空间音场 · 纪录片有声叙事 ➔</span>
+          </div>
+        </button>
+
+        <button class="hero-action-btn roadbook-btn" @click="$emit('start-roadbook')">
+          <div class="btn-glow-bar"></div>
+          <div class="btn-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="6" cy="19" r="3"></circle>
+              <path d="M9 19h8.5a4.5 4.5 0 0 0 4.5-4.5v0a4.5 4.5 0 0 0-4.5-4.5H6"></path>
+              <circle cx="6" cy="5" r="3"></circle>
+            </svg>
+          </div>
+          <div class="btn-text-wrap">
+            <span class="btn-main-label">3D 研学/自驾路书与 FPV 低空飞行</span>
+            <span class="btn-sub-label">翻越秦岭分水岭 · 贴地滑翔预演 ➔</span>
           </div>
         </button>
 
@@ -126,7 +148,7 @@
 
 <script setup>
 import { BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
-defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective']);
+defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective', 'start-roadbook', 'open-changelog']);
 </script>
 
 <style scoped>
@@ -167,6 +189,14 @@ defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective']);
   to { opacity: 1; transform: translateY(0); }
 }
 
+.portal-brand-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .portal-brand-badge {
   display: flex;
   align-items: center;
@@ -176,7 +206,53 @@ defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective']);
   padding: 5px 16px 5px 6px;
   border-radius: 30px;
   border: 1px solid rgba(56, 189, 248, 0.35);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.portal-ver-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  padding: 6px 14px;
+  border-radius: 20px;
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+}
+
+.portal-ver-pill:hover {
+  background: rgba(56, 189, 248, 0.28);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.45);
+  transform: translateY(-1px);
+}
+
+.pv-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+  animation: pulse 1.6s infinite;
+}
+
+.hero-action-btn.roadbook-btn {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 23, 42, 0.8));
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.hero-action-btn.roadbook-btn:hover {
+  border-color: #10b981;
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.3);
+}
+
+.hero-action-btn.roadbook-btn .btn-icon-wrap {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
 }
 
 .portal-brand-img {
