@@ -1,5 +1,16 @@
 <template>
-  <aside class="left-info-panel glass-panel">
+  <aside class="left-info-panel glass-panel" :class="{ collapsed: isCollapsed }">
+    <!-- 侧栏收起/展开微动滑钮 (支持全屏纯净模式) -->
+    <button
+      class="panel-collapse-toggle"
+      @click="isCollapsed = !isCollapsed"
+      :title="isCollapsed ? '展开左侧面板 (L)' : '收起面板以纯净浏览 3D 沙盒 (L)'"
+    >
+      <svg class="toggle-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline :points="isCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6'"></polyline>
+      </svg>
+      <span class="toggle-v-text" v-if="isCollapsed">展开图文</span>
+    </button>
     <div class="panel-header">
       <div class="chapter-meta">
         <span class="chapter-num">{{ chapter.num }} / {{ totalChapters }}</span>
@@ -212,6 +223,8 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+
+const isCollapsed = ref(false);
 
 const props = defineProps({
   chapter: { type: Object, required: true },
@@ -491,3 +504,52 @@ watch(() => props.isPlaying, (playing) => {
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
 </style>
+
+.left-info-panel {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.left-info-panel.collapsed {
+  transform: translateX(calc(-100% - 20px)) !important;
+}
+
+.panel-collapse-toggle {
+  position: absolute;
+  top: 14px;
+  right: -28px;
+  width: 28px;
+  height: 54px;
+  background: rgba(10, 15, 25, 0.94);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-left: none;
+  border-radius: 0 10px 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #38bdf8;
+  cursor: pointer;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+  z-index: 20;
+}
+
+.panel-collapse-toggle:hover {
+  background: #0284c7;
+  color: #fff;
+  width: 32px;
+  right: -32px;
+}
+
+.toggle-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.toggle-v-text {
+  writing-mode: vertical-rl;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}

@@ -1,6 +1,8 @@
 // 陕西省地理人文 3D 互动沙盘数据结构 (100% 真实 GIS 与 DEM 物理高度对齐)
 const baseUrl = import.meta.env.BASE_URL || './';
 const imgPrefix = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+export const BRAND_LOGO_BADGE = imgPrefix + 'images/brand/eugene_logo_badge.png';
+export const BRAND_LOGO_WHITE = imgPrefix + 'images/brand/eugene_logo_white.png';
 
 export const SHAANXI_STATS = {
   name: "陕西省",

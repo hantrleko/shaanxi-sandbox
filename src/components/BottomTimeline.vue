@@ -7,7 +7,15 @@
         @click="$emit('toggle-autoplay')"
         :title="isAutoPlaying ? '暂停全省连播' : '一键智能导览全省'"
       >
-        <span class="btn-symbol">{{ isAutoPlaying ? '⏸' : '▶' }}</span>
+        <span class="btn-symbol">
+          <svg v-if="!isAutoPlaying" class="play-svg" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <svg v-else class="play-svg" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+        </span>
         <div class="btn-text-group">
           <span class="main-label">{{ isAutoPlaying ? '暂停连播' : '智能导览' }}</span>
           <span class="sub-label">{{ chapters.length }}个时空节点</span>
@@ -272,3 +280,24 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   }
 }
 </style>
+
+.play-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.card-active-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #38bdf8, #0284c7);
+  box-shadow: 0 0 8px #38bdf8;
+  animation: pulseBar 2s infinite ease-in-out;
+}
+
+@keyframes pulseBar {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; filter: brightness(1.3); }
+}

@@ -4,7 +4,7 @@
     <div v-if="!isCompleted" class="question-card">
       <div class="card-top">
         <div class="brand-tag">
-          <img src="/images/brand/eugene_logo_badge.png" alt="Logo" class="badge-icon" />
+          <img :src="BRAND_LOGO_BADGE" alt="Logo" class="badge-icon" />
           <span>寻迹三秦 · 空间探秘挑战</span>
         </div>
         <div class="progress-pill">第 {{ currentIdx + 1 }} / {{ questions.length }} 关</div>
@@ -45,7 +45,7 @@
     <div v-else class="diploma-card">
       <div class="diploma-border">
         <div class="diploma-header">
-          <img src="/images/brand/eugene_logo_white.png" alt="Eugene Finance" class="diploma-logo" />
+          <img :src="BRAND_LOGO_WHITE" alt="Eugene Finance" class="diploma-logo" />
           <div class="diploma-title">三秦地理通 · 荣誉通关文牒</div>
           <div class="diploma-subtitle">EUGENE FINANCE 数字人文地理认证</div>
         </div>
@@ -89,7 +89,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { GEO_DETECTIVE_QUESTIONS } from '../data/shaanxiData.js';
+import { GEO_DETECTIVE_QUESTIONS, BRAND_LOGO_BADGE, BRAND_LOGO_WHITE } from '../data/shaanxiData.js';
 
 const props = defineProps({
   active: { type: Boolean, default: false }

@@ -16,9 +16,11 @@
       :active-chapter-id="currentChapter?.id"
       :is-profiling-active="isProfilingActive"
       :is-challenge-active="isDetectiveActive"
+      :is-portal-active="showPortal"
       @camera-update="onCameraUpdate"
       @select-poi="onPoiSelected"
       @profile-calculated="onProfileCalculated"
+      @cancel-profiling="onToggleProfiling"
       @challenge-click="onChallengeClick"
       @select-culture="onSelectCulture"
     />
@@ -441,17 +443,40 @@ const onNextChapter = () => {
   }
 };
 
-const onListenCurrent = () => {
+const playCurrentNarration = () => {
   if (!currentChapter.value) return;
   const text = `${currentChapter.value.title}。${currentChapter.value.desc}`;
   isPlaying.value = true;
   narrator.speak(text, () => {
     isPlaying.value = false;
+    if (isAutoPlaying.value) {
+      setTimeout(() => {
+        if (isAutoPlaying.value) {
+          if (currentChapterIndex.value < currentChapters.value.length - 1) {
+            onNextChapter();
+            playCurrentNarration();
+          } else {
+            onSelectChapter(0);
+            playCurrentNarration();
+          }
+        }
+      }, 1500);
+    }
   });
+};
+
+const onListenCurrent = () => {
+  playCurrentNarration();
 };
 
 const onToggleAutoplay = () => {
   isAutoPlaying.value = !isAutoPlaying.value;
+  if (isAutoPlaying.value) {
+    playCurrentNarration();
+  } else {
+    narrator.stop();
+    isPlaying.value = false;
+  }
 };
 
 const onFocusFeature = () => {
@@ -578,3 +603,15 @@ const onNextStage = () => {
   color: #38bdf8;
 }
 </style>
+
+/* Vue 模态框与浮层进入/离开丝滑阻尼动效 */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0 !important;
+  transform: scale(0.96) !important;
+}

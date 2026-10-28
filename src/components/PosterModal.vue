@@ -32,6 +32,7 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue';
+import { BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
 
 const props = defineProps({
   active: { type: Boolean, default: false },
@@ -73,7 +74,7 @@ const generatePoster = () => {
 
   // 3. 绘制品牌 Logo 与顶头抬头
   const logoImg = new Image();
-  logoImg.src = './images/brand/eugene_logo_badge.png';
+  logoImg.src = BRAND_LOGO_BADGE;
   logoImg.onload = () => {
     ctx.drawImage(logoImg, 70, 70, 96, 96);
 

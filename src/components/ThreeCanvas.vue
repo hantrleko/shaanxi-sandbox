@@ -1,5 +1,13 @@
 <template>
   <div class="canvas-container" ref="containerRef">
+    <!-- 测绘模式实时步骤交互提示栏 -->
+    <div v-if="isProfilingActive" class="interactive-step-hud">
+      <div class="hud-pill-box">
+        <span class="hud-step-badge">{{ profilingStep === 1 ? '步骤 1 / 2' : '步骤 2 / 2' }}</span>
+        <span class="hud-step-text">{{ profilingStep === 1 ? '请在 3D 地形表面点击起点 A' : '请点击终点 B 生成高程剖面曲线' }}</span>
+        <button class="hud-step-cancel" @click="$emit('cancel-profiling')">退出测绘</button>
+      </div>
+    </div>
     <!-- 3D 浮动 POI 标签覆盖层 (智能屏幕避让与视距分级 LOD：彻底告别文字交错) -->
     <div
       v-if="currentMode === 'macro'"
@@ -85,7 +93,8 @@ const props = defineProps({
   currentTectonicStage: { type: Number, default: 0 },
   activeChapterId: { type: String, default: 'geo_01' },
   isProfilingActive: { type: Boolean, default: false },
-  isChallengeActive: { type: Boolean, default: false }
+  isChallengeActive: { type: Boolean, default: false },
+  isPortalActive: { type: Boolean, default: true }
 });
 
 const emit = defineEmits(['camera-update', 'select-poi', 'profile-calculated', 'challenge-click', 'select-culture']);
@@ -96,6 +105,8 @@ const hoveredPoiId = ref(null);
 const screenPois = ref([]);
 const screenCheckpoints = ref([]);
 const isLoadingData = ref(true);
+const profilingStep = ref(1);
+let terrainReticleMesh = null;
 
 let scene, camera, renderer, controls;
 let macroGroup, bonsaiGroup, modelGroup, campaignGroup;
@@ -198,6 +209,27 @@ const initThree = () => {
   macroGroup.add(profilingMeasureGroup);
 
   renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown);
+  renderer.domElement.addEventListener('pointermove', onCanvasPointerMove);
+
+  // 地面交互激光光标靶心
+  const reticleRingGeo = new THREE.RingGeometry(0.9, 1.35, 32);
+  reticleRingGeo.rotateX(-Math.PI / 2);
+  const reticleMat = new THREE.MeshBasicMaterial({
+    color: 0x38bdf8,
+    transparent: true,
+    opacity: 0.85,
+    side: THREE.DoubleSide
+  });
+  terrainReticleMesh = new THREE.Mesh(reticleRingGeo, reticleMat);
+  terrainReticleMesh.visible = false;
+  scene.add(terrainReticleMesh);
+
+  const crossGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-1.8, 0, 0), new THREE.Vector3(1.8, 0, 0),
+    new THREE.Vector3(0, 0, -1.8), new THREE.Vector3(0, 0, 1.8)
+  ]);
+  const crossLines = new THREE.LineSegments(crossGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6 }));
+  terrainReticleMesh.add(crossLines);
 
   scene.add(macroGroup);
   scene.add(bonsaiGroup);
@@ -420,6 +452,47 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
   const rimMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5 });
   const rimLine = new THREE.LineSegments(rimGeo, rimMat);
   pedestal.add(rimLine);
+
+  // 4. 极坐标雷达战术底座刻度环 (Tactical Polar Grid)
+  const radarGeo = new THREE.PlaneGeometry(240, 240);
+  radarGeo.rotateX(-Math.PI / 2);
+
+  const radarCanvas = document.createElement('canvas');
+  radarCanvas.width = 1024;
+  radarCanvas.height = 1024;
+  const rCtx = radarCanvas.getContext('2d');
+
+  rCtx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+  rCtx.lineWidth = 2;
+  [180, 320, 440, 490].forEach(r => {
+    rCtx.beginPath();
+    rCtx.arc(512, 512, r, 0, Math.PI * 2);
+    rCtx.stroke();
+  });
+
+  rCtx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+  rCtx.beginPath(); rCtx.moveTo(0, 512); rCtx.lineTo(1024, 512); rCtx.stroke();
+  rCtx.beginPath(); rCtx.moveTo(512, 0); rCtx.lineTo(512, 1024); rCtx.stroke();
+
+  rCtx.fillStyle = '#38bdf8';
+  rCtx.font = 'bold 22px monospace';
+  rCtx.textAlign = 'center';
+  rCtx.textBaseline = 'middle';
+  rCtx.fillText('000° N', 512, 40);
+  rCtx.fillText('090° E', 970, 512);
+  rCtx.fillText('180° S', 512, 984);
+  rCtx.fillText('270° W', 54, 512);
+
+  const radarTex = new THREE.CanvasTexture(radarCanvas);
+  const radarMat = new THREE.MeshBasicMaterial({
+    map: radarTex,
+    transparent: true,
+    opacity: 0.65,
+    depthWrite: false
+  });
+  const radarMesh = new THREE.Mesh(radarGeo, radarMat);
+  radarMesh.position.set(0, -4.55, 0);
+  macroGroup.add(radarMesh);
 }
 
 // 绘制全省十地市真实矢量境界 (严格基于 GeoJSON，线宽精致贴地)
@@ -1259,6 +1332,13 @@ const animate = () => {
 };
 
 // 模式与状态监听
+watch(() => props.isPortalActive, (isPortal) => {
+  if (controls) {
+    controls.autoRotate = !!isPortal;
+    controls.autoRotateSpeed = 0.5;
+  }
+}, { immediate: true });
+
 watch(() => props.currentMode, (newMode) => {
   if (!macroGroup || !bonsaiGroup || !modelGroup || !campaignGroup) return;
 
@@ -1419,6 +1499,7 @@ function buildCulturalHotspots() {
 const raycaster = new THREE.Raycaster();
 const pointerVec = new THREE.Vector2();
 let profilingPoints = [];
+  profilingStep.value = 1;
 
 const onCanvasPointerDown = (e) => {
   if (!renderer || !camera || e.target !== renderer.domElement) return;
@@ -1465,12 +1546,39 @@ const onCanvasPointerDown = (e) => {
   }
 };
 
+const onCanvasPointerMove = (e) => {
+  if (!renderer || !camera || (!props.isProfilingActive && !props.isChallengeActive)) {
+    if (terrainReticleMesh) terrainReticleMesh.visible = false;
+    return;
+  }
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointerVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointerVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(pointerVec, camera);
+  if (terrainMesh) {
+    const hits = raycaster.intersectObject(terrainMesh);
+    if (hits.length > 0) {
+      const hit = hits[0].point;
+      terrainReticleMesh.position.set(hit.x, hit.y + 0.15, hit.z);
+      terrainReticleMesh.visible = true;
+      return;
+    }
+  }
+  terrainReticleMesh.visible = false;
+};
+
 const handleProfilingHit = (point) => {
+  if (profilingPoints.length >= 2) {
+    clearProfiling();
+  }
   if (profilingPoints.length >= 2) {
     clearProfiling();
   }
 
   profilingPoints.push(point.clone());
+  profilingStep.value = profilingPoints.length === 1 ? 2 : 1;
 
   // 创建标记针
   const isStart = profilingPoints.length === 1;
@@ -1741,3 +1849,55 @@ defineExpose({
   letter-spacing: 0.04em;
 }
 </style>
+
+.interactive-step-hud {
+  position: absolute;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.hud-pill-box {
+  background: rgba(10, 15, 25, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.3);
+  padding: 6px 14px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-step-badge {
+  background: #0284c7;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.hud-step-text {
+  font-size: 12.5px;
+  color: #f0f9ff;
+  font-weight: 500;
+}
+
+.hud-step-cancel {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hud-step-cancel:hover {
+  background: #ef4444;
+  color: #fff;
+}

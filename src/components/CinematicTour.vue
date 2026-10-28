@@ -4,7 +4,7 @@
     <div class="letterbox letterbox-top">
       <div class="brand-bar">
         <div class="brand-emblem">
-          <img src="/images/brand/eugene_logo_badge.png" alt="Eugene Finance" class="brand-img" />
+          <img :src="BRAND_LOGO_BADGE" alt="Eugene Finance" class="brand-img" />
           <div class="brand-text">
             <span class="brand-corp">EUGENE FINANCE 呈现</span>
             <span class="brand-title">陕西地理沙盘 · 航拍三秦沉浸导览</span>
@@ -73,7 +73,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import { CINEMATIC_WAYPOINTS } from '../data/shaanxiData.js';
+import { CINEMATIC_WAYPOINTS, BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
 
 const props = defineProps({
   active: { type: Boolean, default: false },
