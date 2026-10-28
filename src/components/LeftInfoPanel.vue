@@ -205,8 +205,9 @@
         </div>
 
         <!-- 2. 实景照片视图 -->
-        <div class="photo-wrap" v-else-if="activeMediaTab === 'photo' && chapter.photoUrl">
+        <div class="photo-wrap" v-else-if="activeMediaTab === 'photo' && chapter.photoUrl" @click="$emit('view-photo', chapter.photoUrl, chapter.photoCaption)">
           <img :src="chapter.photoUrl" :alt="chapter.title" class="preview-img" />
+          <div class="photo-expand-badge">🔍 点击放大实景</div>
           <div class="card-caption">{{ chapter.photoCaption }}</div>
         </div>
       </div>
@@ -233,7 +234,7 @@ const props = defineProps({
   isPlaying: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['listen-current', 'focus-feature', 'fly-strata']);
+const emit = defineEmits(['listen-current', 'focus-feature', 'fly-strata', 'view-photo']);
 
 const activeMediaTab = ref('diagram');
 const activeSentenceIndex = ref(0);
@@ -466,12 +467,43 @@ watch(() => props.isPlaying, (playing) => {
   font-weight: 900;
 }
 
+.photo-wrap {
+  position: relative;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.photo-wrap:hover .preview-img {
+  transform: scale(1.03);
+}
+
+.photo-wrap:hover .photo-expand-badge {
+  opacity: 1;
+}
+
+.photo-expand-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
 .preview-img {
   width: 100%;
   height: 130px;
   object-fit: cover;
   border-radius: 4px;
   display: block;
+  transition: transform 0.3s ease;
 }
 
 .card-caption {

@@ -976,3 +976,186 @@ export const CHANGELOG_DATA = [
     ]
   }
 ];
+
+
+// ==========================================
+// 8. 📸 陕西 16 处地标真实地理实景照片集
+// ==========================================
+export const SCENERY_PHOTOS = [
+  {
+    id: "hua_shan",
+    title: "西岳华山 · 奇险天下第一山",
+    subtitle: "长空栈道与南峰绝壁，傲视秦川的亿年花岗岩巨岳",
+    region: "关中",
+    elevation: "2,154.9 m",
+    location: "陕西省华阴市 · 秦岭东段支脉",
+    url: imgPrefix + "images/scenery/hua_shan.jpg",
+    desc: "西岳华山以险拔称绝天下。亿万年前燕山运动断裂抬升形成壁立千仞的花岗岩巨型断块。云横天际，落雁迎风，是中华民族‘华夏’得名之源的重要地理图腾。",
+    camera: { pos: [28.5, 22, 28], target: [17.1, 6.67, 14.77] }
+  },
+  {
+    id: "taibai_shan",
+    title: "秦岭主峰太白山 · 华夏南北水塔",
+    subtitle: "拔仙台 3771.2m，亚热带与暖温带的自然分水岭",
+    region: "秦岭",
+    elevation: "3,771.2 m",
+    location: "陕西省宝鸡市太白县/眉县/周至县交界",
+    url: imgPrefix + "images/scenery/taibai_shan.jpg",
+    desc: "太白山拔仙台是中国东半壁第一高峰，保存有壮丽的第四纪冰川冰斗湖和大爷海。其巨大的山体如同天然巨壁，一山分两系，阻隔南北冷暖气流。",
+    camera: { pos: [-4.84, 38, 48], target: [-4.84, 14, 22.75] }
+  },
+  {
+    id: "bingmayong",
+    title: "秦始皇陵兵马俑 · 世界第八大奇迹",
+    subtitle: "大秦虎狼之师地下军阵，两千年前统一帝国的雄浑气象",
+    region: "关中",
+    elevation: "450 m",
+    location: "陕西省西安市临潼区骊山北麓",
+    url: imgPrefix + "images/scenery/bingmayong.jpg",
+    desc: "1974年发现的秦兵马俑一号坑军阵规模宏大，陶俑、战马与青铜兵器威仪凛然，展现了秦始皇横扫六合、一统天下的宏伟史诗。",
+    camera: { pos: [9.46, 14, 22], target: [9.46, 1.81, 16.34] }
+  },
+  {
+    id: "dayanta",
+    title: "大慈恩寺大雁塔 · 盛唐佛骨与丝路灯塔",
+    subtitle: "玄奘西行万里的精神丰碑，长安城现存最负盛名唐代佛塔",
+    region: "关中",
+    elevation: "420 m",
+    location: "陕西省西安市雁塔区大慈恩寺内",
+    url: imgPrefix + "images/scenery/dayanta.jpg",
+    desc: "唐永徽三年，玄奘法师为保存由天竺带回的梵文经卷亲自督造大雁塔。七层楼阁式砖塔巍然耸立千二百余年，见证了盛唐长安开放包容的世界都会气象。",
+    camera: { pos: [6.24, 12, 22], target: [6.24, 1.32, 16.98] }
+  },
+  {
+    id: "zhonglou",
+    title: "西安古城钟楼 · 晨钟暮鼓天下第一楼",
+    subtitle: "中国现存形制最大、保存最完好的明代古钟楼",
+    region: "关中",
+    elevation: "410 m",
+    location: "陕西省西安市中心东、西、南、北四条大街交会处",
+    url: imgPrefix + "images/scenery/zhonglou.jpg",
+    desc: "建于明洪武十七年，重檐三滴水、四角攒顶。楼上悬挂唐景云钟，登楼远眺，古城经纬分明的唐宋格局与现代繁华街市交相辉映。",
+    camera: { pos: [6.24, 10, 20], target: [6.24, 1.32, 16.98] }
+  },
+  {
+    id: "hukou_waterfall",
+    title: "黄河壶口瀑布 · 千里浊浪一壶收",
+    subtitle: "世界上最大的金色巨瀑，九曲黄河在晋陕大峡谷的怒吼",
+    region: "陕北",
+    elevation: "448 m",
+    location: "陕西省延安市宜川县壶口镇与山西吉县交界",
+    url: imgPrefix + "images/scenery/hukou_waterfall.jpg",
+    desc: "滔滔黄河奔流至此，两岸石壁峭立如壶口，数百米宽的水面骤缩至四五十米，倾泻跌入十里龙槽，涛声震天，激起万丈金色烟云。",
+    camera: { pos: [24.5, 18, -4], target: [20.57, 1.94, -10.53] }
+  },
+  {
+    id: "qiankun_wan",
+    title: "延川黄河乾坤湾 · 华夏第一太极曲流",
+    subtitle: "320度巨型天然蛇曲大峡谷，黄土地与母河的鬼斧神工",
+    region: "陕北",
+    elevation: "680 m",
+    location: "陕西省延安市延川县乾坤湾镇",
+    url: imgPrefix + "images/scenery/qiankun_wan.jpg",
+    desc: "黄河穿行于陕北秦晋峡谷之间，在此形成一幅天造地设的巨型阴阳太极图。相传人文初祖伏羲在此仰观天文、俯察地理而始画八卦。",
+    camera: { pos: [24.5, 16, -8], target: [20.5, 3.6, -15.2] }
+  },
+  {
+    id: "baota_shan",
+    title: "延安宝塔山 · 巍巍宝塔与黄土圣地",
+    subtitle: "几回回梦里回延安，双手搂定宝塔山",
+    region: "陕北",
+    elevation: "980 m",
+    location: "陕西省延安市宝塔区嘉岭山之巅",
+    url: imgPrefix + "images/scenery/baota_shan.jpg",
+    desc: "唐代始建、明代重修的八角九级楼阁式砖塔，巍然俯瞰滚滚延河水，是中华民族抵御外侮、自强不息的红色精神丰碑。",
+    camera: { pos: [11.46, 20, -10], target: [11.46, 4.2, -17.31] }
+  },
+  {
+    id: "huangdi_ling",
+    title: "桥山黄帝陵 · 中华第一陵五千年古柏",
+    subtitle: "沮水环绕，桥山如舟，海内外炎黄子孙寻根拜祖圣地",
+    region: "陕北",
+    elevation: "930 m",
+    location: "陕西省延安市黄陵县桥山之巅",
+    url: imgPrefix + "images/scenery/huangdi_ling.jpg",
+    desc: "山上有汉武帝挂甲柏与相传黄帝手植柏，树龄逾五千年，苍劲郁拔。山下一泓沮水环抱，是华夏农耕文明奠基初祖的长眠之所。",
+    camera: { pos: [5.8, 16, 6], target: [3.8, 5.2, -3.2] }
+  },
+  {
+    id: "xian_city_wall",
+    title: "西安明城墙 · 环顾古今的千年金城",
+    subtitle: "全长 13.74 公里，世界上现存规模最大、保存最完好的古城垣",
+    region: "关中",
+    elevation: "410 m",
+    location: "陕西省西安市中心城区",
+    url: imgPrefix + "images/scenery/xian_city_wall.jpg",
+    desc: "在唐皇城基础上修建的明代城垣，墙高12米，顶宽12-14米。包含护城河、吊桥、闸楼、箭楼、正楼与角楼，构成中国古代最严密的防御工程体系。",
+    camera: { pos: [6.24, 14, 22], target: [6.24, 1.32, 16.98] }
+  },
+  {
+    id: "hanzhong_flower",
+    title: "汉中天汉油菜花海 · 陕南小江南",
+    subtitle: "百万亩金色花海漫野，汉江两岸一派春意盎然",
+    region: "陕南",
+    elevation: "510 m",
+    location: "陕西省汉中市汉台区/南郑区/洋县汉江盆地",
+    url: imgPrefix + "images/scenery/hanzhong_flower.jpg",
+    desc: "汉中盆地地处秦岭南麓，气候温润多雨，被誉为‘天府之国最早所指’。每年三月，百万亩油菜花盛开成金色海洋，与青山黛瓦相映成趣。",
+    camera: { pos: [-10, 16, 42], target: [-11.93, 1.94, 36.04] }
+  },
+  {
+    id: "hanjiang_water",
+    title: "陕南汉江瀛湖碧水 · 南水北调核心水源",
+    subtitle: "一江清水送北方，秦巴青山环抱下的生态画廊",
+    region: "陕南",
+    elevation: "320 m",
+    location: "陕西省安康市汉滨区瀛湖镇",
+    url: imgPrefix + "images/scenery/hanjiang_water.jpg",
+    desc: "汉江是长江第一大支流。瀛湖水面宽阔碧绿，承担着南水北调中线工程近七成水量的水源涵养重任，堪称华夏中央水塔与绿色生态明珠。",
+    camera: { pos: [7.09, 14, 46], target: [7.09, 0.85, 41.71] }
+  },
+  {
+    id: "famen_temple",
+    title: "扶风法门寺 · 皇家地宫佛指舍利",
+    subtitle: "关中塔庙之祖，盛唐佛教文化与丝路金银器宝库",
+    region: "关中",
+    elevation: "600 m",
+    location: "陕西省宝鸡市扶风县法门镇",
+    url: imgPrefix + "images/scenery/famen_temple.jpg",
+    desc: "1987年法门寺唐代地宫发掘，出土了释迦牟尼佛指舍利与两千余件大唐国宝重器、秘色瓷与琉璃器，轰动世界考古界。",
+    camera: { pos: [-8.5, 14, 20], target: [-10.78, 2.26, 16.67] }
+  },
+  {
+    id: "huaqing_pool",
+    title: "临潼华清宫 · 骊山温泉长恨歌",
+    subtitle: "六千年温泉，三千年皇家离宫遗址",
+    region: "关中",
+    elevation: "460 m",
+    location: "陕西省西安市临潼区骊山山麓",
+    url: imgPrefix + "images/scenery/huaqing_pool.jpg",
+    desc: "背依秀美骊山，面朝浩瀚渭水。周幽王曾在此建离宫，唐玄宗与杨贵妃在此沐浴休憩，《长恨歌》凄美爱情故事在此千古流传。",
+    camera: { pos: [9.46, 12, 20], target: [9.46, 1.81, 16.34] }
+  },
+  {
+    id: "zhenbeitai",
+    title: "榆林镇北台 · 万里长城第一台",
+    subtitle: "塞上明珠要塞，明长城三大奇观之一",
+    region: "陕北",
+    elevation: "1,150 m",
+    location: "陕西省榆林市北郊红山顶",
+    url: imgPrefix + "images/scenery/zhenbeitai.jpg",
+    desc: "明万历三十五年所建，高逾三十米，四层方台雄踞山巅。居高临下，扼守长城边关互市款贡要道，是大漠与中原交融的要冲历史见证。",
+    camera: { pos: [13.78, 20, -38], target: [13.78, 4.82, -44.8] }
+  },
+  {
+    id: "guanzhong_plain",
+    title: "八百里秦川 · 关中天府麦浪",
+    subtitle: "金城千里沃野如铺，中华农耕文明的奠基沃土",
+    region: "关中",
+    elevation: "400 m",
+    location: "陕西省关中平原渭河流域",
+    url: imgPrefix + "images/scenery/guanzhong_plain.jpg",
+    desc: "西起宝鸡峡，东至潼关，号称‘八百里秦川’。南倚秦岭天然生态屏障，北靠黄土高原，渭河横贯其间，深厚疏松的土壤奠定了周秦汉唐千年基业。",
+    camera: { pos: [3.97, 24, 32], target: [3.97, 2.0, 16.0] }
+  }
+];

@@ -95,6 +95,21 @@
             <span class="btn-sub-label">5大地理历史空间谜题 · 赢取荣誉文牒 ➔</span>
           </div>
         </button>
+
+        <button class="hero-action-btn gallery-hero-btn" @click="$emit('open-gallery')">
+          <div class="btn-glow-bar"></div>
+          <div class="btn-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+          </div>
+          <div class="btn-text-wrap">
+            <span class="btn-main-label">三秦 16 处地标实景画廊</span>
+            <span class="btn-sub-label">华山 · 太白 · 大雁塔 · 壶口实景大片 ➔</span>
+          </div>
+        </button>
       </div>
 
       <!-- 四大核心篇章晶格舱 (紧凑单行排布) -->
@@ -148,7 +163,7 @@
 
 <script setup>
 import { BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
-defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective', 'start-roadbook', 'open-changelog']);
+defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective', 'start-roadbook', 'open-changelog', 'open-gallery']);
 </script>
 
 <style scoped>

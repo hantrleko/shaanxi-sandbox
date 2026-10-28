@@ -76,6 +76,16 @@
 
     <!-- 右区：专业工具集与 V2.0 空间智能模块 -->
     <div class="header-right">
+      <!-- 📸 三秦实景影集画廊 -->
+      <button class="tool-btn gallery-tool" @click="$emit('open-gallery')" title="开启三秦 16 处地标真实地理高清实景画廊与 3D 定位">
+        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+        <span>实景影集</span>
+      </button>
+
       <!-- 航拍导览 -->
       <button class="tool-btn tour-tool" @click="$emit('open-tour')" title="开启《航拍三秦》电影级自动巡航导览">
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -251,6 +261,7 @@ defineEmits([
   'change-season',
   'open-tour',
   'open-roadbook',
+  'open-gallery',
   'toggle-profiling',
   'open-detective',
   'open-wargame',

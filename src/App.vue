@@ -37,6 +37,7 @@
       @start-detective="onOpenDetective"
       @start-roadbook="onOpenRoadbook"
       @open-changelog="onOpenChangelog"
+      @open-gallery="onOpenGallery"
     />
 
     <!-- HUD 界面层 (非门户模式时呈现) -->
@@ -59,6 +60,7 @@
         @change-season="onChangeSeason"
         @open-tour="onOpenTour"
         @open-roadbook="onOpenRoadbook"
+        @open-gallery="onOpenGallery"
         @toggle-profiling="onToggleProfiling"
         @open-detective="onOpenDetective"
         @open-wargame="onOpenWargame"
@@ -76,6 +78,7 @@
         @listen-current="onListenCurrent"
         @focus-feature="onFocusFeature"
         @fly-strata="onFlyToStrata"
+        @view-photo="onViewChapterPhoto"
       />
 
       <!-- 宏观沙盘模式：底部居中自适应浮动坞 (零遮挡、零撞车) -->
@@ -218,6 +221,22 @@
       </div>
     </template>
 
+    <!-- 🖼️ POI 点击地标实景图卡浮窗 (随时感知真实地理风貌) -->
+    <PoiPhotoCard
+      v-if="selectedPoi && !isTourActive && !isRoadbookActive"
+      :poi="selectedPoi"
+      @close="selectedPoi = null"
+      @view-large="onViewLargePhoto"
+      @view-gallery="onOpenGallery"
+    />
+
+    <!-- 📸 三秦 16 处地标真实地理高清摄影画廊 -->
+    <SceneryGalleryModal
+      :active="isGalleryActive"
+      @close="isGalleryActive = false"
+      @fly-to="onFlyToScenery"
+    />
+
     <!-- 📜 V2.0 版本更迭历史与架构升级日志中心 (全场景可随时呼出) -->
     <ChangelogModal
       :active="isChangelogActive"
@@ -245,7 +264,9 @@ import GeoDetectiveModal from './components/GeoDetectiveModal.vue';
 import PosterModal from './components/PosterModal.vue';
 import CulturalCard from './components/CulturalCard.vue';
 import ChangelogModal from './components/ChangelogModal.vue';
-import { THEMES, BONSAIS, EVOLUTION_STAGES, CAMPAIGNS, WARGAME_COMPARISONS, CINEMATIC_WAYPOINTS } from './data/shaanxiData.js';
+import SceneryGalleryModal from './components/SceneryGalleryModal.vue';
+import PoiPhotoCard from './components/PoiPhotoCard.vue';
+import { THEMES, BONSAIS, EVOLUTION_STAGES, CAMPAIGNS, WARGAME_COMPARISONS, CINEMATIC_WAYPOINTS, SCENERY_PHOTOS } from './data/shaanxiData.js';
 import { narrator } from './utils/speech.js';
 import { soundscape } from './utils/soundscape.js';
 
@@ -284,11 +305,13 @@ const isPosterActive = ref(false);
 const snapshotUrl = ref('');
 const selectedCulturalItem = ref(null);
 
-// V2.0 旗舰版状态 (四季气候流转、3D路书工坊、版本更迭中心)
+// V2.0 旗舰版状态 (四季气候流转、3D路书工坊、版本更迭中心、实景画廊)
 const seasonMode = ref('natural');
 const isChangelogActive = ref(false);
 const isRoadbookActive = ref(false);
 const customRoadbookPoints = ref([]);
+const isGalleryActive = ref(false);
+const selectedPoi = ref(null);
 
 const layers = reactive({
   border: true,
@@ -507,6 +530,32 @@ const onFocusWaypoint = (wp) => {
   }
 };
 
+// 📸 三秦实景影集与摄影联动
+const onOpenGallery = () => {
+  isGalleryActive.value = true;
+};
+
+const onFlyToScenery = (item) => {
+  if (threeRef.value && item && item.camera) {
+    threeRef.value.flyTo(item.camera.pos, item.camera.target, 2.0);
+  }
+  selectedPoi.value = {
+    id: item.id,
+    name: item.title.split('·')[0].trim(),
+    badge: item.subtitle,
+    desc: item.desc,
+    type: item.region === '秦岭' ? 'mountain' : 'nature'
+  };
+};
+
+const onViewChapterPhoto = () => {
+  isGalleryActive.value = true;
+};
+
+const onViewLargePhoto = () => {
+  isGalleryActive.value = true;
+};
+
 const onSwitchMode = (mode) => {
   currentMode.value = mode;
   narrator.stop();
@@ -516,6 +565,7 @@ const onSwitchMode = (mode) => {
   isProfilingActive.value = false;
   isDetectiveActive.value = false;
   isRoadbookActive.value = false;
+  selectedPoi.value = null;
 };
 
 const onLightingChange = (mode) => {
@@ -613,7 +663,7 @@ const onCameraUpdate = (data) => {
 };
 
 const onPoiSelected = (poi) => {
-  console.log('POI clicked:', poi.name);
+  selectedPoi.value = poi;
 };
 
 const onSelectBonsai = (id) => {
