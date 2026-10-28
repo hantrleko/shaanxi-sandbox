@@ -11,6 +11,36 @@
       </svg>
       <span class="toggle-v-text" v-if="isCollapsed">展开图文</span>
     </button>
+
+    <!-- 📸 章节置顶真实地理实景大图 (核心主焦点，一眼感知真实三秦风貌) -->
+    <div
+      v-if="chapter.photoUrl"
+      class="hero-photo-banner"
+      @click="$emit('view-photo', chapter.photoUrl, chapter.photoCaption)"
+      title="点击查看高清实景大图"
+    >
+      <img :src="chapter.photoUrl" :alt="chapter.title" class="hero-photo-img" />
+      <div class="hero-photo-gradient"></div>
+      <div class="hero-photo-top-bar">
+        <span class="photo-live-badge">
+          <span class="pulse-dot"></span>
+          真实风貌实景
+        </span>
+        <span class="photo-expand-pill">
+          <svg class="pill-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+          放大全屏
+        </span>
+      </div>
+      <div class="hero-photo-caption" v-if="chapter.photoCaption">
+        {{ chapter.photoCaption }}
+      </div>
+    </div>
+
     <div class="panel-header">
       <div class="chapter-meta">
         <span class="chapter-num">{{ chapter.num }} / {{ totalChapters }}</span>
@@ -51,31 +81,18 @@
       </div>
     </div>
 
-    <!-- 选项卡切换媒体视图 (剖面 / 实景图 二选一切换，大幅精简垂直空间) -->
-    <div class="media-container">
-      <div class="media-tabs">
-        <button
-          class="media-tab-btn"
-          :class="{ active: activeMediaTab === 'diagram' }"
-          @click="activeMediaTab = 'diagram'"
-          v-if="chapter.diagramTitle"
-        >
-          📐 专业地质剖面 (可点交互)
-        </button>
-        <button
-          class="media-tab-btn"
-          :class="{ active: activeMediaTab === 'photo' }"
-          @click="activeMediaTab = 'photo'"
-          v-if="chapter.photoUrl"
-        >
-          📷 权威实景影像
-        </button>
-      </div>
+    <!-- 专业地质剖面折叠交互抽屉 (当章节有剖面图解时呈现，不遮挡实景照片) -->
+    <div class="diagram-drawer" v-if="chapter.diagramTitle">
+      <button
+        class="diagram-toggle-bar"
+        @click="isDiagramOpen = !isDiagramOpen"
+        :class="{ active: isDiagramOpen }"
+      >
+        <span class="diagram-bar-title">📐 { chapter.diagramTitle }</span>
+        <span class="diagram-bar-tag">{{ isDiagramOpen ? '收起剖面 ▲' : '展开地质剖面 ▼' }}</span>
+      </button>
+      <div class="diagram-body" v-show="isDiagramOpen">
 
-      <!-- 媒体内容区 -->
-      <div class="media-body">
-        <!-- 1. 剖面图解视图 -->
-        <div class="diagram-wrap" v-if="activeMediaTab === 'diagram' && chapter.diagramTitle">
           <!-- 陕西南北地质大剖面 -->
           <svg
             v-if="chapter.diagramType === 'profile_shaanxi'"
@@ -202,14 +219,7 @@
           </svg>
 
           <div class="card-caption">{{ chapter.diagramTitle }} (点选地貌飞向实景)</div>
-        </div>
 
-        <!-- 2. 实景照片视图 -->
-        <div class="photo-wrap" v-else-if="activeMediaTab === 'photo' && chapter.photoUrl" @click="$emit('view-photo', chapter.photoUrl, chapter.photoCaption)">
-          <img :src="chapter.photoUrl" :alt="chapter.title" class="preview-img" />
-          <div class="photo-expand-badge">🔍 点击放大实景</div>
-          <div class="card-caption">{{ chapter.photoCaption }}</div>
-        </div>
       </div>
     </div>
 
@@ -236,7 +246,7 @@ const props = defineProps({
 
 const emit = defineEmits(['listen-current', 'focus-feature', 'fly-strata', 'view-photo']);
 
-const activeMediaTab = ref('diagram');
+const isDiagramOpen = ref(false);
 const activeSentenceIndex = ref(0);
 let timer = null;
 
@@ -249,14 +259,10 @@ const flyTo = (pos) => {
   emit('fly-strata', pos);
 };
 
-// 如果没有剖面图，自动切换到照片
-watch(() => props.chapter, (ch) => {
-  if (ch && !ch.diagramTitle && ch.photoUrl) {
-    activeMediaTab.value = 'photo';
-  } else if (ch && ch.diagramTitle) {
-    activeMediaTab.value = 'diagram';
-  }
-}, { immediate: true });
+// 章节切换时默认收起地质剖面，保持卡片紧凑和实景图优先
+watch(() => props.chapter?.id, () => {
+  isDiagramOpen.value = false;
+});
 
 watch(() => props.isPlaying, (playing) => {
   if (playing) {
@@ -399,42 +405,177 @@ watch(() => props.isPlaying, (playing) => {
   margin-top: 1px;
 }
 
-.media-container {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+/* 📸 章节置顶高清实景摄影大图 */
+.hero-photo-banner {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  border-radius: 10px;
   overflow: hidden;
-}
-
-.media-tabs {
-  display: flex;
-  background: rgba(0, 0, 0, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.media-tab-btn {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 6px;
   cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.hero-photo-banner:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.35);
+  transform: translateY(-1px);
+}
+
+.hero-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.hero-photo-banner:hover .hero-photo-img {
+  transform: scale(1.04);
+}
+
+.hero-photo-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(10, 16, 28, 0.45) 0%,
+    transparent 35%,
+    rgba(10, 16, 28, 0.82) 80%,
+    rgba(10, 16, 28, 0.98) 100%
+  );
+  pointer-events: none;
+}
+
+.hero-photo-top-bar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.photo-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: pulseDot 1.5s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.photo-expand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
   transition: all 0.2s;
 }
 
-.media-tab-btn:hover {
-  color: #fff;
-}
-
-.media-tab-btn.active {
+.hero-photo-banner:hover .photo-expand-pill {
+  border-color: #38bdf8;
   color: #38bdf8;
-  background: rgba(56, 189, 248, 0.15);
-  border-bottom: 2px solid #38bdf8;
+  background: rgba(15, 23, 42, 0.98);
 }
 
-.media-body {
+.pill-svg {
+  width: 11px;
+  height: 11px;
+}
+
+.hero-photo-caption {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  right: 10px;
+  font-size: 11px;
+  color: #f1f5f9;
+  font-weight: 600;
+  line-height: 1.4;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+/* 📐 专业地质剖面折叠抽屉 */
+.diagram-drawer {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.diagram-toggle-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  padding: 8px 10px;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.diagram-toggle-bar:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+
+.diagram-toggle-bar.active {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.diagram-bar-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.diagram-bar-tag {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.diagram-body {
   padding: 8px;
 }
 
@@ -467,44 +608,6 @@ watch(() => props.isPlaying, (playing) => {
   font-weight: 900;
 }
 
-.photo-wrap {
-  position: relative;
-  cursor: pointer;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.photo-wrap:hover .preview-img {
-  transform: scale(1.03);
-}
-
-.photo-wrap:hover .photo-expand-badge {
-  opacity: 1;
-}
-
-.photo-expand-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
-  font-size: 9.5px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  opacity: 0.85;
-  transition: opacity 0.2s;
-}
-
-.preview-img {
-  width: 100%;
-  height: 130px;
-  object-fit: cover;
-  border-radius: 4px;
-  display: block;
-  transition: transform 0.3s ease;
-}
 
 .card-caption {
   font-size: 10px;
@@ -535,8 +638,6 @@ watch(() => props.isPlaying, (playing) => {
   color: #fff;
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
-</style>
-
 .left-info-panel {
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
@@ -585,3 +686,4 @@ watch(() => props.isPlaying, (playing) => {
   letter-spacing: 0.1em;
   font-weight: 700;
 }
+</style>

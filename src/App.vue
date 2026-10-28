@@ -233,7 +233,8 @@
     <!-- 📸 三秦 16 处地标真实地理高清摄影画廊 -->
     <SceneryGalleryModal
       :active="isGalleryActive"
-      @close="isGalleryActive = false"
+      :initial-item="activeGalleryItem"
+      @close="onCloseGallery"
       @fly-to="onFlyToScenery"
     />
 
@@ -311,6 +312,7 @@ const isChangelogActive = ref(false);
 const isRoadbookActive = ref(false);
 const customRoadbookPoints = ref([]);
 const isGalleryActive = ref(false);
+const activeGalleryItem = ref(null);
 const selectedPoi = ref(null);
 
 const layers = reactive({
@@ -532,7 +534,13 @@ const onFocusWaypoint = (wp) => {
 
 // 📸 三秦实景影集与摄影联动
 const onOpenGallery = () => {
+  activeGalleryItem.value = null;
   isGalleryActive.value = true;
+};
+
+const onCloseGallery = () => {
+  isGalleryActive.value = false;
+  activeGalleryItem.value = null;
 };
 
 const onFlyToScenery = (item) => {
@@ -548,11 +556,29 @@ const onFlyToScenery = (item) => {
   };
 };
 
-const onViewChapterPhoto = () => {
+const onViewChapterPhoto = (photoUrl, caption) => {
+  let found = (SCENERY_PHOTOS || []).find(s => s.url === photoUrl);
+  if (!found && currentChapter.value) {
+    found = (SCENERY_PHOTOS || []).find(s => s.id === currentChapter.value.id || s.title.includes(currentChapter.value.title.slice(0, 2)));
+  }
+  if (!found) {
+    found = {
+      id: currentChapter.value?.id || 'chapter_photo',
+      title: currentChapter.value?.title || '地标实景',
+      subtitle: currentChapter.value?.subTitle || '',
+      url: photoUrl,
+      desc: caption || currentChapter.value?.desc || '',
+      region: currentTheme.value?.title || '三秦大地',
+      elevation: '实景照片',
+      location: '陕西地理实景'
+    };
+  }
+  activeGalleryItem.value = found;
   isGalleryActive.value = true;
 };
 
-const onViewLargePhoto = () => {
+const onViewLargePhoto = (item) => {
+  activeGalleryItem.value = item;
   isGalleryActive.value = true;
 };
 

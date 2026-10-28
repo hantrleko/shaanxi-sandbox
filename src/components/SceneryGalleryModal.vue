@@ -101,18 +101,33 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { SCENERY_PHOTOS } from '../data/shaanxiData.js';
 import { soundscape } from '../utils/soundscape.js';
 
-defineProps({
-  active: { type: Boolean, default: false }
+const props = defineProps({
+  active: { type: Boolean, default: false },
+  initialItem: { type: Object, default: null }
 });
 
 const emit = defineEmits(['close', 'fly-to']);
 
 const currentCategory = ref('all');
 const activeLightboxItem = ref(null);
+
+watch(() => props.active, (newVal) => {
+  if (newVal && props.initialItem) {
+    activeLightboxItem.value = props.initialItem;
+  } else if (!newVal) {
+    activeLightboxItem.value = null;
+  }
+}, { immediate: true });
+
+watch(() => props.initialItem, (item) => {
+  if (item && props.active) {
+    activeLightboxItem.value = item;
+  }
+});
 
 const categories = [
   { id: 'all', name: '全部实景' },
