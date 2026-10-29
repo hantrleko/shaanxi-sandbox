@@ -131,13 +131,19 @@ let terrainReticleMesh = null;
 
 let scene, camera, renderer, controls;
 let macroGroup, bonsaiGroup, modelGroup, campaignGroup;
-let borderSubGroup, riversSubGroup, qinlingSubGroup, silkRoadSubGroup, poisSubGroup, culturalSubGroup, profilingMeasureGroup;
+let borderSubGroup, riversSubGroup, qinlingSubGroup, silkRoadSubGroup, poisSubGroup, culturalSubGroup, profilingMeasureGroup, citiesSubGroup;
 let terrainMesh, sunLight, skyFillLight;
 let silkRoadLine = null;
 let qinlingLineMesh = null;
 let animFrameId = null;
 let flowOffset = 0;
 let demCanvas = null;
+
+// 动态信标与高阶渲染动画追踪
+let animatedCrystals = [];
+let animatedSonarRings = [];
+let silkRoadParticles = null;
+let riverMeshes = [];
 
 // 四季片元着色器 Uniforms
 let seasonUniforms = {
@@ -245,9 +251,10 @@ const initThree = () => {
   qinlingSubGroup = new THREE.Group();
   silkRoadSubGroup = new THREE.Group();
   poisSubGroup = new THREE.Group();
-
   culturalSubGroup = new THREE.Group();
   profilingMeasureGroup = new THREE.Group();
+  citiesSubGroup = new THREE.Group();
+
   macroGroup.add(borderSubGroup);
   macroGroup.add(riversSubGroup);
   macroGroup.add(qinlingSubGroup);
@@ -255,6 +262,7 @@ const initThree = () => {
   macroGroup.add(poisSubGroup);
   macroGroup.add(culturalSubGroup);
   macroGroup.add(profilingMeasureGroup);
+  macroGroup.add(citiesSubGroup);
 
   renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown);
   renderer.domElement.addEventListener('pointermove', onCanvasPointerMove);
@@ -340,6 +348,7 @@ function loadRealTerrainAssets() {
               buildRivers();
               buildQinlingLine();
               buildSilkRoad();
+              buildProceduralCities();
               buildSpatialPins();
               buildCulturalHotspots();
               buildBonsaiBlock();
@@ -358,6 +367,7 @@ function loadRealTerrainAssets() {
               buildRivers();
               buildQinlingLine();
               buildSilkRoad();
+              buildProceduralCities();
               buildSpatialPins();
               buildBonsaiBlock();
               buildEvolutionModel();
@@ -404,7 +414,7 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
     }
   }
 
-  // 1. 根据 DEM 置换网格顶部高程
+  // 1. 根据 DEM 置换网格顶部高程 (双线性插值消除锯齿阶梯伪影)
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
@@ -414,11 +424,22 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
 
     let h = 0;
     if (demData && u >= 0 && u <= 1 && v >= 0 && v <= 1) {
-      const px = Math.floor(u * (demW - 1));
-      const py = Math.floor(v * (demH - 1));
-      const pIdx = (py * demW + px) * 4;
-      const grey = demData[pIdx];
-      h = Math.pow(grey / 255.0, 1.1) * 18.5;
+      const fx = u * (demW - 1);
+      const fy = v * (demH - 1);
+      const x0 = Math.floor(fx);
+      const y0 = Math.floor(fy);
+      const x1 = Math.min(x0 + 1, demW - 1);
+      const y1 = Math.min(y0 + 1, demH - 1);
+      const rx = fx - x0;
+      const ry = fy - y0;
+
+      const p00 = demData[(y0 * demW + x0) * 4];
+      const p10 = demData[(y0 * demW + x1) * 4];
+      const p01 = demData[(y1 * demW + x0) * 4];
+      const p11 = demData[(y1 * demW + x1) * 4];
+
+      const val = (p00 * (1 - rx) + p10 * rx) * (1 - ry) + (p01 * (1 - rx) + p11 * rx) * ry;
+      h = Math.pow(val / 255.0, 1.08) * 18.5;
     } else {
       h = (z > 12) ? Math.max(0, 1 - Math.abs(z - 18) / 14) * 14 : 1.5;
     }
@@ -436,7 +457,7 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
     flatShading: false
   });
 
-  // 注入四季地貌片元着色器 (GLSL Four Seasons Shader)
+  // 注入四季地貌与电影级天光散射片元着色器 (GLSL Atmospheric Shader)
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uSeason = seasonUniforms.uSeason;
     shader.uniforms.uPrevSeason = seasonUniforms.uPrevSeason;
@@ -510,9 +531,27 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <map_fragment>',
       `#include <map_fragment>
+       // 1. 四季色彩过渡
        vec3 colPrev = calcSeasonCol(uPrevSeason, diffuseColor.rgb, vTerrainWorldPos);
        vec3 colCurr = calcSeasonCol(uSeason, diffuseColor.rgb, vTerrainWorldPos);
-       diffuseColor.rgb = mix(colPrev, colCurr, uSeasonBlend);`
+       diffuseColor.rgb = mix(colPrev, colCurr, uSeasonBlend);
+
+       // 2. 电影级大气天光 Fresnel 散射边缘微光 (Atmospheric Rim Glow)
+       vec3 viewDir = normalize(cameraPosition - vTerrainWorldPos);
+       float vDotN = max(dot(viewDir, normalize(vNormal)), 0.0);
+       float rimFactor = pow(1.0 - vDotN, 3.2);
+       vec3 rimScattering = vec3(0.22, 0.45, 0.72) * rimFactor * 0.38;
+
+       // 3. 高海拔太白/华山花岗岩雪峰极顶高光 (Alpine Hypsometric Crest Highlight)
+       float alpineMask = smoothstep(13.8, 18.5, vTerrainWorldPos.y);
+       vec3 peakSnowTint = vec3(0.96, 0.98, 1.05);
+       diffuseColor.rgb = mix(diffuseColor.rgb, peakSnowTint, alpineMask * 0.28);
+
+       // 4. 陕北暖黄土高原台地微光漫射
+       float loessWarmth = (1.0 - smoothstep(-6.0, 12.0, vTerrainWorldPos.z)) * smoothstep(2.5, 8.0, vTerrainWorldPos.y);
+       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 1.02, 0.90), loessWarmth * 0.22);
+
+       diffuseColor.rgb += rimScattering;`
     );
   };
 
@@ -557,9 +596,35 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
 
   const skirtMat = new THREE.MeshStandardMaterial({
     color: 0x0f172a,
-    roughness: 0.9,
-    metalness: 0.15
+    roughness: 0.88,
+    metalness: 0.18
   });
+
+  // 沉积岩层地质水平层理纹理 (Geological Strata Shading)
+  skirtMat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vSkirtWorldPos;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+       vSkirtWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vSkirtWorldPos;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      `#include <dithering_fragment>
+       float strataBand = sin(vSkirtWorldPos.y * 3.5) * 0.4 + sin(vSkirtWorldPos.y * 10.0) * 0.2;
+       vec3 strataRock = mix(vec3(0.06, 0.10, 0.16), vec3(0.14, 0.20, 0.28), strataBand * 0.5 + 0.5);
+       gl_FragColor.rgb = mix(gl_FragColor.rgb, strataRock, 0.65);`
+    );
+  };
   const skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
   skirtMesh.castShadow = true;
   skirtMesh.receiveShadow = true;
@@ -623,72 +688,135 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
   macroGroup.add(radarMesh);
 }
 
-// 绘制全省十地市真实矢量境界 (严格基于 GeoJSON，线宽精致贴地)
+// 绘制全省十地市真实矢量境界 (低噪点细虚线，杜绝粗暴切割)
 function buildShaanxiBorder() {
   while (borderSubGroup.children.length > 0) {
     borderSubGroup.remove(borderSubGroup.children[0]);
   }
 
-  const lineMat = new THREE.LineBasicMaterial({
+  // 1. 市级边界采用低视觉噪点的精致微虚线
+  const cityLineMat = new THREE.LineDashedMaterial({
     color: 0x38bdf8,
     transparent: true,
-    opacity: 0.55,
-    linewidth: 1
+    opacity: 0.28,
+    dashSize: 1.2,
+    gapSize: 0.8,
+    scale: 1
   });
 
   CITY_BOUNDARIES.forEach((city) => {
     city.rings.forEach((ring) => {
-      const pts = ring.map(p => new THREE.Vector3(p[0], p[1] + 0.25, p[2]));
+      const pts = ring.map(p => new THREE.Vector3(p[0], p[1] + 0.14, p[2]));
       if (pts.length > 2) {
         const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        const line = new THREE.LineLoop(geo, lineMat);
+        const line = new THREE.Line(geo, cityLineMat);
+        line.computeLineDistances();
         borderSubGroup.add(line);
       }
     });
   });
+
+  // 2. 西安大都市特区金色辉光边界
+  const xianCity = CITY_BOUNDARIES.find(c => c.name && c.name.includes("西安"));
+  if (xianCity) {
+    const xianMat = new THREE.LineBasicMaterial({
+      color: 0xf59e0b,
+      transparent: true,
+      opacity: 0.65,
+      linewidth: 1.5
+    });
+    xianCity.rings.forEach((ring) => {
+      const pts = ring.map(p => new THREE.Vector3(p[0], p[1] + 0.18, p[2]));
+      if (pts.length > 2) {
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const line = new THREE.LineLoop(geo, xianMat);
+        borderSubGroup.add(line);
+      }
+    });
+  }
 }
 
 
-// 构建精细流光河流 (纤细精致的谷底水系，告别粗大管道)
+// 构建精细流光河流 (拟真水色：黄河泥金、渭河蔚蓝、汉江碧玉)
 function buildRivers() {
   while (riversSubGroup.children.length > 0) {
     riversSubGroup.remove(riversSubGroup.children[0]);
   }
+  riverMeshes = [];
 
-  const riverMat = new THREE.MeshStandardMaterial({
-    color: 0x0284c7,
-    emissive: 0x0369a1,
-    emissiveIntensity: 0.6,
-    roughness: 0.15,
-    metalness: 0.8,
-    transparent: true,
-    opacity: 0.88
-  });
+  const riverConfigs = {
+    yellow_river: {
+      color: 0xd97706,
+      emissive: 0xb45309,
+      emissiveIntensity: 0.85,
+      radius: 0.26,
+      opacity: 0.94
+    },
+    wei_river: {
+      color: 0x0284c7,
+      emissive: 0x0369a1,
+      emissiveIntensity: 0.75,
+      radius: 0.22,
+      opacity: 0.88
+    },
+    han_river: {
+      color: 0x0ea5e9,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.82,
+      radius: 0.20,
+      opacity: 0.90
+    },
+    jing_river: {
+      color: 0xca8a04,
+      emissive: 0xa16207,
+      emissiveIntensity: 0.78,
+      radius: 0.16,
+      opacity: 0.92
+    }
+  };
 
   Object.entries(REAL_RIVERS).forEach(([key, ptsArray]) => {
     if (!ptsArray || ptsArray.length < 2) return;
 
-    // 平滑曲线与细化半径 (主河 0.20，支流 0.14，紧密吸附谷底)
-    const curvePoints = ptsArray.map(p => new THREE.Vector3(p[0], p[1] + 0.12, p[2]));
-    const curve = new THREE.CatmullRomCurve3(curvePoints);
-    const radius = (key.includes("yellow") || key.includes("wei")) ? 0.20 : 0.14;
-    const tubeGeo = new THREE.TubeGeometry(curve, 160, radius, 8, false);
+    const conf = riverConfigs[key] || {
+      color: 0x0284c7,
+      emissive: 0x0369a1,
+      emissiveIntensity: 0.7,
+      radius: 0.16,
+      opacity: 0.85
+    };
 
-    const mesh = new THREE.Mesh(tubeGeo, riverMat);
+    // 平滑曲线与低剖面微贴地 (仅离地 +0.06，紧致嵌合谷底)
+    const curvePoints = ptsArray.map(p => new THREE.Vector3(p[0], p[1] + 0.06, p[2]));
+    const curve = new THREE.CatmullRomCurve3(curvePoints);
+    const tubeGeo = new THREE.TubeGeometry(curve, 180, conf.radius, 8, false);
+
+    const rMat = new THREE.MeshStandardMaterial({
+      color: conf.color,
+      emissive: conf.emissive,
+      emissiveIntensity: conf.emissiveIntensity,
+      roughness: 0.12,
+      metalness: 0.85,
+      transparent: true,
+      opacity: conf.opacity
+    });
+
+    const mesh = new THREE.Mesh(tubeGeo, rMat);
     mesh.name = key;
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     riversSubGroup.add(mesh);
+    riverMeshes.push(mesh);
   });
 }
 
-// 绘制秦岭 800mm 气候分界线 (翡翠绿光带与峰脊信标)
+// 绘制秦岭 800mm 气候分界线 (碧玉山脊气象光脉与峰脊全息信标)
 function buildQinlingLine() {
   while (qinlingSubGroup.children.length > 0) {
     qinlingSubGroup.remove(qinlingSubGroup.children[0]);
   }
 
-  // 严谨契合陕西境内秦岭真实主梁走向，坚决杜绝越界悬空入虚空
+  // 契合陕西境内秦岭真实主脊走向
   const pts = [
     new THREE.Vector3(-18.5, 12.0, 19.5),  // 凤县秦岭梁西界
     new THREE.Vector3(-12.0, 14.2, 18.2),  // 宝鸡嘉陵江源
@@ -699,34 +827,66 @@ function buildQinlingLine() {
     new THREE.Vector3(21.5, 8.5, 16.8)     // 商洛丹凤东界归隐
   ];
   const curve = new THREE.CatmullRomCurve3(pts);
-  const qinlingTubeGeo = new THREE.TubeGeometry(curve, 140, 0.16, 8, false);
+  const qinlingTubeGeo = new THREE.TubeGeometry(curve, 150, 0.14, 8, false);
 
   const qinlingMat = new THREE.MeshStandardMaterial({
     color: 0x10b981,
     emissive: 0x059669,
-    emissiveIntensity: 0.8,
-    roughness: 0.2,
-    metalness: 0.6
+    emissiveIntensity: 0.95,
+    roughness: 0.15,
+    metalness: 0.7
   });
 
   qinlingLineMesh = new THREE.Mesh(qinlingTubeGeo, qinlingMat);
   qinlingSubGroup.add(qinlingLineMesh);
 
-  // 太白峰顶气候分界金标光柱
-  const beaconGeo = new THREE.CylinderGeometry(0.12, 0.12, 3.5, 16);
-  const beaconMat = new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.85 });
-  const beacon = new THREE.Mesh(beaconGeo, beaconMat);
-  beacon.position.set(-4.84, 18.8, 22.75);
-  qinlingSubGroup.add(beacon);
+  // 太白峰顶全息八面体气候界标 (取代粗糙实心圆柱)
+  const beaconGroup = new THREE.Group();
+  beaconGroup.position.set(-4.84, 17.8, 22.75);
+
+  const crystalGeo = new THREE.OctahedronGeometry(0.42, 0);
+  const crystalMat = new THREE.MeshStandardMaterial({
+    color: 0x34d399,
+    emissive: 0x10b981,
+    emissiveIntensity: 1.2,
+    roughness: 0.1,
+    metalness: 0.9
+  });
+  const summitCrystal = new THREE.Mesh(crystalGeo, crystalMat);
+  summitCrystal.position.y = 1.0;
+  beaconGroup.add(summitCrystal);
+  animatedCrystals.push({ mesh: summitCrystal, baseY: 1.0, rotSpeed: 0.025, phase: 0 });
+
+  // 垂直天际柔光柱
+  const beamGeo = new THREE.CylinderGeometry(0.015, 0.12, 6.0, 16, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0x34d399,
+    transparent: true,
+    opacity: 0.42,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+  beamMesh.position.y = 3.0;
+  beaconGroup.add(beamMesh);
+
+  // 地面脉冲光环
+  const ringGeo = new THREE.RingGeometry(0.2, 0.55, 32);
+  ringGeo.rotateX(-Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+  ringMesh.position.y = 0.05;
+  beaconGroup.add(ringMesh);
+
+  qinlingSubGroup.add(beaconGroup);
 }
 
-// 绘制丝绸之路开拓主干线 (金芒律动脉络)
+// 绘制丝绸之路开拓主干线 (流金丝带与漫移星尘粒子)
 function buildSilkRoad() {
   while (silkRoadSubGroup.children.length > 0) {
     silkRoadSubGroup.remove(silkRoadSubGroup.children[0]);
   }
 
-  // 严谨起于西安(汉唐长安丝路起点)，沿渭河河谷穿关中西出大散关
   const pts = [
     new THREE.Vector3(6.24, 2.5, 16.98),   // 西安 (汉唐长安丝路起点)
     new THREE.Vector3(1.5, 2.7, 15.2),    // 咸阳渭水古渡
@@ -737,69 +897,331 @@ function buildSilkRoad() {
     new THREE.Vector3(-38.0, 5.0, -4.0)   // 远向河西走廊
   ];
   const curve = new THREE.CatmullRomCurve3(pts);
-  const silkGeo = new THREE.TubeGeometry(curve, 160, 0.22, 12, false);
+  const silkGeo = new THREE.TubeGeometry(curve, 160, 0.18, 8, false);
 
   const silkMat = new THREE.MeshStandardMaterial({
     color: 0xfbbf24,
     emissive: 0xd97706,
     emissiveIntensity: 0.95,
-    roughness: 0.2,
-    metalness: 0.8
+    roughness: 0.15,
+    metalness: 0.85
   });
 
   silkRoadLine = new THREE.Mesh(silkGeo, silkMat);
   silkRoadSubGroup.add(silkRoadLine);
+
+  // 丝路流金星尘粒子系统 (Drifting Stardust along Silk Road)
+  const particleCount = 70;
+  const pGeo = new THREE.BufferGeometry();
+  const pPos = new Float32Array(particleCount * 3);
+  const pProgress = new Float32Array(particleCount);
+
+  for (let i = 0; i < particleCount; i++) {
+    pProgress[i] = i / particleCount;
+    const pt = curve.getPoint(pProgress[i]);
+    pPos[i * 3] = pt.x + (Math.random() - 0.5) * 0.3;
+    pPos[i * 3 + 1] = pt.y + 0.25 + Math.random() * 0.3;
+    pPos[i * 3 + 2] = pt.z + (Math.random() - 0.5) * 0.3;
+  }
+
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  const pMat = new THREE.PointsMaterial({
+    color: 0xfbbf24,
+    size: 0.52,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false
+  });
+  silkRoadParticles = new THREE.Points(pGeo, pMat);
+  silkRoadParticles.userData = { curve, progress: pProgress };
+  silkRoadSubGroup.add(silkRoadParticles);
 }
 
-// 构建精致立体 POI 空间信标针 (彻底废弃粗陋的 3D Sprite 黑盒，全由屏幕自适应层托管)
+// 构建三秦重点城市三维聚落集群 (古今交融：长安城墙/大雁塔/钟楼与现代夜景天际线)
+function buildProceduralCities() {
+  while (citiesSubGroup.children.length > 0) {
+    citiesSubGroup.remove(citiesSubGroup.children[0]);
+  }
+
+  const buildingMat = new THREE.MeshStandardMaterial({
+    color: 0x111c2e,
+    roughness: 0.4,
+    metalness: 0.8
+  });
+
+  const nightWindowMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    emissive: 0xf59e0b,
+    emissiveIntensity: 0.95,
+    roughness: 0.3,
+    metalness: 0.6
+  });
+
+  const cyanWindowMat = new THREE.MeshStandardMaterial({
+    color: 0x0f172a,
+    emissive: 0x38bdf8,
+    emissiveIntensity: 0.85,
+    roughness: 0.3,
+    metalness: 0.6
+  });
+
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0x292524,
+    roughness: 0.9,
+    metalness: 0.2
+  });
+
+  // 1. 西安 (汉唐长安都城与现代中心城市集群)
+  const xianGroup = new THREE.Group();
+  const xianX = 6.24;
+  const xianZ = 16.98;
+  const xianY = getTerrainHeightAt(xianX, xianZ) + 0.05;
+  xianGroup.position.set(xianX, xianY, xianZ);
+
+  // 仿明清/唐长安城墙 (矩形围城)
+  const wallW = 4.8;
+  const wallD = 3.6;
+  const wallH = 0.42;
+  const wallT = 0.22;
+
+  const createWallSegment = (w, d, h, px, pz) => {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const m = new THREE.Mesh(geo, wallMat);
+    m.position.set(px, h / 2, pz);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  };
+
+  xianGroup.add(createWallSegment(wallW, wallT, wallH, 0, -wallD / 2));
+  xianGroup.add(createWallSegment(wallW, wallT, wallH, 0, wallD / 2));
+  xianGroup.add(createWallSegment(wallT, wallD, wallH, -wallW / 2, 0));
+  xianGroup.add(createWallSegment(wallT, wallD, wallH, wallW / 2, 0));
+
+  // 四隅角楼 (Corner Watchtowers)
+  const cornerGeo = new THREE.BoxGeometry(0.36, 0.65, 0.36);
+  const cornerMat = new THREE.MeshStandardMaterial({ color: 0x78350f, emissive: 0xd97706, emissiveIntensity: 0.4 });
+  [[-wallW / 2, -wallD / 2], [wallW / 2, -wallD / 2], [-wallW / 2, wallD / 2], [wallW / 2, wallD / 2]].forEach(([cx, cz]) => {
+    const cMesh = new THREE.Mesh(cornerGeo, cornerMat);
+    cMesh.position.set(cx, 0.32, cz);
+    xianGroup.add(cMesh);
+  });
+
+  // 钟楼 (中央三层金顶歇山亭)
+  const bellTowerBase = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.55), wallMat);
+  bellTowerBase.position.set(0, 0.18, 0);
+  xianGroup.add(bellTowerBase);
+
+  const bellTowerPavilion = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.42), nightWindowMat);
+  bellTowerPavilion.position.set(0, 0.55, 0);
+  xianGroup.add(bellTowerPavilion);
+
+  const bellSpire = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 8), new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
+  bellSpire.position.set(0, 0.95, 0);
+  xianGroup.add(bellSpire);
+
+  // 大雁塔 (南郊七层叠涩方塔)
+  const pagodaGroup = new THREE.Group();
+  pagodaGroup.position.set(0.6, 0, 1.3);
+  let pY = 0;
+  for (let lvl = 0; lvl < 7; lvl++) {
+    const w = 0.52 - lvl * 0.055;
+    const h = 0.22;
+    const tier = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), (lvl % 2 === 0) ? nightWindowMat : buildingMat);
+    tier.position.set(0, pY + h / 2, 0);
+    pagodaGroup.add(tier);
+    pY += h;
+  }
+  const pagodaTop = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 6), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+  pagodaTop.position.set(0, pY + 0.12, 0);
+  pagodaGroup.add(pagodaTop);
+  xianGroup.add(pagodaGroup);
+
+  // 80+ 现代都会立体建筑集群
+  const bGeoMaster = new THREE.BoxGeometry(1, 1, 1);
+  const seedRandom = (seed) => {
+    let s = seed;
+    return () => {
+      s = (s * 9301 + 49297) % 233280;
+      return s / 233280;
+    };
+  };
+  const rng = seedRandom(42);
+
+  for (let i = 0; i < 85; i++) {
+    const angle = rng() * Math.PI * 2;
+    const dist = 0.4 + rng() * 3.6;
+    const bx = Math.cos(angle) * dist;
+    const bz = Math.sin(angle) * dist;
+
+    if (Math.abs(bx) < wallW / 2 + 0.2 && Math.abs(bz) < wallD / 2 + 0.2 && dist > 1.2) {
+      continue;
+    }
+
+    const bw = 0.18 + rng() * 0.24;
+    const bd = 0.18 + rng() * 0.24;
+    const bh = 0.35 + Math.pow(rng(), 2.2) * 2.6;
+
+    const useAmber = rng() > 0.45;
+    const bMesh = new THREE.Mesh(bGeoMaster, useAmber ? nightWindowMat : cyanWindowMat);
+    bMesh.scale.set(bw, bh, bd);
+    bMesh.position.set(bx, bh / 2, bz);
+    xianGroup.add(bMesh);
+  }
+
+  // 西安夜景地面暖金光晕盘
+  const glowGeo = new THREE.PlaneGeometry(8.5, 7.5);
+  glowGeo.rotateX(-Math.PI / 2);
+  const glowCanvas = document.createElement('canvas');
+  glowCanvas.width = 256;
+  glowCanvas.height = 256;
+  const gCtx = glowCanvas.getContext('2d');
+  const gRad = gCtx.createRadialGradient(128, 128, 10, 128, 128, 120);
+  gRad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
+  gRad.addColorStop(0.5, 'rgba(217, 119, 6, 0.18)');
+  gRad.addColorStop(1, 'rgba(217, 119, 6, 0)');
+  gCtx.fillStyle = gRad;
+  gCtx.fillRect(0, 0, 256, 256);
+  const glowTex = new THREE.CanvasTexture(glowCanvas);
+  const glowMesh = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
+    map: glowTex,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false
+  }));
+  glowMesh.position.set(0, 0.04, 0);
+  xianGroup.add(glowMesh);
+
+  citiesSubGroup.add(xianGroup);
+
+  // 2. 关中、陕北、陕南重点城市聚落
+  const SECONDARY_CITIES = [
+    { id: 'xianyang', name: '咸阳', x: 1.5, z: 15.2, count: 28, maxH: 1.7, color: 0x38bdf8 },
+    { id: 'baoji', name: '宝鸡', x: -10.78, z: 16.67, count: 26, maxH: 1.5, color: 0xf59e0b },
+    { id: 'yanan', name: '延安', x: 3.2, z: -18.5, count: 22, maxH: 1.3, color: 0xef4444 },
+    { id: 'yulin', name: '榆林', x: 8.71, z: -44.8, count: 20, maxH: 1.4, color: 0xf59e0b },
+    { id: 'hanzhong', name: '汉中', x: -11.93, z: 36.04, count: 24, maxH: 1.4, color: 0x10b981 },
+    { id: 'ankang', name: '安康', x: 7.09, z: 41.71, count: 20, maxH: 1.3, color: 0x06b6d4 }
+  ];
+
+  SECONDARY_CITIES.forEach((c) => {
+    const cGroup = new THREE.Group();
+    const cY = getTerrainHeightAt(c.x, c.z) + 0.05;
+    cGroup.position.set(c.x, cY, c.z);
+
+    const cRng = seedRandom(c.x * 100 + c.z);
+    const cMat = new THREE.MeshStandardMaterial({
+      color: 0x111c2e,
+      emissive: c.color,
+      emissiveIntensity: 0.75,
+      roughness: 0.3,
+      metalness: 0.7
+    });
+
+    for (let j = 0; j < c.count; j++) {
+      const ang = cRng() * Math.PI * 2;
+      const rad = 0.2 + cRng() * 1.5;
+      const bx = Math.cos(ang) * rad;
+      const bz = Math.sin(ang) * rad;
+
+      const bw = 0.14 + cRng() * 0.16;
+      const bd = 0.14 + cRng() * 0.16;
+      const bh = 0.22 + Math.pow(cRng(), 2.0) * c.maxH;
+
+      const bMesh = new THREE.Mesh(bGeoMaster, cMat);
+      bMesh.scale.set(bw, bh, bd);
+      bMesh.position.set(bx, bh / 2, bz);
+      cGroup.add(bMesh);
+    }
+
+    // 地面柔光微光晕
+    const sGlowGeo = new THREE.RingGeometry(0.1, 1.6, 24);
+    sGlowGeo.rotateX(-Math.PI / 2);
+    const sGlowMat = new THREE.MeshBasicMaterial({
+      color: c.color,
+      transparent: true,
+      opacity: 0.25,
+      depthWrite: false
+    });
+    const sGlowMesh = new THREE.Mesh(sGlowGeo, sGlowMat);
+    sGlowMesh.position.set(0, 0.03, 0);
+    cGroup.add(sGlowMesh);
+
+    citiesSubGroup.add(cGroup);
+  });
+}
+
+// 构建全息多面体晶棱 POI 空间信标 (高科技钻石微雕 + 天际渐变光柱 + 地面同心声呐脉冲)
 function buildSpatialPins() {
   while (poisSubGroup.children.length > 0) {
     poisSubGroup.remove(poisSubGroup.children[0]);
   }
+  animatedCrystals = [];
+  animatedSonarRings = [];
 
-  POI_LIST.forEach((poi) => {
+  POI_LIST.forEach((poi, idx) => {
     const pinGroup = new THREE.Group();
     pinGroup.position.set(poi.pos[0], poi.pos[1], poi.pos[2]);
 
-    const isCity = poi.type === "city";
-    const baseColor = isCity ? 0x38bdf8 : (poi.type === "mountain" ? 0x10b981 : 0xf59e0b);
+    const isCity = poi.type === "city" || poi.type === "capital";
+    const isPeak = poi.type === "mountain";
+    const baseColor = isCity ? 0xf59e0b : (isPeak ? 0x10b981 : 0x38bdf8);
 
-    // 1. 纤细金属针柱
-    const stemGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.6, 12);
+    // 1. 纤细钛金属针立柱
+    const stemGeo = new THREE.CylinderGeometry(0.025, 0.025, 1.2, 8);
     const stemMat = new THREE.MeshStandardMaterial({
       color: 0x94a3b8,
-      metalness: 0.9,
-      roughness: 0.2
+      metalness: 0.95,
+      roughness: 0.15
     });
     const stem = new THREE.Mesh(stemGeo, stemMat);
-    stem.position.y = 0.8;
+    stem.position.y = 0.6;
     pinGroup.add(stem);
 
-    // 2. 顶部微光珠宝圆珠
-    const jewelGeo = new THREE.SphereGeometry(0.32, 16, 16);
-    const jewelMat = new THREE.MeshStandardMaterial({
+    // 2. 浮空全息多面体晶棱信标 (Faceted Holographic Diamond Crystal)
+    const crystalGeo = poi.isMajor ? new THREE.OctahedronGeometry(0.36, 0) : new THREE.OctahedronGeometry(0.26, 0);
+    const crystalMat = new THREE.MeshStandardMaterial({
       color: baseColor,
       emissive: baseColor,
-      emissiveIntensity: 0.7,
-      metalness: 0.5,
-      roughness: 0.2
+      emissiveIntensity: 0.9,
+      metalness: 0.85,
+      roughness: 0.12
     });
-    const jewel = new THREE.Mesh(jewelGeo, jewelMat);
-    jewel.position.y = 1.6;
-    pinGroup.add(jewel);
+    const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+    crystal.position.y = 1.35;
+    pinGroup.add(crystal);
+    animatedCrystals.push({ mesh: crystal, baseY: 1.35, rotSpeed: 0.018 + (idx % 3) * 0.005, phase: idx * 0.45 });
 
-    // 3. 地表脉冲光圈
-    const ringGeo = new THREE.RingGeometry(0.18, 0.45, 24);
-    ringGeo.rotateX(-Math.PI / 2);
-    const ringMat = new THREE.MeshBasicMaterial({
+    // 3. 向上延伸的天际光柱束 (Sky Light Pillar)
+    const beamH = poi.isMajor ? 5.5 : 3.8;
+    const beamGeo = new THREE.CylinderGeometry(0.012, 0.10, beamH, 12, 1, true);
+    const beamMat = new THREE.MeshBasicMaterial({
       color: baseColor,
       transparent: true,
-      opacity: 0.6,
+      opacity: poi.isMajor ? 0.38 : 0.22,
+      depthWrite: false,
       side: THREE.DoubleSide
     });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.y = 0.05;
-    pinGroup.add(ring);
+    const beam = new THREE.Mesh(beamGeo, beamMat);
+    beam.position.y = 1.35 + beamH / 2;
+    pinGroup.add(beam);
+
+    // 4. 地表双重同心动态脉冲声呐环 (Pulsing Sonar Rings)
+    const r1Geo = new THREE.RingGeometry(0.12, 0.22, 24);
+    r1Geo.rotateX(-Math.PI / 2);
+    const r1Mat = new THREE.MeshBasicMaterial({ color: baseColor, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+    const ring1 = new THREE.Mesh(r1Geo, r1Mat);
+    ring1.position.y = 0.04;
+    pinGroup.add(ring1);
+
+    const r2Geo = new THREE.RingGeometry(0.28, 0.38, 24);
+    r2Geo.rotateX(-Math.PI / 2);
+    const r2Mat = new THREE.MeshBasicMaterial({ color: baseColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+    const ring2 = new THREE.Mesh(r2Geo, r2Mat);
+    ring2.position.y = 0.04;
+    pinGroup.add(ring2);
+
+    animatedSonarRings.push({ ring1, ring2, phase: idx * 0.6 });
 
     pinGroup.name = "pin_" + poi.id;
     poisSubGroup.add(pinGroup);
@@ -1417,6 +1839,56 @@ const animate = () => {
   animFrameId = requestAnimationFrame(animate);
   controls.update();
 
+  // 1. 全息八面体晶棱信标旋转与悬浮微动
+  if (animatedCrystals && animatedCrystals.length > 0) {
+    const time = performance.now() * 0.001;
+    animatedCrystals.forEach(c => {
+      c.mesh.rotation.y += c.rotSpeed;
+      c.mesh.position.y = c.baseY + Math.sin(time * 2.8 + c.phase) * 0.08;
+    });
+  }
+
+  // 2. 地表同心声呐脉冲波扩散动效
+  if (animatedSonarRings && animatedSonarRings.length > 0) {
+    const time = performance.now() * 0.0014;
+    animatedSonarRings.forEach(sr => {
+      const cycle1 = (time + sr.phase) % 1.5;
+      const s1 = 1.0 + cycle1 * 0.75;
+      sr.ring1.scale.set(s1, s1, s1);
+      sr.ring1.material.opacity = Math.max(0, 0.75 * (1.0 - cycle1 / 1.5));
+
+      const cycle2 = (time + sr.phase + 0.6) % 1.5;
+      const s2 = 1.0 + cycle2 * 0.75;
+      sr.ring2.scale.set(s2, s2, s2);
+      sr.ring2.material.opacity = Math.max(0, 0.45 * (1.0 - cycle2 / 1.5));
+    });
+  }
+
+  // 3. 丝绸之路流金星尘漫移
+  if (silkRoadParticles && silkRoadParticles.geometry) {
+    const pData = silkRoadParticles.userData;
+    if (pData && pData.curve && pData.progress) {
+      const posArr = silkRoadParticles.geometry.attributes.position.array;
+      for (let i = 0; i < pData.progress.length; i++) {
+        pData.progress[i] += 0.0018;
+        if (pData.progress[i] > 1.0) pData.progress[i] = 0.0;
+        const pt = pData.curve.getPoint(pData.progress[i]);
+        posArr[i * 3] = pt.x;
+        posArr[i * 3 + 1] = pt.y + 0.25;
+        posArr[i * 3 + 2] = pt.z;
+      }
+      silkRoadParticles.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+
+  // 4. 水系微光呼吸律动
+  if (riverMeshes && riverMeshes.length > 0) {
+    const pulse = 0.75 + Math.sin(performance.now() * 0.003) * 0.18;
+    riverMeshes.forEach(rm => {
+      if (rm.material) rm.material.emissiveIntensity = pulse;
+    });
+  }
+
   if (silkRoadLine && silkRoadLine.material) {
     flowOffset += 0.03;
     if (silkRoadLine.material.dashOffset !== undefined) {
@@ -1598,6 +2070,7 @@ watch(() => props.layers, (newLayers) => {
   if (silkRoadSubGroup) silkRoadSubGroup.visible = !!newLayers.silkRoad;
   if (poisSubGroup) poisSubGroup.visible = !!newLayers.pois;
   if (culturalSubGroup) culturalSubGroup.visible = !!newLayers.cultural;
+  if (citiesSubGroup) citiesSubGroup.visible = newLayers.pois !== false;
 }, { deep: true, immediate: true });
 
 // 盆景参数监听
@@ -1661,61 +2134,62 @@ onBeforeUnmount(() => {
 });
 
 
-// 构建人文风物地标 (非遗/美食/戏曲)
+// 构建人文风物地标 (非遗/美食/戏曲 - 高阶三维流光灵境，根除粗糙 Sprite 灰色圆盘)
 function buildCulturalHotspots() {
   while (culturalSubGroup.children.length > 0) {
     culturalSubGroup.remove(culturalSubGroup.children[0]);
   }
 
-  CULTURAL_ITEMS.forEach((item) => {
+  CULTURAL_ITEMS.forEach((item, idx) => {
     const cultGroup = new THREE.Group();
     cultGroup.position.set(item.pos[0], item.pos[1], item.pos[2]);
 
-    const stemGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.0, 10);
+    // 1. 纤细立柱
+    const stemGeo = new THREE.CylinderGeometry(0.025, 0.025, 1.4, 8);
     const stemMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b,
+      color: 0x94a3b8,
       metalness: 0.9,
       roughness: 0.2
     });
     const stem = new THREE.Mesh(stemGeo, stemMat);
-    stem.position.y = 1.0;
+    stem.position.y = 0.7;
     cultGroup.add(stem);
 
-    const sphereGeo = new THREE.SphereGeometry(0.42, 16, 16);
-    const sphereMat = new THREE.MeshStandardMaterial({
+    // 2. 悬浮旋转金环 (Floating Torus Halo)
+    const ringGeo = new THREE.TorusGeometry(0.36, 0.035, 12, 32);
+    ringGeo.rotateX(Math.PI / 2);
+    const ringMat = new THREE.MeshStandardMaterial({
       color: 0xf59e0b,
       emissive: 0xd97706,
-      emissiveIntensity: 0.8,
-      metalness: 0.3,
-      roughness: 0.3
+      emissiveIntensity: 0.95,
+      metalness: 0.9,
+      roughness: 0.2
     });
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    sphere.position.y = 2.0;
-    cultGroup.add(sphere);
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.position.y = 1.4;
+    cultGroup.add(ringMesh);
 
-    // Emoji 图标 Sprite
-    const canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
-    ctx.strokeStyle = "#f59e0b";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(64, 64, 56, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    // 3. 环中旋转金石晶核 (Octahedron Jewel Core)
+    const coreGeo = new THREE.OctahedronGeometry(0.20, 0);
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0xfef08a,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 1.1,
+      metalness: 0.8,
+      roughness: 0.2
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    coreMesh.position.y = 1.4;
+    cultGroup.add(coreMesh);
+    animatedCrystals.push({ mesh: coreMesh, baseY: 1.4, rotSpeed: 0.028, phase: idx * 0.7 });
 
-    ctx.font = '52px sans-serif';
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(item.icon, 64, 66);
-
-    const iconTex = new THREE.CanvasTexture(canvas);
-    const iconSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: iconTex }));
-    iconSprite.position.y = 3.1;
-    iconSprite.scale.set(2.4, 2.4, 1);
-    cultGroup.add(iconSprite);
+    // 4. 地面微金光圈
+    const gRingGeo = new THREE.RingGeometry(0.14, 0.32, 24);
+    gRingGeo.rotateX(-Math.PI / 2);
+    const gRingMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
+    const gRing = new THREE.Mesh(gRingGeo, gRingMat);
+    gRing.position.y = 0.04;
+    cultGroup.add(gRing);
 
     cultGroup.userData = { culturalItem: item };
     culturalSubGroup.add(cultGroup);
@@ -2177,34 +2651,39 @@ defineExpose({
   overflow: hidden;
 }
 
-/* 紧凑精致单行 POI 胶囊标牌 (0 遮挡，极速避让) */
+/* 紧凑高质感单行 POI 全息晶石标牌 (EUGENE FINANCE 国风朱金与深海蓝光) */
 .poi-badge {
   position: absolute;
   top: 0;
   left: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(10, 15, 25, 0.88);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 12px;
-  padding: 3px 9px;
+  gap: 7px;
+  background: rgba(8, 20, 36, 0.90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 20px;
+  padding: 4px 10px;
   color: #f8fafc;
   cursor: pointer;
   transform: translate(-50%, -50%);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   user-select: none;
 }
 
 .poi-badge:hover,
 .poi-badge.active {
-  border-color: #38bdf8;
-  background: rgba(14, 23, 42, 0.96);
+  border-color: #f59e0b;
+  background: rgba(14, 28, 48, 0.96);
   transform: translate(-50%, -50%) scale(1.08);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
-  z-index: 20;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.45), 0 6px 20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  z-index: 25;
+}
+
+.poi-badge.major {
+  border-color: rgba(245, 158, 11, 0.45);
 }
 
 .poi-dot {
@@ -2216,24 +2695,27 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.poi-dot.capital { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
-.poi-dot.mountain { background: #10b981; box-shadow: 0 0 8px #10b981; }
-.poi-dot.nature { background: #06b6d4; box-shadow: 0 0 8px #06b6d4; }
-.poi-dot.red { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+.poi-dot.capital { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+.poi-dot.mountain { background: #10b981; box-shadow: 0 0 10px #10b981; }
+.poi-dot.nature { background: #06b6d4; box-shadow: 0 0 10px #06b6d4; }
+.poi-dot.red { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
 
 .poi-title {
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   white-space: nowrap;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  color: #f1f5f9;
 }
 
 .poi-sub {
-  font-size: 10px;
-  color: #94a3b8;
+  font-size: 9.5px;
+  color: #93c5fd;
   white-space: nowrap;
-  padding-left: 4px;
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 1px 6px;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 8px;
 }
 
 .poi-hover-preview {
