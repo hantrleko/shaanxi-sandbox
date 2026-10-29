@@ -10,10 +10,10 @@
         </div>
       </div>
 
-      <!-- V2.0 PRO 版本更新日志入口胶囊 -->
-      <button class="ver-pill-badge" @click="$emit('open-changelog')" title="查看 v2.0.0 PRO 架构演进与版本升级日志">
+      <!-- V2.5 ULTIMATE 版本更新日志入口胶囊 -->
+      <button class="ver-pill-badge" @click="$emit('open-changelog')" title="查看 v2.5.0 ULTIMATE 架构演进与版本升级日志">
         <span class="ver-pulse-dot"></span>
-        <span class="ver-txt">v2.0 PRO</span>
+        <span class="ver-txt">v2.5</span>
       </button>
 
       <div class="divider"></div>
@@ -681,15 +681,35 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
 }
 
-@media (max-width: 1100px) {
-  .theme-nav, .lighting-group {
+@media (max-width: 1240px) {
+  .tool-btn span {
     display: none;
+  }
+  .tool-btn {
+    padding: 6px 8px;
+  }
+  .brand-sub {
+    display: none;
+  }
+  .divider {
+    margin: 0 2px;
   }
 }
 
-@media (max-width: 820px) {
-  .header-center {
+@media (max-width: 980px) {
+  .brand-info {
     display: none;
+  }
+  .lighting-group {
+    display: none;
+  }
+  .mode-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  .theme-tab {
+    padding: 3px 8px;
+    font-size: 11px;
   }
 }
 </style>

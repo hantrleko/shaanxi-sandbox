@@ -14,18 +14,26 @@
 
     <!-- 📸 章节置顶真实地理实景大图 (核心主焦点，一眼感知真实三秦风貌) -->
     <div
-      v-if="chapter.photoUrl"
+      v-if="currentPhotoUrl"
       class="hero-photo-banner"
-      @click="$emit('view-photo', chapter.photoUrl, chapter.photoCaption)"
+      @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
       title="点击查看高清实景大图"
     >
-      <img :src="chapter.photoUrl" :alt="chapter.title" class="hero-photo-img" />
+      <img :src="currentPhotoUrl" :alt="chapter.title" class="hero-photo-img" />
       <div class="hero-photo-gradient"></div>
       <div class="hero-photo-top-bar">
         <span class="photo-live-badge">
           <span class="pulse-dot"></span>
-          真实风貌实景
+          {{ showAltPhoto ? (chapter.altBadge || '胜迹/文物') : '真实风貌实景' }}
         </span>
+        <button
+          v-if="chapter.altPhotoUrl"
+          class="photo-toggle-pill"
+          @click.stop="showAltPhoto = !showAltPhoto"
+          :title="showAltPhoto ? '切换为今日实景' : '切换为胜迹/复原'"
+        >
+          {{ showAltPhoto ? '📸 今日实景 ⇋' : '🏛️ 胜迹风物 ⇋' }}
+        </button>
         <span class="photo-expand-pill">
           <svg class="pill-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 3 21 3 21 9"></polyline>
@@ -33,18 +41,31 @@
             <line x1="21" y1="3" x2="14" y2="10"></line>
             <line x1="3" y1="21" x2="10" y2="14"></line>
           </svg>
-          放大全屏
+          放大
         </span>
       </div>
-      <div class="hero-photo-caption" v-if="chapter.photoCaption">
-        {{ chapter.photoCaption }}
+      <div class="hero-photo-caption" v-if="currentPhotoCaption">
+        {{ currentPhotoCaption }}
       </div>
     </div>
 
     <div class="panel-header">
       <div class="chapter-meta">
         <span class="chapter-num">{{ chapter.num }} / {{ totalChapters }}</span>
-        <span class="chapter-theme">{{ currentThemeTitle }}</span>
+        <!-- 快捷主题选择器 (直达自然地理 / 华夏根脉 / 丝路起点) -->
+        <div class="theme-quick-pills" v-if="themes && themes.length">
+          <button
+            v-for="t in themes"
+            :key="t.id"
+            class="t-pill"
+            :class="{ active: currentThemeId === t.id }"
+            @click="$emit('change-theme', t.id)"
+            :title="t.desc"
+          >
+            {{ t.title }}
+          </button>
+        </div>
+        <span class="chapter-theme" v-else>{{ currentThemeTitle }}</span>
       </div>
       <button class="listen-btn glass-btn" @click="$emit('listen-current')">
         <span>{{ isPlaying ? '🔊 朗读中...' : '🎧 听这段' }}</span>
@@ -241,10 +262,23 @@ const props = defineProps({
   chapter: { type: Object, required: true },
   totalChapters: { type: Number, default: 6 },
   currentThemeTitle: { type: String, default: "自然地理" },
+  currentThemeId: { type: String, default: "natural" },
+  themes: { type: Array, default: () => [] },
   isPlaying: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['listen-current', 'focus-feature', 'fly-strata', 'view-photo']);
+const emit = defineEmits([
+  'listen-current',
+  'focus-feature',
+  'fly-strata',
+  'view-photo',
+  'change-theme',
+  'collapse-change'
+]);
+
+watch(isCollapsed, (val) => {
+  emit('collapse-change', val);
+});
 
 const isDiagramOpen = ref(false);
 const activeSentenceIndex = ref(0);
@@ -259,9 +293,26 @@ const flyTo = (pos) => {
   emit('fly-strata', pos);
 };
 
-// 章节切换时默认收起地质剖面，保持卡片紧凑和实景图优先
+const showAltPhoto = ref(false);
+
+const currentPhotoUrl = computed(() => {
+  if (showAltPhoto.value && props.chapter?.altPhotoUrl) {
+    return props.chapter.altPhotoUrl;
+  }
+  return props.chapter?.photoUrl || '';
+});
+
+const currentPhotoCaption = computed(() => {
+  if (showAltPhoto.value && props.chapter?.altPhotoCaption) {
+    return props.chapter.altPhotoCaption;
+  }
+  return props.chapter?.photoCaption || '';
+});
+
+// 章节切换时默认收起地质剖面，并重置照片为默认实景
 watch(() => props.chapter?.id, () => {
   isDiagramOpen.value = false;
+  showAltPhoto.value = false;
 });
 
 watch(() => props.isPlaying, (playing) => {
@@ -326,6 +377,37 @@ watch(() => props.isPlaying, (playing) => {
   padding: 2px 7px;
   border-radius: 4px;
   border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.theme-quick-pills {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.t-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.t-pill:hover {
+  color: #fff;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.t-pill.active {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
 }
 
 .listen-btn {
@@ -490,7 +572,32 @@ watch(() => props.isPlaying, (playing) => {
   50% { opacity: 0.5; transform: scale(0.85); }
 }
 
+.photo-toggle-pill {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.photo-toggle-pill:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  color: #fff;
+  transform: scale(1.04);
+}
+
 .photo-expand-pill {
+  pointer-events: auto;
   display: inline-flex;
   align-items: center;
   gap: 4px;

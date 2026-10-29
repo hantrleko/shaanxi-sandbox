@@ -19,6 +19,7 @@
       :is-roadbook-active="isRoadbookActive"
       :is-challenge-active="isDetectiveActive"
       :is-portal-active="showPortal"
+      :is-panel-open="!isPanelCollapsed && currentMode === 'macro' && !isTourActive && !showPortal"
       @camera-update="onCameraUpdate"
       @select-poi="onPoiSelected"
       @profile-calculated="onProfileCalculated"
@@ -74,7 +75,11 @@
         :chapter="currentChapter"
         :total-chapters="currentChapters.length"
         :current-theme-title="currentTheme.title"
+        :current-theme-id="currentThemeId"
+        :themes="THEMES"
         :is-playing="isPlaying"
+        @change-theme="onChangeTheme"
+        @collapse-change="isPanelCollapsed = $event"
         @listen-current="onListenCurrent"
         @focus-feature="onFocusFeature"
         @fly-strata="onFlyToStrata"
@@ -274,6 +279,7 @@ import { soundscape } from './utils/soundscape.js';
 const threeRef = ref(null);
 const detectiveRef = ref(null);
 const showPortal = ref(true);
+const isPanelCollapsed = ref(false);
 
 const currentMode = ref('macro'); // 'macro' | 'bonsai' | 'model' | 'campaign'
 const currentThemeId = ref('geo');

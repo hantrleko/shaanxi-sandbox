@@ -46,7 +46,10 @@ export const THEMES = [
         diagramTitle: "秦岭阻挡冷暖气流垂直剖面模式图",
         diagramType: "profile_qinling",
         photoUrl: imgPrefix + "images/chapters/geo_02_qinling.jpg",
-        photoCaption: "秦岭主峰太白山拔仙台（3771.2m）云海与第四纪冰川遗迹"
+        photoCaption: "秦岭主峰太白山拔仙台（3771.2m）云海与第四纪冰川遗迹",
+        altPhotoUrl: imgPrefix + "images/scenery/hua_shan.jpg",
+        altPhotoCaption: "西岳华山西峰斧劈石与奇险千仞之天下第一险山",
+        altBadge: "华岳奇险"
       },
       {
         id: "geo_03",
@@ -60,7 +63,10 @@ export const THEMES = [
         diagramTitle: "关中地堑断陷盆地与八水环绕图",
         diagramType: "profile_guanzhong",
         photoUrl: imgPrefix + "images/chapters/geo_03_guanzhong.jpg",
-        photoCaption: "八百里秦川沃野千里与渭河冲积扇农业基石"
+        photoCaption: "八百里秦川沃野千里与渭河冲积扇农业基石",
+        altPhotoUrl: imgPrefix + "images/scenery/guanzhong_plain.jpg",
+        altPhotoCaption: "关中沃野千里与渭河夕照平原风光",
+        altBadge: "沃野夕照"
       },
       {
         id: "geo_04",
@@ -145,7 +151,10 @@ export const THEMES = [
         desc: "秦孝公用商鞅变法，奋六世之余烈。始皇帝横扫六合，建立中国第一个大一统中央集权王朝。骊山脚下的秦始皇陵与兵马俑坑，以规模浩大的地下陶俑军阵，展现了横扫八荒的无匹雄风。",
         camera: { pos: [12.0, 18, 23], target: [9.46, 2, 16.34], pitch: 18 },
         photoUrl: imgPrefix + "images/chapters/his_03_bingmayong.jpg",
-        photoCaption: "临潼秦始皇兵马俑一号坑威武地下陶俑军阵"
+        photoCaption: "临潼秦始皇兵马俑一号坑威武地下陶俑军阵",
+        altPhotoUrl: imgPrefix + "images/scenery/huaqing_pool.jpg",
+        altPhotoCaption: "临潼华清宫与骊山烽火台大秦故地今夕风光",
+        altBadge: "骊山胜迹"
       },
       {
         id: "his_04",
@@ -157,7 +166,10 @@ export const THEMES = [
         desc: "唐都长安是当时全球最大的国际大都会，城垣规整，里坊棋布。大明宫含元殿居高临下，大雁塔慈恩寺梵音悠扬。丝路胡商云集西市，李白杜甫等无数诗人在此留下了千古绝唱。",
         camera: { pos: [6.24, 18, 24], target: [6.24, 2, 16.98], pitch: 18 },
         photoUrl: imgPrefix + "images/chapters/his_04_changan.jpg",
-        photoCaption: "西安大慈恩寺大雁塔与大唐不夜城壮阔盛唐气象"
+        photoCaption: "西安大慈恩寺大雁塔与大唐不夜城壮阔盛唐气象",
+        altPhotoUrl: imgPrefix + "images/scenery/xian_city_wall.jpg",
+        altPhotoCaption: "西安明清古城垣南门永宁门夜色与护城河",
+        altBadge: "古都城垣"
       }
     ]
   },
@@ -176,7 +188,10 @@ export const THEMES = [
         desc: "汉武帝招募张骞，率百余人出长安西行，联合大月氏夹攻匈奴。历经十三年艰难险阻，张骞‘凿空’通西域。随后汉朝在河西走廊设立四郡，开通了连接欧亚大陆的东西方陆上大通道。",
         camera: { pos: [0.0, 22, 26], target: [-6.0, 2, 16.0], pitch: 20 },
         photoUrl: imgPrefix + "images/chapters/silk_01_zhangqian.jpg",
-        photoCaption: "莫高窟第323窟汉武帝送张骞出使西域壁画"
+        photoCaption: "莫高窟第323窟汉武帝送张骞出使西域壁画",
+        altPhotoUrl: imgPrefix + "images/scenery/zhonglou.jpg",
+        altPhotoCaption: "今日西安市中心明钟楼——丝绸之路现代起点都会风采",
+        altBadge: "丝路今朝"
       },
       {
         id: "silk_02",
@@ -188,7 +203,10 @@ export const THEMES = [
         desc: "唐长安西市被称为‘金市’，是丝绸之路的真正起点。来自波斯、粟特的大食商人带着琉璃、香料、葡萄酒在此交易，换回大唐名扬天下的丝绸、瓷器、茶叶与铁器，开启了人类早期全球化盛况。",
         camera: { pos: [6.24, 16, 22], target: [6.24, 2, 16.98], pitch: 16 },
         photoUrl: imgPrefix + "images/chapters/silk_02_xishi.jpg",
-        photoCaption: "大唐西市遗址博物馆石板路车辙痕迹与丝路起点"
+        photoCaption: "大唐西市遗址博物馆石板路车辙痕迹与丝路起点",
+        altPhotoUrl: imgPrefix + "images/scenery/famen_temple.jpg",
+        altPhotoCaption: "扶风法门寺唐代皇家地宫与丝路琉璃金银秘宝",
+        altBadge: "丝路秘宝"
       }
     ]
   }
@@ -863,10 +881,44 @@ export const ROADBOOK_PRESETS = [
 // ==========================================
 export const CHANGELOG_DATA = [
   {
+    version: "v2.5.0 ULTIMATE",
+    name: "纯正实景与零冲突体验 · 3D视口与时空流金",
+    date: "2026-10-29",
+    isLatest: true,
+    summary: "全面净化地貌媒体库（100% 验证纯正真实地理风光照），彻底重构 HUD 视口自适应规避排布（底栏与图层坞零碰撞，顶部导航自适应响应折叠），引入 3D 摄像机投影偏移中心优化（开阔留白与 POI 屏幕智能避让），秦岭主梁真实矢量走向归正与丝绸之路流金脉络，新增全域冬季飘雪氛围粒子与今日实景/盛世风物双视角切换。",
+    features: [
+      {
+        tag: "真实摄影",
+        title: "100% 真实地理高清摄影媒体库",
+        desc: "彻底清洗并剔除行政矢量图、拓片与卫星遥感误图；太白山大爷海高山冰川湖、关中渭河夕照、汉江安康碧水、汉中油菜花海等全线换装实拍大图。"
+      },
+      {
+        tag: "零冲突UI",
+        title: "HUD 全屏自适应与坞舱零碰撞布局",
+        desc: "彻底解决底部时间轴与右下角图层控制器的遮挡重叠；优化顶部导航在小屏/分屏下的紧凑折叠与自适应排布；左侧图文面板内嵌自然地理/华夏根脉/丝路起点快捷药丸切换。"
+      },
+      {
+        tag: "视口偏移",
+        title: "3D 视口相机中心偏移与 POI 避让",
+        desc: "图文面板展开时，通过 setViewOffset 智能将沙盘视觉中心推向右侧黄金开阔区；POI 标签遇面板覆盖时（x < 390）智能隐匿，彻底杜绝半透明面板背后文字底透打架。"
+      },
+      {
+        tag: "时空流金",
+        title: "秦岭地貌主梁归正与丝路流金脉络",
+        desc: "秦岭 800mm 分界线严谨锚定太白拔仙台、牛背梁至华山真实山脊，杜绝悬空越界；丝绸之路西出散关流金管道平滑重塑，新增冬季漫天飞雪氛围粒子系统。"
+      },
+      {
+        tag: "双重视角",
+        title: "今日实景与盛世胜迹风物双视角切换",
+        desc: "章节卡片置顶图支持一键切换‘今日实景 ⇋ 胜迹文物’，在现代真实风光与大唐城垣、法门秘宝、骊山胜迹之间无缝穿越感知。"
+      }
+    ]
+  },
+  {
     version: "v2.0.0 PRO",
     name: "生态活化 · 空间智能感知与路书飞行",
     date: "2026-10-28",
-    isLatest: true,
+    isLatest: false,
     summary: "三秦三维沙盒迈入全新 V2.0 时代！彻底打破传统静态沙盘束缚，实装 GLSL 片元级四季气候流转着色器、多点自驾/研学 3D 路书工坊、第一人称贴地低空飞行预演 (FPV)，以及零体积依赖的 Web Audio 三维空间自然音景系统。",
     features: [
       {

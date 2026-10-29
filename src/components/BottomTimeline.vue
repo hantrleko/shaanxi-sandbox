@@ -70,11 +70,10 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 .bottom-timeline {
   position: absolute;
   bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 500px);
-  max-width: 820px;
-  min-width: 440px;
+  left: 400px;
+  right: 200px;
+  max-width: 760px;
+  margin: 0 auto;
   height: 72px;
   display: flex;
   align-items: center;
@@ -271,16 +270,17 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   box-shadow: 0 0 6px #38bdf8;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1120px) {
   .bottom-timeline {
-    width: calc(100% - 40px);
-    left: 20px;
-    transform: none;
-    max-width: none;
+    left: 390px;
+    right: 180px;
+    padding: 5px 8px;
+    gap: 8px;
+  }
+  .chapter-card {
+    width: 145px;
   }
 }
-</style>
-
 .play-svg {
   width: 14px;
   height: 14px;
@@ -301,3 +301,4 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   0%, 100% { opacity: 0.8; }
   50% { opacity: 1; filter: brightness(1.3); }
 }
+</style>

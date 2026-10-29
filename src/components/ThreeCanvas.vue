@@ -97,7 +97,8 @@ const props = defineProps({
   isProfilingActive: { type: Boolean, default: false },
   isRoadbookActive: { type: Boolean, default: false },
   isChallengeActive: { type: Boolean, default: false },
-  isPortalActive: { type: Boolean, default: true }
+  isPortalActive: { type: Boolean, default: true },
+  isPanelOpen: { type: Boolean, default: false }
 });
 
 const emit = defineEmits([
@@ -159,6 +160,7 @@ let preFpvCameraState = null;
 let loessWaterParticles = null;
 let climateNorthParticles = null;
 let climateSouthParticles = null;
+let winterSnowParticles = null;
 let globeMesh = null;
 let tectonicQinlingMesh = null;
 let tectonicGrabenMesh = null;
@@ -677,23 +679,23 @@ function buildQinlingLine() {
     qinlingSubGroup.remove(qinlingSubGroup.children[0]);
   }
 
+  // 严谨契合陕西境内秦岭真实主梁走向，坚决杜绝越界悬空入虚空
   const pts = [
-    new THREE.Vector3(-36, 12.8, 17.5),
-    new THREE.Vector3(-26, 14.2, 17.0),
-    new THREE.Vector3(-14, 15.6, 16.5),
-    new THREE.Vector3(-3, 16.8, 16.0), // 太白峰脊
-    new THREE.Vector3(9, 14.8, 16.2),
-    new THREE.Vector3(20, 13.5, 16.8),
-    new THREE.Vector3(32, 11.2, 17.8),
-    new THREE.Vector3(39, 9.8, 18.5)
+    new THREE.Vector3(-18.5, 12.0, 19.5),  // 凤县秦岭梁西界
+    new THREE.Vector3(-12.0, 14.2, 18.2),  // 宝鸡嘉陵江源
+    new THREE.Vector3(-4.84, 17.5, 22.75), // 太白山拔仙台巅 (3771.2m)
+    new THREE.Vector3(2.5, 15.6, 20.8),    // 终南山翠华山段
+    new THREE.Vector3(10.5, 14.5, 18.2),   // 蓝田牛背梁段
+    new THREE.Vector3(17.1, 10.8, 15.2),   // 华山南峰东延
+    new THREE.Vector3(21.5, 8.5, 16.8)     // 商洛丹凤东界归隐
   ];
   const curve = new THREE.CatmullRomCurve3(pts);
-  const qinlingTubeGeo = new THREE.TubeGeometry(curve, 120, 0.16, 8, false);
+  const qinlingTubeGeo = new THREE.TubeGeometry(curve, 140, 0.16, 8, false);
 
   const qinlingMat = new THREE.MeshStandardMaterial({
     color: 0x10b981,
     emissive: 0x059669,
-    emissiveIntensity: 0.75,
+    emissiveIntensity: 0.8,
     roughness: 0.2,
     metalness: 0.6
   });
@@ -705,7 +707,7 @@ function buildQinlingLine() {
   const beaconGeo = new THREE.CylinderGeometry(0.12, 0.12, 3.5, 16);
   const beaconMat = new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.85 });
   const beacon = new THREE.Mesh(beaconGeo, beaconMat);
-  beacon.position.set(-3, 18.5, 16.0);
+  beacon.position.set(-4.84, 18.8, 22.75);
   qinlingSubGroup.add(beacon);
 }
 
@@ -715,22 +717,25 @@ function buildSilkRoad() {
     silkRoadSubGroup.remove(silkRoadSubGroup.children[0]);
   }
 
+  // 严谨起于西安(汉唐长安丝路起点)，沿渭河河谷穿关中西出大散关
   const pts = [
-    new THREE.Vector3(0.5, 2.8, 13.2),    // 长安
-    new THREE.Vector3(-2.2, 2.9, 11.8),   // 咸阳
-    new THREE.Vector3(-14.5, 3.5, 9.8),   // 宝鸡陈仓
-    new THREE.Vector3(-28.0, 5.2, 5.0),   // 陇关天水方向
-    new THREE.Vector3(-38.0, 4.8, -4.0)   // 河西走廊方向
+    new THREE.Vector3(6.24, 2.5, 16.98),   // 西安 (汉唐长安丝路起点)
+    new THREE.Vector3(1.5, 2.7, 15.2),    // 咸阳渭水古渡
+    new THREE.Vector3(-4.5, 2.9, 14.0),   // 兴平马嵬
+    new THREE.Vector3(-10.78, 3.2, 16.67), // 宝鸡陈仓大散关
+    new THREE.Vector3(-18.5, 4.8, 12.0),  // 陇关古道西出
+    new THREE.Vector3(-28.0, 5.2, 5.0),   // 天水陇右屏障
+    new THREE.Vector3(-38.0, 5.0, -4.0)   // 远向河西走廊
   ];
   const curve = new THREE.CatmullRomCurve3(pts);
-  const silkGeo = new THREE.TubeGeometry(curve, 100, 0.15, 8, false);
+  const silkGeo = new THREE.TubeGeometry(curve, 160, 0.22, 12, false);
 
   const silkMat = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b,
+    color: 0xfbbf24,
     emissive: 0xd97706,
-    emissiveIntensity: 0.8,
-    roughness: 0.25,
-    metalness: 0.7
+    emissiveIntensity: 0.95,
+    roughness: 0.2,
+    metalness: 0.8
   });
 
   silkRoadLine = new THREE.Mesh(silkGeo, silkMat);
@@ -1269,6 +1274,12 @@ function updatePoiScreenPositions() {
         return;
       }
 
+      // 如果左侧图文面板展开，且 POI 落在左侧遮挡区域（x < 390），且非用户悬停/聚焦，则智能隐匿，杜绝文字底透撞车
+      if (props.isPanelOpen && poi.x < 390 && poi.priority < 90) {
+        poi.visible = false;
+        return;
+      }
+
       // 如果是选中的或悬浮的，强制展示
       if (poi.priority >= 90) {
         poi.visible = true;
@@ -1371,12 +1382,25 @@ const setLighting = (mode) => {
   }
 };
 
+const updateCameraViewportOffset = () => {
+  if (!camera || !containerRef.value) return;
+  const width = containerRef.value.clientWidth;
+  const height = containerRef.value.clientHeight;
+  if (props.isPanelOpen && props.currentMode === 'macro' && width > 900) {
+    // 380px 的左侧图文面板展开时，将视口投影向左偏移，使三秦沙盘的主体视觉中心落在右侧开阔区域
+    camera.setViewOffset(width, height, -130, 0, width, height);
+  } else {
+    camera.clearViewOffset();
+  }
+  camera.updateProjectionMatrix();
+};
+
 const onWindowResize = () => {
   if (!containerRef.value || !renderer || !camera) return;
   const width = containerRef.value.clientWidth;
   const height = containerRef.value.clientHeight;
   camera.aspect = width / height;
-  camera.updateProjectionMatrix();
+  updateCameraViewportOffset();
   renderer.setSize(width, height);
 };
 
@@ -1430,6 +1454,20 @@ const animate = () => {
       }
     }
     climateSouthParticles.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // 冬季漫天飞雪氛围粒子飘拂模拟
+  if (winterSnowParticles && winterSnowParticles.visible && winterSnowParticles.geometry) {
+    const snPos = winterSnowParticles.geometry.attributes.position.array;
+    const snVel = winterSnowParticles.geometry.attributes.velocity.array;
+    for (let i = 0; i < snVel.length; i++) {
+      snPos[i * 3 + 1] -= snVel[i];
+      snPos[i * 3] += Math.sin(flowOffset + i) * 0.02;
+      if (snPos[i * 3 + 1] < 1.0) {
+        snPos[i * 3 + 1] = 45.0;
+      }
+    }
+    winterSnowParticles.geometry.attributes.position.needsUpdate = true;
   }
 
   if (globeMesh) {
@@ -1489,6 +1527,10 @@ const animate = () => {
 };
 
 // 模式与状态监听
+watch([() => props.isPanelOpen, () => props.currentMode], () => {
+  updateCameraViewportOffset();
+});
+
 watch(() => props.isPortalActive, (isPortal) => {
   if (controls) {
     controls.autoRotate = !!isPortal;
@@ -1880,6 +1922,38 @@ function getTerrainHeightAt(x, z) {
   return (z > 12) ? Math.max(0, 1 - Math.abs(z - 18) / 14) * 14 : 1.5;
 }
 
+// 构建冬季全域漫天飞雪氛围粒子系统
+function buildWinterSnowParticles() {
+  if (winterSnowParticles || !macroGroup) return;
+  const count = 1200;
+  const snowGeo = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const velocities = new Float32Array(count);
+
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 80;      // x: -40 ~ 40
+    positions[i * 3 + 1] = Math.random() * 45 + 5;     // y: 5 ~ 50
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 140; // z: -70 ~ 70
+    velocities[i] = Math.random() * 0.12 + 0.05;
+  }
+
+  snowGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  snowGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+
+  const snowMat = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.65,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  winterSnowParticles = new THREE.Points(snowGeo, snowMat);
+  winterSnowParticles.visible = false;
+  macroGroup.add(winterSnowParticles);
+}
+
 // 四季模式平滑切换
 function setSeason(seasonId) {
   const targetCode = seasonCodeMap[seasonId] ?? 0.0;
@@ -1900,6 +1974,13 @@ function setSeason(seasonId) {
     }
   }
   requestAnimationFrame(updateBlend);
+
+  if (seasonId === 'winter') {
+    if (!winterSnowParticles) buildWinterSnowParticles();
+    if (winterSnowParticles) winterSnowParticles.visible = true;
+  } else {
+    if (winterSnowParticles) winterSnowParticles.visible = false;
+  }
 
   if (sunLight) {
     if (seasonId === 'winter') {
