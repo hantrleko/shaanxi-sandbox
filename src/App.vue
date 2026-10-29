@@ -1,5 +1,5 @@
 <template>
-  <div class="app-root">
+  <div class="app-root" :data-theme="currentThemeId">
     <!-- 3D 核心视口 (真实遥感 DEM + 实心地质切面 + 四季气候着色 + 3D路书 + 智能避让) -->
     <ThreeCanvas
       ref="threeRef"
@@ -29,7 +29,7 @@
       @roadbook-point-added="onRoadbookPointAdded"
     />
 
-    <!-- 首页门户大屏欢迎遮罩 (带 EUGENE FINANCE 品牌徽章、V2.0 标识与沉浸入口) -->
+    <!-- 首页门户大屏欢迎遮罩 (带 EUGENE FINANCE 品牌徽章、V4.0 标识与沉浸入口) -->
     <HomePortal
       v-if="showPortal"
       @enter-sandbox="closePortal"
@@ -43,7 +43,7 @@
 
     <!-- HUD 界面层 (非门户模式时呈现) -->
     <template v-else>
-      <!-- 顶部 HUD 导航 (带品牌徽章、V2.0 演更日志、四季流转与 3D 路书) -->
+      <!-- 顶部 HUD 导航 (带品牌徽章、V4.0 演更日志、四季流转与 3D 路书) -->
       <HudHeader
         v-if="!isTourActive"
         :themes="THEMES"
@@ -67,6 +67,7 @@
         @open-wargame="onOpenWargame"
         @open-poster="onOpenPoster"
         @open-changelog="onOpenChangelog"
+        @open-cmd="isCmdOpen = true"
       />
 
       <!-- 宏观沙盘模式：左侧图文卡片 (选项卡媒体 + 剖面联动) -->
@@ -201,29 +202,19 @@
         @fly-to="onFlyToCulture"
       />
 
-      <!-- 右下角图层控制与指北针 -->
-      <LayerControl
-        v-if="currentMode === 'macro' && !isTourActive"
+      <!-- 🎛️ 右侧垂直环境与图层控制轨 (整合图层、四季、光照、指北针、遥测，彻底消除与底部坞碰撞) -->
+      <RightToolbar
+        v-if="!isTourActive"
+        :layers="layers"
+        :season-mode="seasonMode"
+        :lighting-mode="lightingMode"
         :azimuth="cameraAzimuth"
+        :pitch="cameraPitch"
         @update-layers="onUpdateLayers"
+        @change-season="onChangeSeason"
+        @change-lighting="onLightingChange"
         @reset-north="onResetNorth"
       />
-
-      <!-- 右下角紧凑遥测数据栈 -->
-      <div v-if="!isTourActive" class="hud-telemetry glass-panel">
-        <div class="tele-item">
-          <span class="tele-lbl">遥感源</span>
-          <span class="tele-val">DEM 30m</span>
-        </div>
-        <div class="tele-item">
-          <span class="tele-lbl">视角</span>
-          <span class="tele-val">{{ cameraPitch }}°</span>
-        </div>
-        <div class="tele-item">
-          <span class="tele-lbl">航向</span>
-          <span class="tele-val">{{ cameraAzimuth }}°</span>
-        </div>
-      </div>
     </template>
 
     <!-- 🖼️ POI 点击地标实景图卡浮窗 (随时感知真实地理风貌) -->
@@ -243,35 +234,57 @@
       @fly-to="onFlyToScenery"
     />
 
-    <!-- 📜 V2.0 版本更迭历史与架构升级日志中心 (全场景可随时呼出) -->
+    <!-- 📜 V4.0 版本更迭历史与架构升级日志中心 (全场景可随时呼出) -->
     <ChangelogModal
       :active="isChangelogActive"
       @close="isChangelogActive = false"
+    />
+
+    <!-- ⌘K 全局指令与三秦地标检索面板 -->
+    <CommandPaletteModal
+      :active="isCmdOpen"
+      :chapters="currentChapters"
+      :themes="THEMES"
+      @close="isCmdOpen = false"
+      @select-chapter="onSelectChapterItem"
+      @open-gallery="onOpenGallery"
+      @open-tour="onOpenTour"
+      @open-roadbook="onOpenRoadbook"
+      @open-detective="onOpenDetective"
+      @open-poster="onOpenPoster"
+      @open-changelog="onOpenChangelog"
+      @switch-mode="onSwitchMode"
+      @change-lighting="onLightingChange"
+      @change-season="onChangeSeason"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue';
 import ThreeCanvas from './components/ThreeCanvas.vue';
 import HomePortal from './components/HomePortal.vue';
 import HudHeader from './components/HudHeader.vue';
 import LeftInfoPanel from './components/LeftInfoPanel.vue';
 import BottomTimeline from './components/BottomTimeline.vue';
+import RightToolbar from './components/RightToolbar.vue';
 import BonsaiModal from './components/BonsaiModal.vue';
 import ModelModal from './components/ModelModal.vue';
 import CampaignModal from './components/CampaignModal.vue';
-import LayerControl from './components/LayerControl.vue';
-import CinematicTour from './components/CinematicTour.vue';
-import ElevationProfiler from './components/ElevationProfiler.vue';
-import RouteWorkshopModal from './components/RouteWorkshopModal.vue';
-import TacticalWargameModal from './components/TacticalWargameModal.vue';
-import GeoDetectiveModal from './components/GeoDetectiveModal.vue';
-import PosterModal from './components/PosterModal.vue';
-import CulturalCard from './components/CulturalCard.vue';
-import ChangelogModal from './components/ChangelogModal.vue';
-import SceneryGalleryModal from './components/SceneryGalleryModal.vue';
-import PoiPhotoCard from './components/PoiPhotoCard.vue';
+
+// 懒加载次级模态组件 (异步代码分包，大幅缩减首屏体积)
+const CinematicTour = defineAsyncComponent(() => import('./components/CinematicTour.vue'));
+const ElevationProfiler = defineAsyncComponent(() => import('./components/ElevationProfiler.vue'));
+const RouteWorkshopModal = defineAsyncComponent(() => import('./components/RouteWorkshopModal.vue'));
+const TacticalWargameModal = defineAsyncComponent(() => import('./components/TacticalWargameModal.vue'));
+const GeoDetectiveModal = defineAsyncComponent(() => import('./components/GeoDetectiveModal.vue'));
+const PosterModal = defineAsyncComponent(() => import('./components/PosterModal.vue'));
+const CulturalCard = defineAsyncComponent(() => import('./components/CulturalCard.vue'));
+const ChangelogModal = defineAsyncComponent(() => import('./components/ChangelogModal.vue'));
+const SceneryGalleryModal = defineAsyncComponent(() => import('./components/SceneryGalleryModal.vue'));
+const PoiPhotoCard = defineAsyncComponent(() => import('./components/PoiPhotoCard.vue'));
+const CommandPaletteModal = defineAsyncComponent(() => import('./components/CommandPaletteModal.vue'));
+
 import { THEMES, BONSAIS, EVOLUTION_STAGES, CAMPAIGNS, WARGAME_COMPARISONS, CINEMATIC_WAYPOINTS, SCENERY_PHOTOS } from './data/shaanxiData.js';
 import { narrator } from './utils/speech.js';
 import { soundscape } from './utils/soundscape.js';
@@ -750,6 +763,40 @@ const onPrevStage = () => {
 const onNextStage = () => {
   if (activeModelStage.value < EVOLUTION_STAGES.length) activeModelStage.value++;
 };
+
+const isCmdOpen = ref(false);
+
+const onSelectChapterItem = (chapterItem) => {
+  if (chapterItem.themeId && chapterItem.themeId !== currentThemeId.value) {
+    onChangeTheme(chapterItem.themeId);
+  }
+  const idx = currentChapters.value.findIndex(c => c.id === chapterItem.id);
+  if (idx !== -1) {
+    onSelectChapter(idx);
+  }
+};
+
+const onKeydown = (e) => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    isCmdOpen.value = !isCmdOpen.value;
+  }
+  if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+    const targetTag = e.target.tagName?.toLowerCase();
+    if (targetTag !== 'input' && targetTag !== 'textarea') {
+      e.preventDefault();
+      isCmdOpen.value = true;
+    }
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown);
+});
 </script>
 
 <style scoped>

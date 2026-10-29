@@ -1,15 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import './styles/tokens.css';
 
 :root {
-  --bg-dark: #0a0e14;
-  --bg-panel: rgba(14, 20, 27, 0.78);
-  --bg-panel-hover: rgba(22, 31, 42, 0.9);
-  --border-subtle: rgba(255, 255, 255, 0.12);
-  --border-glow: rgba(56, 189, 248, 0.4);
-  --accent-cyan: #38bdf8;
-  --accent-emerald: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
+  --bg-dark: var(--bg-0);
+  --bg-panel: var(--bg-glass);
+  --bg-panel-hover: rgba(16, 38, 62, 0.92);
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-glow: rgba(56, 189, 248, 0.35);
+  --accent-cyan: var(--brand-cyan);
+  --accent-emerald: var(--accent-jade);
+  --accent-amber: var(--accent-gold);
+  --accent-rose: var(--accent-cinnabar);
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --text-dim: #64748b;

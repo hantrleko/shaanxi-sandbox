@@ -14,9 +14,9 @@
           </div>
         </div>
 
-        <button class="portal-ver-pill" @click="$emit('open-changelog')" title="点击查看 v2.5.0 ULTIMATE 架构演更与升级日志">
+        <button class="portal-ver-pill" @click="$emit('open-changelog')" title="点击查看 v4.0.0 PRO 架构演更与升级日志">
           <span class="pv-dot"></span>
-          <span>v2.5 ULTIMATE · 更新日志 ➔</span>
+          <span>v4.0 PRO 旗舰版 · 更新日志 ➔</span>
         </button>
       </div>
 

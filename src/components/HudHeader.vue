@@ -1,24 +1,66 @@
 <template>
-  <header class="hud-header glass-panel">
-    <!-- 左区：Eugene Finance 品牌徽章与版本标识 -->
+  <header class="hud-header glass-panel" role="banner">
+    <!-- 左区：Eugene Finance 品牌徽章与 V4.0 标识 -->
     <div class="header-left">
       <div class="brand-badge-box" @click="$emit('open-portal')" title="返回首页大屏 · EUGENE FINANCE">
         <img :src="BRAND_LOGO_BADGE" alt="Eugene Finance" class="brand-logo" />
         <div class="brand-info">
-          <span class="brand-name">EUGENE FINANCE</span>
-          <span class="brand-sub">三秦三维沙盒</span>
+          <div class="brand-title-row">
+            <span class="brand-name">EUGENE FINANCE</span>
+            <span class="seal-badge">官方认证</span>
+          </div>
+          <span class="brand-sub">三秦三维数字地貌与文明探源</span>
         </div>
       </div>
 
-      <!-- V2.5 ULTIMATE 版本更新日志入口胶囊 -->
-      <button class="ver-pill-badge" @click="$emit('open-changelog')" title="查看 v2.5.0 ULTIMATE 架构演进与版本升级日志">
+      <!-- V4.0 PRO 旗舰版本升级日志入口 -->
+      <button class="ver-pill-badge" @click="$emit('open-changelog')" title="点击查看 V4.0 架构演进与版本升级日志">
         <span class="ver-pulse-dot"></span>
-        <span class="ver-txt">v2.5</span>
+        <span class="ver-txt">v4.0 PRO</span>
       </button>
+    </div>
 
-      <div class="divider"></div>
+    <!-- 中区：模式切换胶囊坞 (宏观沙盘 · 历史战役 · 微观盆景 · 科学模型) -->
+    <div class="header-center">
+      <nav class="mode-capsule-nav" aria-label="沙盒主视图模式">
+        <button
+          class="mode-btn"
+          :class="{ active: currentMode === 'macro' }"
+          @click="$emit('switch-mode', 'macro')"
+        >
+          <Globe :size="15" />
+          <span>宏观沙盘</span>
+        </button>
+        <button
+          class="mode-btn camp-mode-btn"
+          :class="{ active: currentMode === 'campaign' }"
+          @click="$emit('switch-mode', 'campaign')"
+        >
+          <Swords :size="15" />
+          <span>战役演武</span>
+        </button>
+        <button
+          class="mode-btn"
+          :class="{ active: currentMode === 'bonsai' }"
+          @click="$emit('switch-mode', 'bonsai')"
+        >
+          <Box :size="15" />
+          <span>微观切块</span>
+        </button>
+        <button
+          class="mode-btn"
+          :class="{ active: currentMode === 'model' }"
+          @click="$emit('switch-mode', 'model')"
+        >
+          <FlaskConical :size="15" />
+          <span>科学实验</span>
+        </button>
+      </nav>
+    </div>
 
-      <!-- 主题标签 (宏观沙盘模式) -->
+    <!-- 右区：三秦大主题标签、探索多维矩阵下拉与 ⌘K 检索 -->
+    <div class="header-right">
+      <!-- 宏观沙盘下的大主题切换 (自然地理 · 华夏根脉 · 丝路起点) -->
       <div class="theme-nav" v-if="currentMode === 'macro'">
         <button
           v-for="theme in themes"
@@ -31,207 +73,88 @@
         </button>
       </div>
 
-      <!-- 模式状态徽标 -->
-      <div class="mode-indicator" v-else>
-        <span class="mode-tag camp-tag" v-if="currentMode === 'campaign'">
-          <svg class="tag-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path><path d="M13 19l6-6"></path><path d="M16 16l4 4"></path><path d="M19 21l2-2"></path></svg>
-          历史战役 · 军事沙盘推演
-        </span>
-        <span class="mode-tag bonsai-tag" v-if="currentMode === 'bonsai'">🏔️ 微观高精盆景 · Zoom 12</span>
-        <span class="mode-tag" v-if="currentMode === 'model'">🔬 科学演变 · 4大互动实验台</span>
-      </div>
-    </div>
+      <div class="header-divider"></div>
 
-    <!-- 中区：模式切换胶囊坞 -->
-    <div class="header-center">
-      <button
-        class="mode-btn"
-        :class="{ active: currentMode === 'macro' }"
-        @click="$emit('switch-mode', 'macro')"
-      >
-        宏观沙盘
-      </button>
-      <button
-        class="mode-btn camp-mode-btn"
-        :class="{ active: currentMode === 'campaign' }"
-        @click="$emit('switch-mode', 'campaign')"
-      >
-        战役演武
-      </button>
-      <button
-        class="mode-btn"
-        :class="{ active: currentMode === 'bonsai' }"
-        @click="$emit('switch-mode', 'bonsai')"
-      >
-        微观盆景
-      </button>
-      <button
-        class="mode-btn"
-        :class="{ active: currentMode === 'model' }"
-        @click="$emit('switch-mode', 'model')"
-      >
-        科学模型
-      </button>
-    </div>
-
-    <!-- 右区：专业工具集与 V2.0 空间智能模块 -->
-    <div class="header-right">
-      <!-- 📸 三秦实景影集画廊 -->
-      <button class="tool-btn gallery-tool" @click="$emit('open-gallery')" title="开启三秦 16 处地标真实地理高清实景画廊与 3D 定位">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <circle cx="8.5" cy="8.5" r="1.5"></circle>
-          <polyline points="21 15 16 10 5 21"></polyline>
-        </svg>
-        <span>实景影集</span>
-      </button>
-
-      <!-- 航拍导览 -->
-      <button class="tool-btn tour-tool" @click="$emit('open-tour')" title="开启《航拍三秦》电影级自动巡航导览">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="5 3 19 12 5 21 5 3"></polygon>
-        </svg>
-        <span>航拍导览</span>
-      </button>
-
-      <!-- 🛣️ V2.0 3D 路书工坊 -->
-      <button
-        class="tool-btn roadbook-tool"
-        :class="{ active: isRoadbookActive }"
-        @click="$emit('open-roadbook')"
-        title="开启 3D 多点研学/自驾路书工坊与 FPV 低空贴地飞行预演"
-      >
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="6" cy="19" r="3"></circle>
-          <path d="M9 19h8.5a4.5 4.5 0 0 0 4.5-4.5v0a4.5 4.5 0 0 0-4.5-4.5H6"></path>
-          <circle cx="6" cy="5" r="3"></circle>
-        </svg>
-        <span>3D路书</span>
-      </button>
-
-      <!-- 寻迹探秘 -->
-      <button class="tool-btn" @click="$emit('open-detective')" title="开启‘寻迹三秦’空间探秘解谜挑战">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="22" y1="12" x2="18" y2="12"></line>
-          <line x1="6" y1="12" x2="2" y2="12"></line>
-          <line x1="12" y1="6" x2="12" y2="2"></line>
-          <line x1="12" y1="22" x2="12" y2="18"></line>
-        </svg>
-        <span>寻迹探秘</span>
-      </button>
-
-      <!-- 拍照打卡海报 -->
-      <button class="tool-btn snapshot-tool" @click="$emit('open-poster')" title="生成 EUGENE FINANCE 认证数字地理明信片海报">
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-          <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-        <span>拍照打卡</span>
-      </button>
-
-      <!-- 兵棋推演 (仅在战役模式显现) -->
-      <button
-        v-if="currentMode === 'campaign'"
-        class="tool-btn wargame-tool"
-        @click="$emit('open-wargame')"
-        title="查看诸葛亮北伐/楚汉争霸双路线军事地形推演"
-      >
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
-          <path d="M13 19l6-6"></path>
-        </svg>
-        <span>兵棋对比</span>
-      </button>
-
-      <div class="divider"></div>
-
-      <!-- 🌸 V2.0 四季气候流转切换器 -->
-      <div class="season-group">
+      <!-- 「探索」综合功能下拉菜单 -->
+      <div class="explore-dropdown-wrap" ref="exploreRef">
         <button
-          v-for="s in seasons"
-          :key="s.id"
-          class="season-btn"
-          :class="{ active: seasonMode === s.id }"
-          @click="$emit('change-season', s.id)"
-          :title="`${s.name} · ${s.desc}`"
+          class="explore-btn"
+          :class="{ active: isExploreOpen }"
+          @click="isExploreOpen = !isExploreOpen"
+          title="展开三秦文旅研学、航拍与测绘功能矩阵"
+          aria-haspopup="true"
+          :aria-expanded="isExploreOpen"
         >
-          <span class="s-icon">{{ s.icon }}</span>
+          <Compass :size="16" class="explore-icon" />
+          <span>探索矩阵</span>
+          <ChevronDown :size="13" class="arrow-icon" :class="{ open: isExploreOpen }" />
         </button>
+
+        <transition name="dropdown">
+          <div v-if="isExploreOpen" class="explore-menu glass-panel" role="menu">
+            <div class="menu-header">三秦时空探索工具</div>
+            <button class="menu-item" @click="handleTool('gallery')" role="menuitem">
+              <Images :size="15" class="item-icn gold" />
+              <div class="item-text">
+                <span class="m-title">实景影集画廊</span>
+                <span class="m-desc">16 处国家级地标高清真实自然摄影</span>
+              </div>
+            </button>
+            <button class="menu-item" @click="handleTool('tour')" role="menuitem">
+              <Video :size="15" class="item-icn blue" />
+              <div class="item-text">
+                <span class="m-title">《航拍三秦》巡航</span>
+                <span class="m-desc">电影级自动运镜贯穿秦岭陕北</span>
+              </div>
+            </button>
+            <button class="menu-item" @click="handleTool('roadbook')" role="menuitem">
+              <Navigation :size="15" class="item-icn cyan" />
+              <div class="item-text">
+                <span class="m-title">3D 贴地路书工坊</span>
+                <span class="m-desc">秦岭 210、褒斜道多点飞行预演</span>
+              </div>
+            </button>
+            <button class="menu-item" @click="handleTool('profiling')" role="menuitem">
+              <Activity :size="15" class="item-icn emerald" />
+              <div class="item-text">
+                <span class="m-title">任意拉线剖面测绘</span>
+                <span class="m-desc">两点生成真实物理高程剖面曲线</span>
+              </div>
+            </button>
+            <button class="menu-item" @click="handleTool('detective')" role="menuitem">
+              <Crosshair :size="15" class="item-icn purple" />
+              <div class="item-text">
+                <span class="m-title">寻迹三秦 · 空间探秘</span>
+                <span class="m-desc">看图识地理、经纬度测绘答题挑战</span>
+              </div>
+            </button>
+            <button class="menu-item" @click="handleTool('wargame')" role="menuitem">
+              <Swords :size="15" class="item-icn rose" />
+              <div class="item-text">
+                <span class="m-title">战役双路线兵棋推演</span>
+                <span class="m-desc">明修暗度陈仓、子午谷战术对比</span>
+              </div>
+            </button>
+            <button class="menu-item" @click="handleTool('poster')" role="menuitem">
+              <Camera :size="15" class="item-icn gold" />
+              <div class="item-text">
+                <span class="m-title">国风地理明信片</span>
+                <span class="m-desc">3D 沙盘快照与文旅海报生成</span>
+              </div>
+            </button>
+          </div>
+        </transition>
       </div>
 
-      <!-- 🎧 V2.0 Web Audio 三维空间自然音景开关 -->
-      <button
-        class="tool-btn audio-tool-btn"
-        :class="{ active: !isAudioMuted }"
-        @click="onToggleAudio"
-        :title="isAudioMuted ? '点击开启 Web Audio 三维空间自然音景' : `正在播放：${soundZone}（点击静音）`"
-      >
-        <div class="sound-wave" :class="{ playing: !isAudioMuted }">
-          <span class="wave-bar wb-1"></span>
-          <span class="wave-bar wb-2"></span>
-          <span class="wave-bar wb-3"></span>
-        </div>
-        <span>{{ isAudioMuted ? '音景' : soundZone }}</span>
+      <!-- ⌘K 命令面板呼出按钮 -->
+      <button class="cmd-trigger-btn" @click="$emit('open-cmd')" title="全局搜索地标与指令 (⌘K / Ctrl+K)">
+        <Search :size="15" />
+        <span class="cmd-kbd">⌘K</span>
       </button>
-
-      <div class="divider"></div>
-
-      <!-- 光照时序预设 -->
-      <div class="lighting-group">
-        <button
-          class="light-btn"
-          :class="{ active: lightingMode === 'dawn' }"
-          @click="$emit('change-lighting', 'dawn')"
-          title="晨曦拂晓 (金色低角光)"
-        >
-          <svg class="light-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2v4M4.93 4.93l2.83 2.83M2 12h4M4.93 19.07l2.83-2.83"></path>
-            <circle cx="12" cy="12" r="4"></circle>
-          </svg>
-        </button>
-        <button
-          class="light-btn"
-          :class="{ active: lightingMode === 'noon' }"
-          @click="$emit('change-lighting', 'noon')"
-          title="正午晴空 (高空直射光)"
-        >
-          <svg class="light-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
-        </button>
-        <button
-          class="light-btn"
-          :class="{ active: lightingMode === 'sunset' }"
-          @click="$emit('change-lighting', 'sunset')"
-          title="落日晚霞 (长影余晖)"
-        >
-          <svg class="light-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 18a5 5 0 0 0-10 0"></path>
-            <line x1="12" y1="2" x2="12" y2="9"></line>
-            <line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line>
-            <line x1="1" y1="18" x2="23" y2="18"></line>
-            <line x1="18.36" y1="11.64" x2="19.78" y2="10.22"></line>
-          </svg>
-        </button>
-      </div>
 
       <!-- 全屏切换 -->
-      <button class="icon-tool-btn" @click="$emit('toggle-fullscreen')" title="全屏查看">
-        <svg class="fs-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <polyline points="9 21 3 21 3 15"></polyline>
-          <line x1="21" y1="3" x2="14" y2="10"></line>
-          <line x1="3" y1="21" x2="10" y2="14"></line>
-        </svg>
+      <button class="icon-tool-btn" @click="$emit('toggle-fullscreen')" title="切换浏览器全屏浏览 (F)">
+        <Maximize2 :size="15" />
       </button>
     </div>
   </header>
@@ -239,26 +162,37 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
-import { BRAND_LOGO_BADGE, SEASONS_DATA } from '../data/shaanxiData.js';
-import { soundscape } from '../utils/soundscape.js';
+import {
+  Globe,
+  Swords,
+  Box,
+  FlaskConical,
+  Compass,
+  ChevronDown,
+  Images,
+  Video,
+  Navigation,
+  Activity,
+  Crosshair,
+  Camera,
+  Search,
+  Maximize2
+} from 'lucide-vue-next';
+import { BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
 
-defineProps({
+const props = defineProps({
   themes: { type: Array, required: true },
   currentThemeId: { type: String, required: true },
-  currentMode: { type: String, required: true },
-  lightingMode: { type: String, default: 'dawn' },
-  seasonMode: { type: String, default: 'natural' },
+  currentMode: { type: String, default: 'macro' },
   isProfilingActive: { type: Boolean, default: false },
   isRoadbookActive: { type: Boolean, default: false }
 });
 
-defineEmits([
+const emit = defineEmits([
   'open-portal',
   'change-theme',
   'switch-mode',
   'toggle-fullscreen',
-  'change-lighting',
-  'change-season',
   'open-tour',
   'open-roadbook',
   'open-gallery',
@@ -266,28 +200,36 @@ defineEmits([
   'open-detective',
   'open-wargame',
   'open-poster',
-  'open-changelog'
+  'open-changelog',
+  'open-cmd'
 ]);
 
-const seasons = SEASONS_DATA;
-const isAudioMuted = ref(true);
-const soundZone = ref('高空风吟');
-let audioTimer = null;
+const isExploreOpen = ref(false);
+const exploreRef = ref(null);
 
-const onToggleAudio = () => {
-  const active = soundscape.toggleMute();
-  isAudioMuted.value = !active;
-  soundZone.value = soundscape.currentZone || '高空风吟';
+const handleTool = (tool) => {
+  isExploreOpen.value = false;
+  if (tool === 'gallery') emit('open-gallery');
+  else if (tool === 'tour') emit('open-tour');
+  else if (tool === 'roadbook') emit('open-roadbook');
+  else if (tool === 'profiling') emit('toggle-profiling');
+  else if (tool === 'detective') emit('open-detective');
+  else if (tool === 'wargame') emit('open-wargame');
+  else if (tool === 'poster') emit('open-poster');
+};
+
+const handleOutsideClick = (e) => {
+  if (exploreRef.value && !exploreRef.value.contains(e.target)) {
+    isExploreOpen.value = false;
+  }
 };
 
 onMounted(() => {
-  audioTimer = setInterval(() => {
-    soundZone.value = soundscape.currentZone || '高空风吟';
-  }, 1000);
+  window.addEventListener('click', handleOutsideClick);
 });
 
 onBeforeUnmount(() => {
-  if (audioTimer) clearInterval(audioTimer);
+  window.removeEventListener('click', handleOutsideClick);
 });
 </script>
 
@@ -297,280 +239,101 @@ onBeforeUnmount(() => {
   top: 14px;
   left: 20px;
   right: 20px;
-  height: 50px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
-  z-index: 20;
-  border-radius: 12px;
-  border: 1px solid rgba(56, 189, 248, 0.22);
-  background: rgba(10, 15, 25, 0.9);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
+  padding: 0 16px;
+  z-index: 40;
+  background: var(--bg-glass, rgba(11, 26, 43, 0.88));
+  border: 1px solid var(--border-light, rgba(56, 189, 248, 0.22));
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 0 12px 36px -6px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-.header-left, .header-center, .header-right {
+/* 左区品牌 */
+.header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .brand-badge-box {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
-  padding: 3px 8px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 6px);
   transition: all 0.2s;
 }
 
 .brand-badge-box:hover {
-  background: rgba(56, 189, 248, 0.12);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .brand-logo {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .brand-info {
   display: flex;
   flex-direction: column;
+  gap: 1px;
 }
 
-.brand-name {
-  font-size: 10.5px;
-  font-weight: 800;
-  color: #38bdf8;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-}
-
-.brand-sub {
-  font-size: 9.5px;
-  color: #94a3b8;
-  letter-spacing: 0.02em;
-}
-
-.divider {
-  width: 1px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.12);
-  margin: 0 4px;
-}
-
-.theme-nav {
-  display: flex;
-  gap: 3px;
-}
-
-.theme-tab {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 11.5px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.theme-tab:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.theme-tab.active {
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.15);
-  font-weight: 700;
-}
-
-.mode-tag {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.tag-svg {
-  width: 12px;
-  height: 12px;
-}
-
-.mode-tag.camp-tag {
-  background: rgba(239, 68, 68, 0.12);
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.35);
-}
-
-.header-center {
-  background: rgba(15, 23, 42, 0.65);
-  padding: 3px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.mode-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 11.5px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.mode-btn:hover {
-  color: #fff;
-}
-
-.mode-btn.active {
-  background: #0284c7;
-  color: #fff;
-  font-weight: 700;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
-}
-
-.camp-mode-btn.active {
-  background: #dc2626;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
-}
-
-/* 专业工具按钮 (统一黑曜石玻璃态 + 矢量图标) */
-.tool-btn {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 11.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+.brand-title-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  white-space: nowrap;
 }
 
-.tool-icon {
-  width: 13px;
-  height: 13px;
-  stroke-width: 2.2;
-}
-
-.tool-btn:hover {
-  border-color: #38bdf8;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-}
-
-.tool-btn.active {
-  background: #0284c7;
+.brand-name {
+  font-size: var(--text-base, 13px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
   color: #fff;
-  border-color: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+  font-family: var(--font-sans);
 }
 
-.tour-tool:hover {
-  border-color: #f59e0b;
-  color: #fef08a;
-  background: rgba(245, 158, 11, 0.15);
-}
-
-.wargame-tool:hover {
-  border-color: #ef4444;
+.seal-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  background: rgba(220, 38, 38, 0.18);
+  border: 1px solid rgba(220, 38, 38, 0.45);
   color: #fca5a5;
-  background: rgba(239, 68, 68, 0.15);
+  border-radius: 3px;
+  font-family: var(--font-serif);
+  font-weight: 700;
 }
 
-.lighting-group {
-  display: flex;
-  background: rgba(15, 23, 42, 0.65);
-  padding: 2px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.brand-sub {
+  font-size: 10px;
+  color: var(--text-dim, #64748b);
+  letter-spacing: 0.02em;
 }
 
-.light-btn {
-  background: transparent;
-  border: none;
-  padding: 3px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #94a3b8;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.light-svg {
-  width: 13px;
-  height: 13px;
-}
-
-.light-btn:hover {
-  color: #fff;
-}
-
-.light-btn.active {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.15);
-}
-
-.icon-tool-btn {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.fs-svg {
-  width: 13px;
-  height: 13px;
-}
-
-.icon-tool-btn:hover {
-  border-color: #38bdf8;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.15);
-}
-
-/* V2.0 版本更迭日志按钮徽章 */
+/* 版本日志药丸 */
 .ver-pill-badge {
   display: flex;
   align-items: center;
   gap: 5px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(245, 185, 66, 0.12));
+  border: 1px solid rgba(56, 189, 248, 0.4);
   padding: 3px 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-full, 999px);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .ver-pill-badge:hover {
-  background: rgba(56, 189, 248, 0.22);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+  border-color: var(--accent-gold, #f5b942);
+  box-shadow: 0 0 10px var(--accent-gold-glow);
   transform: translateY(-1px);
 }
 
@@ -578,138 +341,295 @@ onBeforeUnmount(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 6px #38bdf8;
-  animation: pulseVer 1.6s infinite;
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+  animation: pulseDot 1.5s infinite;
 }
 
-@keyframes pulseVer {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.8); }
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.8); opacity: 0.5; }
 }
 
 .ver-txt {
   font-size: 10px;
-  font-weight: 700;
-  color: #38bdf8;
+  font-weight: 800;
+  color: #fde68a;
   letter-spacing: 0.04em;
-  font-family: monospace;
+  font-family: var(--font-mono, monospace);
 }
 
-/* V2.0 四季流转选择器 */
-.season-group {
+/* 中区主模式切换 */
+.header-center {
   display: flex;
   align-items: center;
-  background: rgba(15, 23, 42, 0.65);
-  padding: 2px 3px;
-  border-radius: 6px;
+}
+
+.mode-capsule-nav {
+  display: flex;
+  align-items: center;
+  background: rgba(6, 13, 23, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  gap: 2px;
+  border-radius: var(--radius-sm, 8px);
+  padding: 3px;
+  gap: 3px;
 }
 
-.season-btn {
-  background: transparent;
-  border: none;
-  padding: 2px 5px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
+.mode-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted, #94a3b8);
+  font-size: var(--text-sm, 12px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--motion-fast, 0.15s);
 }
 
-.season-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+.mode-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.season-btn.active {
+.mode-btn.active {
   background: rgba(56, 189, 248, 0.2);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: var(--brand-cyan, #38bdf8);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
 }
 
-.s-icon {
-  font-size: 13px;
-  line-height: 1;
+.camp-mode-btn.active {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.45);
+  color: #f87171;
+  box-shadow: 0 0 12px rgba(220, 38, 38, 0.3);
 }
 
-/* V2.0 Web Audio 音景波形动态条 */
-.audio-tool-btn {
+/* 右区大主题与探索 */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-tab {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted, #94a3b8);
+  font-size: var(--text-sm, 12px);
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.theme-tab:hover {
+  color: #fff;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.theme-tab.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: var(--brand-cyan, #38bdf8);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 探索下拉菜单 */
+.explore-dropdown-wrap {
+  position: relative;
+}
+
+.explore-btn {
   display: flex;
   align-items: center;
   gap: 6px;
+  background: linear-gradient(135deg, rgba(245, 185, 66, 0.15), rgba(217, 119, 6, 0.08));
+  border: 1px solid rgba(245, 185, 66, 0.35);
+  color: #fde68a;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm, 12px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
 }
 
-.sound-wave {
+.explore-btn:hover,
+.explore-btn.active {
+  background: linear-gradient(135deg, rgba(245, 185, 66, 0.28), rgba(217, 119, 6, 0.18));
+  border-color: var(--accent-gold, #f5b942);
+  color: #fff;
+  box-shadow: 0 0 12px var(--accent-gold-glow);
+}
+
+.arrow-icon {
+  transition: transform 0.2s;
+}
+
+.arrow-icon.open {
+  transform: rotate(180deg);
+}
+
+.explore-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 250px;
+  background: rgba(11, 26, 43, 0.96);
+  border: 1px solid rgba(245, 185, 66, 0.35);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: 0 18px 48px -6px rgba(0, 0, 0, 0.8), 0 0 24px rgba(245, 185, 66, 0.15);
+  overflow: hidden;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: menuDrop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes menuDrop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.menu-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim, #64748b);
+  padding: 6px 10px 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.menu-item {
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 12px;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
 }
 
-.wave-bar {
-  width: 2px;
-  height: 4px;
-  background: #94a3b8;
-  border-radius: 1px;
-  transition: all 0.2s;
+.menu-item:hover {
+  background: rgba(56, 189, 248, 0.14);
 }
 
-.sound-wave.playing .wave-bar {
-  background: #38bdf8;
+.item-icn {
+  flex-shrink: 0;
 }
 
-.sound-wave.playing .wb-1 {
-  animation: soundJump 0.8s ease-in-out infinite alternate;
-}
-.sound-wave.playing .wb-2 {
-  animation: soundJump 0.6s ease-in-out 0.2s infinite alternate;
-}
-.sound-wave.playing .wb-3 {
-  animation: soundJump 0.9s ease-in-out 0.4s infinite alternate;
+.item-icn.gold { color: var(--accent-gold, #f5b942); }
+.item-icn.blue { color: var(--brand-cyan, #38bdf8); }
+.item-icn.cyan { color: #06b6d4; }
+.item-icn.emerald { color: #10b981; }
+.item-icn.purple { color: #a855f7; }
+.item-icn.rose { color: #f43f5e; }
+
+.item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
-@keyframes soundJump {
-  0% { height: 3px; }
-  100% { height: 11px; }
+.m-title {
+  font-size: var(--text-sm, 12px);
+  font-weight: 600;
+  color: #fff;
 }
 
-.roadbook-tool.active {
-  border-color: #38bdf8;
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+.m-desc {
+  font-size: 10.5px;
+  color: var(--text-muted, #94a3b8);
 }
 
-@media (max-width: 1240px) {
-  .tool-btn span {
-    display: none;
-  }
-  .tool-btn {
-    padding: 6px 8px;
-  }
-  .brand-sub {
-    display: none;
-  }
-  .divider {
-    margin: 0 2px;
-  }
+/* ⌘K 与全屏触发器 */
+.cmd-trigger-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-muted, #94a3b8);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-xs, 11px);
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-@media (max-width: 980px) {
-  .brand-info {
-    display: none;
+.cmd-trigger-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #fff;
+}
+
+.cmd-kbd {
+  font-family: var(--font-mono, monospace);
+  font-size: 9.5px;
+  padding: 1px 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.icon-tool-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted, #94a3b8);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.icon-tool-btn:hover {
+  color: #fff;
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.15);
+}
+
+/* 响应式断点 */
+@media (max-width: 1024px) {
+  .brand-sub { display: none; }
+  .mode-btn span { display: none; }
+}
+
+@media (max-width: 768px) {
+  .hud-header {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    height: 48px;
+    padding: 0 10px;
   }
-  .lighting-group {
-    display: none;
-  }
-  .mode-btn {
-    padding: 4px 8px;
-    font-size: 11px;
-  }
-  .theme-tab {
-    padding: 3px 8px;
-    font-size: 11px;
-  }
+  .theme-nav { display: none; }
+  .header-divider { display: none; }
+  .cmd-kbd { display: none; }
 }
 </style>

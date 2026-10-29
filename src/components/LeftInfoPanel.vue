@@ -1,118 +1,175 @@
 <template>
-  <aside class="left-info-panel glass-panel" :class="{ collapsed: isCollapsed }">
-    <!-- 侧栏收起/展开微动滑钮 (支持全屏纯净模式) -->
+  <aside
+    class="left-info-panel glass-panel"
+    :class="{
+      collapsed: isCollapsed,
+      'mobile-sheet': isMobile,
+      'sheet-half': isMobile && mobileSheetState === 'half',
+      'sheet-full': isMobile && mobileSheetState === 'full',
+      'sheet-peek': isMobile && mobileSheetState === 'peek'
+    }"
+  >
+    <!-- 移动端抽屉手柄条 (Mobile Bottom Sheet Drag Handle) -->
+    <div
+      v-if="isMobile"
+      class="mobile-drag-handle-bar"
+      @click="cycleMobileSheetState"
+      role="button"
+      title="点击调整抽屉高度 (收起/半屏/全屏)"
+    >
+      <div class="drag-pill"></div>
+    </div>
+
+    <!-- 桌面端侧栏收起/展开微动滑钮 -->
     <button
+      v-if="!isMobile"
       class="panel-collapse-toggle"
       @click="isCollapsed = !isCollapsed"
       :title="isCollapsed ? '展开左侧面板 (L)' : '收起面板以纯净浏览 3D 沙盒 (L)'"
+      aria-label="展开或收起图文面板"
     >
-      <svg class="toggle-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline :points="isCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6'"></polyline>
-      </svg>
+      <ChevronLeft v-if="!isCollapsed" :size="16" />
+      <ChevronRight v-else :size="16" />
       <span class="toggle-v-text" v-if="isCollapsed">展开图文</span>
     </button>
 
-    <!-- 📸 章节置顶真实地理实景大图 (核心主焦点，一眼感知真实三秦风貌) -->
-    <div
-      v-if="currentPhotoUrl"
-      class="hero-photo-banner"
-      @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
-      title="点击查看高清实景大图"
-    >
-      <img :src="currentPhotoUrl" :alt="chapter.title" class="hero-photo-img" />
-      <div class="hero-photo-gradient"></div>
-      <div class="hero-photo-top-bar">
-        <span class="photo-live-badge">
-          <span class="pulse-dot"></span>
-          {{ showAltPhoto ? (chapter.altBadge || '胜迹/文物') : '真实风貌实景' }}
-        </span>
-        <button
-          v-if="chapter.altPhotoUrl"
-          class="photo-toggle-pill"
-          @click.stop="showAltPhoto = !showAltPhoto"
-          :title="showAltPhoto ? '切换为今日实景' : '切换为胜迹/复原'"
-        >
-          {{ showAltPhoto ? '📸 今日实景 ⇋' : '🏛️ 胜迹风物 ⇋' }}
-        </button>
-        <span class="photo-expand-pill">
-          <svg class="pill-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <polyline points="9 21 3 21 3 15"></polyline>
-            <line x1="21" y1="3" x2="14" y2="10"></line>
-            <line x1="3" y1="21" x2="10" y2="14"></line>
-          </svg>
-          放大
-        </span>
-      </div>
-      <div class="hero-photo-caption" v-if="currentPhotoCaption">
-        {{ currentPhotoCaption }}
-      </div>
+    <!-- 折叠为微轨时的迷你状态 (Micro-rail state) -->
+    <div v-if="isCollapsed && !isMobile" class="micro-rail-content" @click="isCollapsed = false">
+      <span class="micro-seal-tag">{{ chapter.num }}</span>
+      <span class="micro-title-v">{{ chapter.title }}</span>
+      <Maximize2 :size="14" class="micro-icon" />
     </div>
 
-    <div class="panel-header">
-      <div class="chapter-meta">
-        <span class="chapter-num">{{ chapter.num }} / {{ totalChapters }}</span>
-        <!-- 快捷主题选择器 (直达自然地理 / 华夏根脉 / 丝路起点) -->
-        <div class="theme-quick-pills" v-if="themes && themes.length">
-          <button
-            v-for="t in themes"
-            :key="t.id"
-            class="t-pill"
-            :class="{ active: currentThemeId === t.id }"
-            @click="$emit('change-theme', t.id)"
-            :title="t.desc"
-          >
-            {{ t.title }}
-          </button>
-        </div>
-        <span class="chapter-theme" v-else>{{ currentThemeTitle }}</span>
-      </div>
-      <button class="listen-btn glass-btn" @click="$emit('listen-current')">
-        <span>{{ isPlaying ? '🔊 朗读中...' : '🎧 听这段' }}</span>
-      </button>
-    </div>
-
-    <!-- 标题与副标题 -->
-    <h2 class="main-title">{{ chapter.title }}</h2>
-    <div class="sub-title">{{ chapter.subTitle }}</div>
-
-    <!-- 详述文案 (逐句朗读高亮) -->
-    <div class="desc-content">
-      <p class="sentence-stream">
-        <span
-          v-for="(sent, sIdx) in sentences"
-          :key="sIdx"
-          class="sentence-span"
-          :class="{ active: isPlaying && activeSentenceIndex === sIdx }"
-        >
-          {{ sent }}
-        </span>
-      </p>
-    </div>
-
-    <!-- 核心特征指标 -->
-    <div class="badge-row">
-      <div class="badge-card" v-if="chapter.timeBadge">
-        <div class="badge-val">{{ chapter.timeBadge }}</div>
-        <div class="badge-lbl">时代 · 地理特征</div>
-      </div>
-      <div class="badge-card highlight" v-if="chapter.highlight">
-        <div class="badge-val">{{ chapter.highlight }}</div>
-        <div class="badge-lbl">核心要点</div>
-      </div>
-    </div>
-
-    <!-- 专业地质剖面折叠交互抽屉 (当章节有剖面图解时呈现，不遮挡实景照片) -->
-    <div class="diagram-drawer" v-if="chapter.diagramTitle">
-      <button
-        class="diagram-toggle-bar"
-        @click="isDiagramOpen = !isDiagramOpen"
-        :class="{ active: isDiagramOpen }"
+    <!-- 正常展开面板主容器 -->
+    <div v-show="!isCollapsed || isMobile" class="panel-content-wrap custom-scrollbar">
+      <!-- 📸 16:9 置顶真实地理实景大图 -->
+      <div
+        v-if="currentPhotoUrl"
+        class="hero-photo-banner"
+        @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
+        title="点击放大查看高清摄影大图"
       >
-        <span class="diagram-bar-title">📐 { chapter.diagramTitle }</span>
-        <span class="diagram-bar-tag">{{ isDiagramOpen ? '收起剖面 ▲' : '展开地质剖面 ▼' }}</span>
-      </button>
-      <div class="diagram-body" v-show="isDiagramOpen">
+        <img :src="currentPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
+        <div class="hero-photo-gradient"></div>
+        <div class="hero-photo-top-bar">
+          <span class="photo-live-badge">
+            <span class="pulse-dot"></span>
+            {{ showAltPhoto ? (chapter.altBadge || '胜迹/文物') : '真实地理摄影' }}
+          </span>
+          <div class="banner-actions" @click.stop>
+            <button
+              v-if="chapter.altPhotoUrl"
+              class="photo-toggle-pill"
+              @click="showAltPhoto = !showAltPhoto"
+              :title="showAltPhoto ? '切换为今日实景摄影' : '切换为胜迹/复原风物'"
+            >
+              {{ showAltPhoto ? '📸 今日实景 ⇋' : '🏛️ 胜迹风物 ⇋' }}
+            </button>
+            <button
+              class="photo-expand-pill"
+              @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
+              title="全屏放大"
+            >
+              <Maximize2 :size="11" />
+              <span>放大</span>
+            </button>
+          </div>
+        </div>
+        <div class="hero-photo-caption" v-if="currentPhotoCaption">
+          {{ currentPhotoCaption }}
+        </div>
+      </div>
+
+      <!-- 章节核心信息头 (序号印章 + 主副标题) -->
+      <div class="panel-header-block">
+        <div class="title-meta-row">
+          <span class="chapter-seal-tag">{{ chapter.num }} / {{ totalChapters }}</span>
+          <span class="theme-context-lbl">{{ currentThemeTitle }}</span>
+        </div>
+        <h2 class="main-title">{{ chapter.title }}</h2>
+        <div class="sub-title">{{ chapter.subTitle }}</div>
+      </div>
+
+      <!-- 四段式分段导航标签 (概览 · 地质剖面 · 实景风物 · 空间地标) -->
+      <div class="segmented-nav" role="tablist">
+        <button
+          class="seg-tab"
+          :class="{ active: activeTab === 'overview' }"
+          @click="activeTab = 'overview'"
+          role="tab"
+          :aria-selected="activeTab === 'overview'"
+        >
+          <BookOpen :size="13" />
+          <span>史地概览</span>
+        </button>
+        <button
+          v-if="chapter.diagramTitle"
+          class="seg-tab"
+          :class="{ active: activeTab === 'diagram' }"
+          @click="activeTab = 'diagram'"
+          role="tab"
+          :aria-selected="activeTab === 'diagram'"
+        >
+          <Activity :size="13" />
+          <span>地质剖面</span>
+        </button>
+        <button
+          class="seg-tab"
+          :class="{ active: activeTab === 'scenery' }"
+          @click="activeTab = 'scenery'"
+          role="tab"
+          :aria-selected="activeTab === 'scenery'"
+        >
+          <Camera :size="13" />
+          <span>实景风物</span>
+        </button>
+        <button
+          class="seg-tab"
+          :class="{ active: activeTab === 'pois' }"
+          @click="activeTab = 'pois'"
+          role="tab"
+          :aria-selected="activeTab === 'pois'"
+        >
+          <MapPin :size="13" />
+          <span>空间地标</span>
+        </button>
+      </div>
+
+      <!-- 选项卡 1：史地概览 (逐句朗读高亮与印章指标) -->
+      <div v-show="activeTab === 'overview'" class="tab-pane">
+        <div class="desc-content">
+          <p class="sentence-stream">
+            <span
+              v-for="(sent, sIdx) in sentences"
+              :key="sIdx"
+              class="sentence-span"
+              :class="{ active: isPlaying && activeSentenceIndex === sIdx }"
+            >
+              {{ sent }}
+            </span>
+          </p>
+        </div>
+
+        <!-- 时代与核心指标印章卡片 -->
+        <div class="badge-row">
+          <div class="badge-card" v-if="chapter.timeBadge">
+            <div class="badge-val">{{ chapter.timeBadge }}</div>
+            <div class="badge-lbl">时代 · 地理特征</div>
+          </div>
+          <div class="badge-card highlight" v-if="chapter.highlight">
+            <div class="badge-val">{{ chapter.highlight }}</div>
+            <div class="badge-lbl">核心要点</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 选项卡 2：交互式地质剖面图解 (修复 { chapter.diagramTitle } 单括号 Bug) -->
+      <div v-if="chapter.diagramTitle" v-show="activeTab === 'diagram'" class="tab-pane diagram-tab-pane">
+        <div class="diagram-card glass-panel">
+          <div class="diagram-card-title">
+            <Activity :size="14" class="diag-icon" />
+            <span>{{ chapter.diagramTitle }}</span>
+          </div>
 
           <!-- 陕西南北地质大剖面 -->
           <svg
@@ -239,30 +296,83 @@
             <text x="215" y="80" font-size="6.5" fill="#94a3b8">浐灞东流</text>
           </svg>
 
-          <div class="card-caption">{{ chapter.diagramTitle }} (点选地貌飞向实景)</div>
+          <div class="card-caption">点选上方地质单元标签，镜头自动飞越到对应真实地貌</div>
+        </div>
+      </div>
 
+      <!-- 选项卡 3：实景风物摄影 (大图全景与摄影志) -->
+      <div v-show="activeTab === 'scenery'" class="tab-pane">
+        <div class="scenery-feature-card glass-panel">
+          <div class="feature-img-box" @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)">
+            <img :src="currentPhotoUrl" :alt="chapter.title" class="feature-img" />
+            <span class="preview-tag">点击开启画廊</span>
+          </div>
+          <div class="feature-meta">
+            <span class="meta-title">{{ chapter.title }} · 摄影志</span>
+            <p class="meta-desc">{{ currentPhotoCaption }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 选项卡 4：空间地标信标 (本章关联 POI 一键直达) -->
+      <div v-show="activeTab === 'pois'" class="tab-pane">
+        <div class="poi-quick-list">
+          <div
+            v-for="poi in relatedPois"
+            :key="poi.id"
+            class="poi-row-card glass-panel"
+            @click="flyToPoi(poi)"
+          >
+            <div class="poi-row-left">
+              <span class="poi-dot-indicator" :class="poi.type"></span>
+              <div class="poi-text-col">
+                <span class="poi-name-txt">{{ poi.name }}</span>
+                <span class="poi-badge-txt">{{ poi.badge }}</span>
+              </div>
+            </div>
+            <span class="poi-fly-arrow">飞向 ➔</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- 底部飞行聚焦按钮 -->
-    <div class="action-footer">
-      <button class="action-btn" @click="$emit('focus-feature')">
-        <span>🔍 飞向当前章节核心视点</span>
+    <!-- 底部固定操作栏 (永不被内容滚动遮挡) -->
+    <div v-show="!isCollapsed || isMobile" class="fixed-action-footer">
+      <button class="footer-btn listen-btn" :class="{ playing: isPlaying }" @click="$emit('listen-current')">
+        <Volume2 v-if="!isPlaying" :size="14" />
+        <VolumeX v-else :size="14" />
+        <span>{{ isPlaying ? '暂停朗读' : '🎧 听这段' }}</span>
+      </button>
+
+      <button class="footer-btn focus-btn" @click="$emit('focus-feature')">
+        <Crosshair :size="14" />
+        <span>聚焦视点</span>
       </button>
     </div>
   </aside>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
-
-const isCollapsed = ref(false);
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  BookOpen,
+  Activity,
+  Camera,
+  MapPin,
+  Volume2,
+  VolumeX,
+  Crosshair
+} from 'lucide-vue-next';
+import { POI_LIST } from '../data/shaanxiData.js';
 
 const props = defineProps({
   chapter: { type: Object, required: true },
   totalChapters: { type: Number, default: 6 },
   currentThemeTitle: { type: String, default: "自然地理" },
-  currentThemeId: { type: String, default: "natural" },
+  currentThemeId: { type: String, default: "geo" },
   themes: { type: Array, default: () => [] },
   isPlaying: { type: Boolean, default: false }
 });
@@ -276,24 +386,34 @@ const emit = defineEmits([
   'collapse-change'
 ]);
 
+const isCollapsed = ref(false);
+const activeTab = ref('overview');
+const activeSentenceIndex = ref(0);
+const showAltPhoto = ref(false);
+let timer = null;
+
+// 移动端响应式侦测与 Bottom Sheet 状态 ('peek' | 'half' | 'full')
+const isMobile = ref(false);
+const mobileSheetState = ref('half');
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768;
+};
+
+const cycleMobileSheetState = () => {
+  if (mobileSheetState.value === 'peek') mobileSheetState.value = 'half';
+  else if (mobileSheetState.value === 'half') mobileSheetState.value = 'full';
+  else mobileSheetState.value = 'peek';
+};
+
 watch(isCollapsed, (val) => {
   emit('collapse-change', val);
 });
-
-const isDiagramOpen = ref(false);
-const activeSentenceIndex = ref(0);
-let timer = null;
 
 const sentences = computed(() => {
   if (!props.chapter || !props.chapter.desc) return [];
   return props.chapter.desc.split(/(?<=[。！？；])/).filter(s => s.trim().length > 0);
 });
-
-const flyTo = (pos) => {
-  emit('fly-strata', pos);
-};
-
-const showAltPhoto = ref(false);
 
 const currentPhotoUrl = computed(() => {
   if (showAltPhoto.value && props.chapter?.altPhotoUrl) {
@@ -309,10 +429,22 @@ const currentPhotoCaption = computed(() => {
   return props.chapter?.photoCaption || '';
 });
 
-// 章节切换时默认收起地质剖面，并重置照片为默认实景
+// 本章节关联的地标点
+const relatedPois = computed(() => {
+  return POI_LIST.slice(0, 5);
+});
+
+const flyTo = (pos) => {
+  emit('fly-strata', pos);
+};
+
+const flyToPoi = (poi) => {
+  emit('fly-strata', [poi.pos[0] + 4, poi.pos[1] + 14, poi.pos[2] + 16], [poi.pos[0], poi.pos[1], poi.pos[2]]);
+};
+
 watch(() => props.chapter?.id, () => {
-  isDiagramOpen.value = false;
   showAltPhoto.value = false;
+  activeTab.value = 'overview';
 });
 
 watch(() => props.isPlaying, (playing) => {
@@ -332,6 +464,16 @@ watch(() => props.isPlaying, (playing) => {
     activeSentenceIndex.value = 0;
   }
 }, { immediate: true });
+
+onMounted(() => {
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', checkMobile);
+  if (timer) clearInterval(timer);
+});
 </script>
 
 <style scoped>
@@ -339,427 +481,35 @@ watch(() => props.isPlaying, (playing) => {
   position: absolute;
   top: 76px;
   left: 20px;
-  width: 360px;
-  max-height: calc(100vh - 120px);
-  padding: 16px;
-  z-index: 15;
+  width: 370px;
+  /* 严格限制最大高度，留出至少 104px 底部空间，坚决不遮挡底部时间轴 */
+  max-height: calc(100vh - 180px);
+  bottom: 104px;
+  z-index: 25;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.left-info-panel::-webkit-scrollbar {
-  display: none;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.chapter-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #38bdf8;
-}
-
-.chapter-num {
-  background: rgba(56, 189, 248, 0.15);
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-}
-
-.theme-quick-pills {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.t-pill {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.t-pill:hover {
-  color: #fff;
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
-.t-pill.active {
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
-  border-color: #38bdf8;
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
-}
-
-.listen-btn {
-  font-size: 11px;
-  padding: 3px 8px;
-}
-
-.main-title {
-  font-family: var(--font-serif);
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1.2;
-  margin: 0;
-}
-
-.sub-title {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: -4px;
-}
-
-.desc-content {
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: #cbd5e1;
-}
-
-.sentence-stream {
-  margin: 0;
-}
-
-.sentence-span {
-  transition: all 0.3s;
-}
-
-.sentence-span.active {
-  color: #38bdf8;
-  font-weight: 700;
-  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
-  background: rgba(56, 189, 248, 0.15);
-  padding: 1px 3px;
-  border-radius: 3px;
-}
-
-.badge-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.badge-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  padding: 6px 8px;
-}
-
-.badge-card.highlight {
-  background: rgba(56, 189, 248, 0.08);
-  border-color: rgba(56, 189, 248, 0.25);
-}
-
-.badge-val {
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.badge-card.highlight .badge-val {
-  color: #38bdf8;
-}
-
-.badge-lbl {
-  font-size: 9.5px;
-  color: #64748b;
-  margin-top: 1px;
-}
-
-/* 📸 章节置顶高清实景摄影大图 */
-.hero-photo-banner {
-  position: relative;
-  width: 100%;
-  height: 180px;
-  border-radius: 10px;
+  background: var(--bg-glass-heavy, rgba(11, 26, 43, 0.94));
+  border: 1px solid var(--border-light, rgba(56, 189, 248, 0.28));
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.8), 0 0 24px rgba(2, 132, 199, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform var(--motion-slow, 0.35s), max-height 0.3s ease;
   overflow: hidden;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  flex-shrink: 0;
-  margin-bottom: 2px;
-}
-
-.hero-photo-banner:hover {
-  border-color: #38bdf8;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.35);
-  transform: translateY(-1px);
-}
-
-.hero-photo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.4s ease;
-}
-
-.hero-photo-banner:hover .hero-photo-img {
-  transform: scale(1.04);
-}
-
-.hero-photo-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(10, 16, 28, 0.45) 0%,
-    transparent 35%,
-    rgba(10, 16, 28, 0.82) 80%,
-    rgba(10, 16, 28, 0.98) 100%
-  );
-  pointer-events: none;
-}
-
-.hero-photo-top-bar {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  right: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  pointer-events: none;
-}
-
-.photo-live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 6px;
-  backdrop-filter: blur(8px);
-}
-
-.pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
-  animation: pulseDot 1.5s infinite;
-}
-
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
-}
-
-.photo-toggle-pill {
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  color: #fbbf24;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-}
-
-.photo-toggle-pill:hover {
-  background: rgba(245, 158, 11, 0.25);
-  border-color: #f59e0b;
-  color: #fff;
-  transform: scale(1.04);
-}
-
-.photo-expand-pill {
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #e2e8f0;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s;
-}
-
-.hero-photo-banner:hover .photo-expand-pill {
-  border-color: #38bdf8;
-  color: #38bdf8;
-  background: rgba(15, 23, 42, 0.98);
-}
-
-.pill-svg {
-  width: 11px;
-  height: 11px;
-}
-
-.hero-photo-caption {
-  position: absolute;
-  bottom: 8px;
-  left: 10px;
-  right: 10px;
-  font-size: 11px;
-  color: #f1f5f9;
-  font-weight: 600;
-  line-height: 1.4;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
-}
-
-/* 📐 专业地质剖面折叠抽屉 */
-.diagram-drawer {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  overflow: hidden;
-  margin-top: 4px;
-}
-
-.diagram-toggle-bar {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.03);
-  border: none;
-  padding: 8px 10px;
-  color: #cbd5e1;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-}
-
-.diagram-toggle-bar:hover {
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
-}
-
-.diagram-toggle-bar.active {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
-}
-
-.diagram-bar-title {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.diagram-bar-tag {
-  font-size: 10px;
-  color: #94a3b8;
-}
-
-.diagram-body {
-  padding: 8px;
-}
-
-.interactive-svg {
-  width: 100%;
-  height: auto;
-  border-radius: 4px;
-  display: block;
-}
-
-.hotspot {
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.hotspot:hover {
-  filter: brightness(1.25);
-  stroke: #ffffff;
-  stroke-width: 2px;
-}
-
-.svg-lbl {
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s;
-}
-
-.svg-lbl:hover {
-  fill: #ffffff;
-  font-weight: 900;
-}
-
-
-.card-caption {
-  font-size: 10px;
-  color: #94a3b8;
-  padding: 4px 2px 0 2px;
-  text-align: center;
-}
-
-.action-footer {
-  margin-top: 2px;
-}
-
-.action-btn {
-  width: 100%;
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.3));
-  border: 1px solid #38bdf8;
-  color: #38bdf8;
-  padding: 6px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  background: rgba(56, 189, 248, 0.4);
-  color: #fff;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
-}
-.left-info-panel {
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .left-info-panel.collapsed {
-  transform: translateX(calc(-100% - 20px)) !important;
+  transform: translateX(calc(-100% - 24px));
 }
 
+/* 侧栏折叠拉手 */
 .panel-collapse-toggle {
   position: absolute;
-  top: 14px;
+  top: 16px;
   right: -28px;
   width: 28px;
-  height: 54px;
-  background: rgba(10, 15, 25, 0.94);
+  height: 52px;
+  background: rgba(11, 26, 43, 0.96);
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-left: none;
   border-radius: 0 10px 10px 0;
@@ -768,7 +518,7 @@ watch(() => props.isPlaying, (playing) => {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  color: #38bdf8;
+  color: var(--brand-cyan, #38bdf8);
   cursor: pointer;
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
   transition: all 0.2s;
@@ -782,15 +532,559 @@ watch(() => props.isPlaying, (playing) => {
   right: -32px;
 }
 
-.toggle-svg {
-  width: 14px;
-  height: 14px;
-}
-
 .toggle-v-text {
   writing-mode: vertical-rl;
   font-size: 9px;
-  letter-spacing: 0.1em;
   font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* 滚动主容器 */
+.panel-content-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 58px; /* 留出底部操作栏高度 */
+}
+
+/* 📸 16:9 比例实景横幅 */
+.hero-photo-banner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 190px;
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  background: #060d17;
+  flex-shrink: 0;
+}
+
+.hero-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.hero-photo-banner:hover .hero-photo-img {
+  transform: scale(1.04);
+}
+
+.hero-photo-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(11, 26, 43, 0.2) 0%,
+    rgba(11, 26, 43, 0.4) 50%,
+    rgba(11, 26, 43, 0.95) 100%
+  );
+  pointer-events: none;
+}
+
+.hero-photo-top-bar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 2;
+}
+
+.photo-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(6, 13, 23, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--brand-cyan, #38bdf8);
+  font-size: var(--text-xs, 11px);
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
+}
+
+.pulse-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.photo-toggle-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(11, 26, 43, 0.88);
+  border: 1px solid rgba(245, 185, 66, 0.45);
+  color: #fde68a;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.photo-toggle-pill:hover {
+  background: rgba(245, 185, 66, 0.25);
+  border-color: var(--accent-gold, #f5b942);
+  color: #fff;
+}
+
+.photo-expand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(6, 13, 23, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.photo-expand-pill:hover {
+  border-color: var(--brand-cyan, #38bdf8);
+  color: var(--brand-cyan, #38bdf8);
+}
+
+.hero-photo-caption {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  right: 10px;
+  font-size: var(--text-xs, 11px);
+  color: #f1f5f9;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 2;
+}
+
+/* 章节头部信息 */
+.panel-header-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chapter-seal-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs, 11px);
+  font-weight: 800;
+  color: #fff;
+  background: rgba(220, 38, 38, 0.35);
+  border: 1px solid rgba(220, 38, 38, 0.55);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.theme-context-lbl {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-muted, #94a3b8);
+  font-weight: 600;
+}
+
+.main-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl, 22px);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.sub-title {
+  font-size: var(--text-xs, 11.5px);
+  color: var(--text-muted, #94a3b8);
+}
+
+/* 分段标签导航 */
+.segmented-nav {
+  display: flex;
+  align-items: center;
+  background: rgba(6, 13, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm, 8px);
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 0;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted, #94a3b8);
+  font-size: var(--text-xs, 11.5px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.seg-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.seg-tab.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: var(--brand-cyan, #38bdf8);
+}
+
+/* 选项卡内容区 */
+.tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.desc-content {
+  line-height: 1.65;
+  font-size: var(--text-base, 13.5px);
+  color: var(--text-sub, #cbd5e1);
+}
+
+.sentence-span {
+  transition: all 0.25s;
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+
+.sentence-span.active {
+  background: rgba(245, 185, 66, 0.25);
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 0 8px rgba(245, 185, 66, 0.4);
+}
+
+/* 印章指标卡片 */
+.badge-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.badge-card {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.badge-card.highlight {
+  border-color: rgba(245, 185, 66, 0.35);
+  background: rgba(245, 185, 66, 0.08);
+}
+
+.badge-val {
+  font-size: var(--text-sm, 12px);
+  font-weight: 700;
+  color: #fff;
+}
+
+.badge-lbl {
+  font-size: 10px;
+  color: var(--text-dim, #64748b);
+  margin-top: 2px;
+}
+
+/* 地质剖面卡片 */
+.diagram-card {
+  padding: 10px;
+  background: rgba(6, 13, 23, 0.5);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-md, 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagram-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 11.5px);
+  font-weight: 700;
+  color: #fff;
+}
+
+.diag-icon {
+  color: var(--brand-cyan, #38bdf8);
+}
+
+.interactive-svg {
+  width: 100%;
+  border-radius: 6px;
+  background: rgba(11, 26, 43, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hotspot {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.hotspot:hover {
+  opacity: 1 !important;
+}
+
+.svg-lbl {
+  cursor: pointer;
+}
+
+.card-caption {
+  font-size: 10px;
+  color: var(--text-muted, #94a3b8);
+  text-align: center;
+}
+
+/* 实景风物卡片 */
+.scenery-feature-card {
+  padding: 10px;
+  border-radius: var(--radius-md, 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feature-img-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.feature-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-tag {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border-radius: 4px;
+}
+
+.feature-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.meta-title {
+  font-size: var(--text-sm, 12px);
+  font-weight: 700;
+  color: #fff;
+}
+
+.meta-desc {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.5;
+}
+
+/* 空间地标列表 */
+.poi-quick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.poi-row-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.poi-row-card:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.poi-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.poi-dot-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-cyan, #38bdf8);
+}
+
+.poi-dot-indicator.mountain { background: #10b981; }
+.poi-dot-indicator.nature { background: #06b6d4; }
+.poi-dot-indicator.relic { background: #f59e0b; }
+
+.poi-text-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.poi-name-txt {
+  font-size: var(--text-sm, 12px);
+  font-weight: 600;
+  color: #fff;
+}
+
+.poi-badge-txt {
+  font-size: 10px;
+  color: var(--text-dim, #64748b);
+}
+
+.poi-fly-arrow {
+  font-size: var(--text-xs, 11px);
+  color: var(--brand-cyan, #38bdf8);
+}
+
+/* 固定底部操作栏 (Fixed Footer) */
+.fixed-action-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: rgba(6, 13, 23, 0.94);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  z-index: 10;
+}
+
+.footer-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm, 12px);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.listen-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+.listen-btn:hover,
+.listen-btn.playing {
+  background: rgba(245, 185, 66, 0.2);
+  border-color: var(--accent-gold, #f5b942);
+  color: #fde68a;
+}
+
+.focus-btn {
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #fff;
+}
+
+.focus-btn:hover {
+  background: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+}
+
+/* 移动端底部抽屉 (Bottom Sheet) 样式 */
+@media (max-width: 768px) {
+  .left-info-panel.mobile-sheet {
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    transform: none !important;
+  }
+
+  .mobile-sheet.sheet-peek {
+    max-height: 160px;
+  }
+
+  .mobile-sheet.sheet-half {
+    max-height: 48vh;
+  }
+
+  .mobile-sheet.sheet-full {
+    max-height: 85vh;
+  }
+
+  .mobile-drag-handle-bar {
+    width: 100%;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    flex-shrink: 0;
+    padding-top: 4px;
+  }
+
+  .drag-pill {
+    width: 36px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+  }
 }
 </style>

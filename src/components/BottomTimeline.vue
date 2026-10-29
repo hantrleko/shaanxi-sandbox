@@ -1,20 +1,16 @@
 <template>
-  <div class="bottom-timeline glass-panel" v-if="currentMode === 'macro'">
+  <nav class="bottom-timeline glass-panel" aria-label="三秦时空时间轴">
     <div class="timeline-controls">
       <button
         class="play-all-btn"
         :class="{ active: isAutoPlaying }"
         @click="$emit('toggle-autoplay')"
-        :title="isAutoPlaying ? '暂停全省连播' : '一键智能导览全省'"
+        :title="isAutoPlaying ? '暂停智能连播' : '一键智能巡航全省'"
+        aria-label="智能导览播放控制"
       >
         <span class="btn-symbol">
-          <svg v-if="!isAutoPlaying" class="play-svg" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          <svg v-else class="play-svg" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="4" width="4" height="16"></rect>
-            <rect x="14" y="4" width="4" height="16"></rect>
-          </svg>
+          <Play v-if="!isAutoPlaying" :size="15" fill="currentColor" />
+          <Pause v-else :size="15" fill="currentColor" />
         </span>
         <div class="btn-text-group">
           <span class="main-label">{{ isAutoPlaying ? '暂停连播' : '智能导览' }}</span>
@@ -23,39 +19,58 @@
       </button>
 
       <div class="nav-arrow-group">
-        <button class="arrow-btn" @click="$emit('prev-chapter')" :disabled="currentIndex === 0" title="上一章节">
-          ‹
+        <button
+          class="arrow-btn"
+          @click="$emit('prev-chapter')"
+          :disabled="currentIndex === 0"
+          title="上一章节 (←)"
+          aria-label="上一章节"
+        >
+          <ChevronLeft :size="16" />
         </button>
-        <button class="arrow-btn" @click="$emit('next-chapter')" :disabled="currentIndex === chapters.length - 1" title="下一章节">
-          ›
+        <button
+          class="arrow-btn"
+          @click="$emit('next-chapter')"
+          :disabled="currentIndex === chapters.length - 1"
+          title="下一章节 (→)"
+          aria-label="下一章节"
+        >
+          <ChevronRight :size="16" />
         </button>
       </div>
     </div>
 
-    <!-- 底部横向滚动的章节卡片流 -->
-    <div class="cards-scroll-container">
+    <!-- 底部横向滚动的章节卡片流 (支持平滑触控滑动) -->
+    <div class="cards-scroll-container custom-scrollbar">
       <div
         v-for="(ch, idx) in chapters"
         :key="ch.id"
         class="chapter-card"
         :class="{ active: currentIndex === idx }"
         @click="$emit('select-chapter', idx)"
+        role="button"
+        :aria-selected="currentIndex === idx"
       >
         <div class="card-thumb">
-          <img :src="ch.photoUrl" :alt="ch.title" />
+          <img :src="ch.photoUrl" :alt="ch.title" loading="lazy" />
           <div class="card-idx">{{ ch.num }}</div>
         </div>
         <div class="card-body">
           <div class="card-title">{{ ch.title }}</div>
           <div class="card-subtitle">{{ ch.subTitle }}</div>
         </div>
-        <div class="card-active-indicator" v-if="currentIndex === idx"></div>
+        <!-- 自动播放进度条指示 -->
+        <div class="card-active-indicator" v-if="currentIndex === idx">
+          <div class="progress-fill" v-if="isAutoPlaying"></div>
+        </div>
       </div>
     </div>
-  </div>
+  </nav>
 </template>
 
 <script setup>
+import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+
 defineProps({
   chapters: { type: Array, required: true },
   currentIndex: { type: Number, default: 0 },
@@ -70,20 +85,23 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 .bottom-timeline {
   position: absolute;
   bottom: 18px;
-  left: 400px;
-  right: 200px;
-  max-width: 760px;
+  left: 395px;
+  right: 18px;
+  max-width: 740px;
   margin: 0 auto;
   height: 72px;
   display: flex;
   align-items: center;
   padding: 6px 12px;
   gap: 12px;
-  z-index: 15;
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  transition: all 0.3s ease;
+  z-index: 20;
+  background: var(--bg-glass-heavy, rgba(11, 26, 43, 0.92));
+  border: 1px solid var(--border-light, rgba(56, 189, 248, 0.28));
+  border-radius: var(--radius-md, 14px);
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(2, 132, 199, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.25s ease;
 }
 
 .timeline-controls {
@@ -97,27 +115,32 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   border: 1px solid rgba(56, 189, 248, 0.4);
   color: #fff;
-  border-radius: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
+  border-radius: var(--radius-sm, 8px);
+  padding: 6px 10px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
 }
 
 .play-all-btn:hover {
   background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.5);
+  transform: translateY(-1px);
 }
 
 .play-all-btn.active {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-color: #34d399;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
 }
 
 .btn-symbol {
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-text-group {
@@ -127,39 +150,40 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 }
 
 .main-label {
-  font-size: 11.5px;
+  font-size: var(--text-sm, 12px);
   font-weight: 700;
   line-height: 1.2;
 }
 
 .sub-label {
-  font-size: 9px;
-  opacity: 0.8;
+  font-size: 9.5px;
+  opacity: 0.85;
 }
 
 .nav-arrow-group {
   display: flex;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
 }
 
 .arrow-btn {
-  width: 28px;
-  height: 42px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border-radius: 6px;
-  font-size: 16px;
+  width: 26px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted, #94a3b8);
+  border-radius: var(--radius-xs, 5px);
   cursor: pointer;
-  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s;
 }
 
 .arrow-btn:hover:not(:disabled) {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  color: #fff;
+  border-color: rgba(56, 189, 248, 0.4);
 }
 
 .arrow-btn:disabled {
@@ -167,54 +191,55 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   cursor: not-allowed;
 }
 
+/* 横向滚动列表 */
 .cards-scroll-container {
+  flex: 1;
   display: flex;
+  align-items: center;
   gap: 8px;
   overflow-x: auto;
-  flex-grow: 1;
-  padding: 2px 0;
   scroll-behavior: smooth;
-  scrollbar-width: none;
-}
-
-.cards-scroll-container::-webkit-scrollbar {
-  display: none;
+  padding: 4px 2px;
 }
 
 .chapter-card {
-  flex-shrink: 0;
-  width: 170px;
-  height: 54px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 5px;
-  display: flex;
-  gap: 6px;
-  cursor: pointer;
   position: relative;
+  flex-shrink: 0;
+  width: 138px;
+  height: 52px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--radius-sm, 8px);
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
-  transition: all 0.2s;
 }
 
 .chapter-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.35);
+  transform: translateY(-2px);
 }
 
 .chapter-card.active {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.2);
+  border-color: var(--brand-cyan, #38bdf8);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .card-thumb {
-  width: 44px;
-  height: 100%;
-  border-radius: 4px;
-  overflow: hidden;
   position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 5px;
+  overflow: hidden;
   flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .card-thumb img {
@@ -226,25 +251,26 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 .card-idx {
   position: absolute;
   top: 1px;
-  left: 1px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #38bdf8;
-  font-size: 8px;
-  font-weight: 700;
-  padding: 0 3px;
-  border-radius: 2px;
+  left: 2px;
+  font-family: var(--font-mono, monospace);
+  font-size: 8.5px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .card-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  overflow: hidden;
+  min-width: 0;
+  gap: 1px;
 }
 
 .card-title {
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--text-xs, 11.5px);
+  font-weight: 700;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
@@ -252,12 +278,11 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
 }
 
 .card-subtitle {
-  font-size: 9px;
-  color: #94a3b8;
+  font-size: 9.5px;
+  color: var(--text-muted, #94a3b8);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
 }
 
 .card-active-indicator {
@@ -265,40 +290,33 @@ defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter'
   bottom: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: #38bdf8;
-  box-shadow: 0 0 6px #38bdf8;
+  height: 2.5px;
+  background: rgba(56, 189, 248, 0.3);
 }
 
-@media (max-width: 1120px) {
+.progress-fill {
+  height: 100%;
+  background: var(--brand-cyan, #38bdf8);
+  animation: progressRun 12s linear infinite;
+}
+
+@keyframes progressRun {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+@media (max-width: 1024px) {
   .bottom-timeline {
-    left: 390px;
-    right: 180px;
-    padding: 5px 8px;
-    gap: 8px;
-  }
-  .chapter-card {
-    width: 145px;
+    left: 18px;
+    right: 18px;
+    max-width: none;
+    bottom: 12px;
   }
 }
-.play-svg {
-  width: 14px;
-  height: 14px;
-}
 
-.card-active-indicator {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #38bdf8, #0284c7);
-  box-shadow: 0 0 8px #38bdf8;
-  animation: pulseBar 2s infinite ease-in-out;
-}
-
-@keyframes pulseBar {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 1; filter: brightness(1.3); }
+@media (max-width: 768px) {
+  .bottom-timeline {
+    display: none; /* 移动端由 Bottom Sheet 接管 */
+  }
 }
 </style>

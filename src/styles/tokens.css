@@ -1,0 +1,122 @@
+/* ============================================================
+   EUGENE FINANCE 三秦三维数字沙盒 · V4.0 全局设计系统 Token
+   风格：EUGENE FINANCE 深海军蓝基底 + 国风秦汉朱金点缀 + 纯净空间计算
+   ============================================================ */
+
+:root {
+  /* --- 1. 背景色谱 (深海军蓝 4 级阶梯) --- */
+  --bg-deep-space: #040911;      /* 宇宙背景/画布底色 */
+  --bg-0: #060d17;               /* 极深海幕 */
+  --bg-1: #0b1a2b;               /* 主体面板基底 (Deep Navy) */
+  --bg-2: #10263e;               /* 卡片与悬浮层背景 */
+  --bg-3: #173656;               /* 交互高亮与激活背景 */
+  --bg-glass: rgba(11, 26, 43, 0.78);
+  --bg-glass-heavy: rgba(11, 26, 43, 0.92);
+  --bg-glass-input: rgba(6, 13, 23, 0.65);
+
+  /* --- 2. 品牌与国风朱金主题强调色谱 --- */
+  --brand-blue: #0284c7;         /* Eugene Finance 科技蓝 */
+  --brand-cyan: #38bdf8;         /* 遥感高亮青 */
+  --accent-gold: #f5b942;        /* 丝路流金 / 盛唐金芒 */
+  --accent-gold-glow: rgba(245, 185, 66, 0.35);
+  --accent-cinnabar: #dc2626;    /* 大秦朱砂赤印 */
+  --accent-bronze: #d97706;      /* 西周青铜古金 */
+  --accent-jade: #2dd4bf;        /* 秦岭碧玉翠 */
+  --accent-jade-glow: rgba(45, 212, 191, 0.3);
+
+  /* --- 3. 动态当前主题色 (由 data-theme 切换控制) --- */
+  --theme-accent: var(--accent-jade);
+  --theme-accent-glow: var(--accent-jade-glow);
+
+  /* --- 4. 文本层级色阶 --- */
+  --text-pure: #ffffff;
+  --text-main: #f1f5f9;          /* 主阅读文字 */
+  --text-sub: #cbd5e1;           /* 次级正文 */
+  --text-muted: #94a3b8;         /* 说明与标签 */
+  --text-dim: #64748b;           /* 弱化与占位符 */
+
+  /* --- 5. 边框与光晕 --- */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(56, 189, 248, 0.18);
+  --border-active: rgba(56, 189, 248, 0.45);
+  --border-gold: rgba(245, 185, 66, 0.45);
+
+  /* --- 6. 阴影与景深 (3级 elevation) --- */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.5), 0 0 16px rgba(11, 26, 43, 0.4);
+  --shadow-lg: 0 20px 48px -8px rgba(0, 0, 0, 0.7), 0 0 32px rgba(2, 132, 199, 0.15);
+  --shadow-glass: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+
+  /* --- 7. 空间与排版尺寸 --- */
+  --font-serif: 'Noto Serif SC', 'Songti SC', SimSun, serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* 严谨字号阶梯 (全面禁绝 < 11px 的不良可读性文字) */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13.5px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+
+  /* 布局间距与圆角 */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* 动效时长 */
+  --motion-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-base: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-slow: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 动态主题切换修饰 */
+[data-theme="geo"] {
+  --theme-accent: #2dd4bf;
+  --theme-accent-glow: rgba(45, 212, 191, 0.35);
+}
+
+[data-theme="history"] {
+  --theme-accent: #ea580c;
+  --theme-accent-glow: rgba(234, 88, 12, 0.35);
+}
+
+[data-theme="silkroad"] {
+  --theme-accent: #f5b942;
+  --theme-accent-glow: rgba(245, 185, 66, 0.35);
+}
+
+/* 全局辅助工具类 */
+.seal-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  background: rgba(220, 38, 38, 0.16);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: #f87171;
+  font-family: var(--font-serif);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.gold-glow-btn {
+  background: linear-gradient(135deg, rgba(245, 185, 66, 0.2), rgba(217, 119, 6, 0.1));
+  border: 1px solid var(--border-gold);
+  color: #fde68a;
+  transition: all var(--motion-base);
+}
+
+.gold-glow-btn:hover {
+  background: linear-gradient(135deg, rgba(245, 185, 66, 0.35), rgba(217, 119, 6, 0.2));
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 16px var(--accent-gold-glow);
+  color: #ffffff;
+  transform: translateY(-1px);
+}

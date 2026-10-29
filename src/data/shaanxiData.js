@@ -299,16 +299,16 @@ export const EVOLUTION_STAGES = [
 
 // 真实 GIS 投影坐标对齐的 POI 列表 (与 3D 光柱及卫星影像 100% 重合)
 export const POI_LIST = [
-  { id: "xian", name: "西安 (长安)", type: "capital", pos: [6.24, 1.32, 16.98], badge: "十三朝古都 · 丝路起点" },
-  { id: "huashan", name: "西岳华山", type: "mountain", pos: [17.1, 6.67, 14.77], badge: "天下奇险第一山 (2154m)" },
-  { id: "taibai", name: "太白山拔仙台", type: "mountain", pos: [-4.84, 17.33, 22.75], badge: "秦岭主峰 (3771.2m)" },
-  { id: "bingmayong", name: "秦始皇陵兵马俑", type: "relic", pos: [9.46, 1.81, 16.34], badge: "世界第八大奇迹" },
-  { id: "hukou", name: "黄河壶口瀑布", type: "nature", pos: [20.57, 1.94, -10.53], badge: "千里黄河一壶收" },
-  { id: "yanan", name: "延安宝塔山", type: "red", pos: [11.46, 4.2, -17.31], badge: "革命圣地 · 延河水" },
-  { id: "yulin", name: "榆林古城镇北台", type: "city", pos: [13.78, 4.82, -44.8], badge: "塞上驼城 · 万里长城第一台" },
-  { id: "baoji", name: "宝鸡青铜器之乡", type: "city", pos: [-10.78, 2.26, 16.67], badge: "炎帝故里 · 陈仓要塞" },
-  { id: "hanzhong", name: "汉中拜将坛", type: "city", pos: [-11.93, 1.94, 36.04], badge: "汉家发祥地 · 天府之国" },
-  { id: "ankang", name: "安康瀛湖", type: "city", pos: [7.09, 0.85, 41.71], badge: "秦巴明珠 · 汉江秀水" }
+  { id: "xian", name: "西安 (长安)", type: "capital", pos: [6.24, 1.32, 16.98], badge: "十三朝古都 · 丝路起点", photoUrl: imgPrefix + "images/scenery/dayanta.jpg" },
+  { id: "huashan", name: "西岳华山", type: "mountain", pos: [17.1, 6.67, 14.77], badge: "天下奇险第一山 (2154m)", photoUrl: imgPrefix + "images/scenery/hua_shan.jpg" },
+  { id: "taibai", name: "太白山拔仙台", type: "mountain", pos: [-4.84, 17.33, 22.75], badge: "秦岭主峰 (3771.2m)", photoUrl: imgPrefix + "images/scenery/taibai_shan.jpg" },
+  { id: "bingmayong", name: "秦始皇陵兵马俑", type: "relic", pos: [9.46, 1.81, 16.34], badge: "世界第八大奇迹", photoUrl: imgPrefix + "images/scenery/bingmayong.jpg" },
+  { id: "hukou", name: "黄河壶口瀑布", type: "nature", pos: [20.57, 1.94, -10.53], badge: "千里黄河一壶收", photoUrl: imgPrefix + "images/scenery/hukou_waterfall.jpg" },
+  { id: "yanan", name: "延安宝塔山", type: "red", pos: [11.46, 4.2, -17.31], badge: "革命圣地 · 延河水", photoUrl: imgPrefix + "images/scenery/baota_shan.jpg" },
+  { id: "yulin", name: "榆林古城镇北台", type: "city", pos: [13.78, 4.82, -44.8], badge: "塞上驼城 · 万里长城第一台", photoUrl: imgPrefix + "images/scenery/zhenbeitai.jpg" },
+  { id: "baoji", name: "宝鸡青铜器之乡", type: "city", pos: [-10.78, 2.26, 16.67], badge: "炎帝故里 · 陈仓要塞", photoUrl: imgPrefix + "images/scenery/famen_temple.jpg" },
+  { id: "hanzhong", name: "汉中拜将坛", type: "city", pos: [-11.93, 1.94, 36.04], badge: "汉家发祥地 · 天府之国", photoUrl: imgPrefix + "images/scenery/hanzhong_flower.jpg" },
+  { id: "ankang", name: "安康瀛湖", type: "city", pos: [7.09, 0.85, 41.71], badge: "秦巴明珠 · 汉江秀水", photoUrl: imgPrefix + "images/scenery/hanjiang_water.jpg" }
 ];
 
 export const CAMPAIGNS = [
@@ -881,10 +881,54 @@ export const ROADBOOK_PRESETS = [
 // ==========================================
 export const CHANGELOG_DATA = [
   {
+    version: "v4.0.0 PRO",
+    name: "旗舰全景 · 深海朱金与纯净空间计算",
+    date: "2026-10-29",
+    isLatest: true,
+    summary: "三秦三维沙盒全面升级至 V4.0 旗舰全景时代！重构为 EUGENE FINANCE 深海军蓝基底与国风秦汉朱金点缀设计系统；全面引入 Design Token 与 Lucide 规范图标库；重构 HUD 视口信息架构，将探索工具集收纳至下拉矩阵与 ⌘K 全局指令面板；引入右侧垂直环境控制轨，彻底消除右下角浮动块与时间轴碰撞；左侧面板升级为 16:9 实景大图与四段式分段标签（概览/剖面/风物/地标），并在移动端完整支持三档高度触控抽屉 (Bottom Sheet)；实装 POI 悬停即时实景微卡与开场高空俯冲进场运镜，重型模态组件全量异步懒加载，性能与审美实现质的飞跃。",
+    features: [
+      {
+        tag: "设计系统",
+        title: "EUGENE FINANCE 深海朱金 Design Token",
+        desc: "构建 tokens.css 全局规范，以深海军蓝 (#0b1a2b) 为基底，融合大秦朱砂赤印 (#dc2626)、西周青铜 (#d97706) 与丝路盛唐流金 (#f5b942)；实现主题切换全域色彩联动；全面清理 <11px 小字，最低字号提升至 12px。"
+      },
+      {
+        tag: "架构重塑",
+        title: "顶栏极简瘦身与 ⌘K 全局指令面板",
+        desc: "顶部 HUD 告别按钮臃肿，精简保留品牌、主模式与大主题；收纳多维功能至「探索矩阵」下拉卡片；全新实装 ⌘K / Ctrl+K 全局指令面板，支持模糊检索所有地标、历史章节与沙盒功能。"
+      },
+      {
+        tag: "空间解耦",
+        title: "右侧垂直环境控制轨 (Right Toolbar)",
+        desc: "将图层开关、四季流转、时序光照、立体罗盘与遥测数据整合为右侧垂直微悬浮轨，悬停飞出交互；彻底腾空右下角区域，实现全分辨率下与底部时间轴坞 0 碰撞。"
+      },
+      {
+        tag: "四段分卡",
+        title: "左侧面板分段标签与固定操作底栏",
+        desc: "实景大图规范为 16:9 比例，避免遮挡文字；重塑为【史地概览 · 地质剖面 · 实景风物 · 空间地标】四段式标签；朗读、聚焦视点固定贴底；收起时化身 56px 精致侧边微轨。"
+      },
+      {
+        tag: "移动全域",
+        title: "移动端触控底部抽屉 (Bottom Sheet)",
+        desc: "全面拥抱移动端手机体验！在窄屏 (<768px) 下自动转换为现代可拖拽抽屉，支持收起微栏 (160px)、半屏 (48vh) 与全屏 (85vh) 触控切换，手势顺滑自然。"
+      },
+      {
+        tag: "视界升维",
+        title: "POI 即时悬停微卡与开场俯冲运镜",
+        desc: "鼠标悬停 POI 地标标签即刻呼出 154px 高清实景微缩图与属性角标；关闭门户大屏进入沙盘时，相机从高空云霄平滑俯冲切入，营造宏大空间穿梭感。"
+      },
+      {
+        tag: "性能优化",
+        title: "重型模态组件全量异步懒加载",
+        desc: "采用 defineAsyncComponent 将军事兵棋、路书工坊、剖面仪、明信片海报、摄影画廊等次级模态异步切分，大幅降低首屏主 bundle 体积，流畅度倍增。"
+      }
+    ]
+  },
+  {
     version: "v2.5.0 ULTIMATE",
     name: "纯正实景与零冲突体验 · 3D视口与时空流金",
     date: "2026-10-29",
-    isLatest: true,
+    isLatest: false,
     summary: "全面净化地貌媒体库（100% 验证纯正真实地理风光照），彻底重构 HUD 视口自适应规避排布（底栏与图层坞零碰撞，顶部导航自适应响应折叠），引入 3D 摄像机投影偏移中心优化（开阔留白与 POI 屏幕智能避让），秦岭主梁真实矢量走向归正与丝绸之路流金脉络，新增全域冬季飘雪氛围粒子与今日实景/盛世风物双视角切换。",
     features: [
       {

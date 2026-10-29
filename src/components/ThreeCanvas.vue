@@ -34,6 +34,15 @@
         <div class="poi-dot" :class="poi.type"></div>
         <div class="poi-title">{{ poi.name }}</div>
         <div class="poi-sub" v-if="hoveredPoiId === poi.id || selectedPoiId === poi.id">{{ poi.badge }}</div>
+
+        <!-- 悬停即时实景微缩图卡 (150x85 Hover Quick Card) -->
+        <div v-if="hoveredPoiId === poi.id && poi.photoUrl" class="poi-hover-preview glass-panel">
+          <img :src="poi.photoUrl" :alt="poi.name" class="poi-preview-img" />
+          <div class="poi-preview-bar">
+            <span class="preview-name">{{ poi.name }}</span>
+            <span class="preview-badge">{{ poi.type === 'mountain' ? '名山天险' : (poi.type === 'capital' ? '古都源头' : '胜景地标') }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1531,10 +1540,29 @@ watch([() => props.isPanelOpen, () => props.currentMode], () => {
   updateCameraViewportOffset();
 });
 
-watch(() => props.isPortalActive, (isPortal) => {
+watch(() => props.isPortalActive, (isPortal, oldVal) => {
   if (controls) {
     controls.autoRotate = !!isPortal;
     controls.autoRotateSpeed = 0.5;
+  }
+  // 从门户页首次进入沙盘时，执行高空俯冲入景运镜 (Cinematic dive-in)
+  if (oldVal === true && !isPortal && camera && controls) {
+    camera.position.set(0, 160, 200);
+    controls.target.set(0, 5, 0);
+    gsap.to(camera.position, {
+      x: -3,
+      y: 42,
+      z: 48,
+      duration: 2.2,
+      ease: "power2.out"
+    });
+    gsap.to(controls.target, {
+      x: -3,
+      y: 14,
+      z: 18,
+      duration: 2.2,
+      ease: "power2.out"
+    });
   }
 }, { immediate: true });
 
@@ -2206,6 +2234,56 @@ defineExpose({
   white-space: nowrap;
   padding-left: 4px;
   border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.poi-hover-preview {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 154px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(11, 26, 43, 0.96);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.8), 0 0 16px rgba(2, 132, 199, 0.3);
+  pointer-events: none;
+  animation: popPreview 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 50;
+}
+
+@keyframes popPreview {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.poi-preview-img {
+  width: 100%;
+  height: 84px;
+  object-fit: cover;
+  display: block;
+}
+
+.poi-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 7px;
+  background: rgba(6, 13, 23, 0.88);
+  font-size: 10.5px;
+}
+
+.preview-name {
+  font-weight: 700;
+  color: #fff;
+}
+
+.preview-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
 }
 
 .campaign-badge {
