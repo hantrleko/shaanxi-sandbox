@@ -8,6 +8,16 @@
         <button class="hud-step-cancel" @click="$emit('cancel-profiling')">退出测绘</button>
       </div>
     </div>
+
+    <!-- 🔄 360° 全景环视自转浮动交互胶囊 -->
+    <transition name="fade">
+      <div v-if="isSpinning360" class="spin-360-pill">
+        <span class="spin-icon">🔄</span>
+        <span class="spin-text">全景 360° 环绕自转中</span>
+        <span class="spin-tip">（单击中键或拖拽鼠标退出）</span>
+        <button class="spin-close-btn" @click.stop="stop360Spin" title="退出 360° 旋转">✕</button>
+      </div>
+    </transition>
     <!-- 3D 浮动 POI 标签覆盖层 (智能屏幕避让与视距分级 LOD：彻底告别文字交错) -->
     <div
       v-if="currentMode === 'macro'"
@@ -119,7 +129,8 @@ const emit = defineEmits([
   'select-culture',
   'select-poetry',
   'cancel-profiling',
-  'roadbook-point-added'
+  'roadbook-point-added',
+  'spin-360-status'
 ]);
 
 const containerRef = ref(null);
@@ -129,6 +140,9 @@ const screenPois = ref([]);
 const screenCheckpoints = ref([]);
 const isLoadingData = ref(true);
 const profilingStep = ref(1);
+const isSpinning360 = ref(false);
+let spinTween = null;
+let middleDownPos = { x: 0, y: 0, time: 0 };
 let terrainReticleMesh = null;
 
 let scene, camera, renderer, controls;
@@ -228,6 +242,12 @@ const initThree = () => {
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.minDistance = 8;
   controls.maxDistance = 350;
+  // 🖱️ 鼠标按键映射：支持按住鼠标中键自由 360° 拖动旋转沙盘与俯仰视角 (GIS/CAD标准手势)
+  controls.mouseButtons = {
+    LEFT: THREE.MOUSE.ROTATE,
+    MIDDLE: THREE.MOUSE.ROTATE,
+    RIGHT: THREE.MOUSE.PAN
+  };
 
   // 电影级分层多光源光照系统
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
@@ -287,6 +307,9 @@ const initThree = () => {
 
   renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown);
   renderer.domElement.addEventListener('pointermove', onCanvasPointerMove);
+  renderer.domElement.addEventListener('pointerup', onCanvasPointerUp);
+  renderer.domElement.addEventListener('auxclick', onAuxClick);
+  renderer.domElement.addEventListener('wheel', onCanvasWheel, { passive: true });
 
   // 地面交互激光光标靶心
   const reticleRingGeo = new THREE.RingGeometry(0.9, 1.35, 32);
@@ -2355,6 +2378,7 @@ function updatePoiScreenPositions() {
 
 // 运镜与控制
 const flyTo = (pos, target, duration = 2.0) => {
+  if (isSpinning360.value) stop360Spin();
   if (!camera || !controls) return;
   gsap.to(camera.position, {
     x: pos[0], y: pos[1], z: pos[2], duration, ease: "power3.inOut"
@@ -2371,9 +2395,72 @@ const onPoiClick = (poi) => {
 };
 
 const resetNorth = () => {
+  if (isSpinning360.value) stop360Spin();
   if (!camera || !controls) return;
   const dist = camera.position.distanceTo(controls.target);
   flyTo([controls.target.x, controls.target.y + dist * 0.6, controls.target.z + dist * 0.8], [controls.target.x, controls.target.y, controls.target.z], 1.2);
+};
+
+// 🔄 鼠标中键 / UI 触发全景 360 度环绕平滑自转演练
+const start360Spin = (duration = 7.0) => {
+  if (isSpinning360.value) {
+    stop360Spin();
+    return;
+  }
+  if (!camera || !controls) return;
+
+  isSpinning360.value = true;
+  if (soundscape && soundscape.playBeaconChime) soundscape.playBeaconChime();
+  emit('spin-360-status', true);
+
+  const target = controls.target.clone();
+  const offset = camera.position.clone().sub(target);
+  const radius = offset.length();
+  const initialTheta = Math.atan2(offset.x, offset.z);
+  const phi = Math.acos(Math.max(-1, Math.min(1, offset.y / radius)));
+
+  controls.enabled = false;
+
+  const spinObj = { progress: 0 };
+  spinTween = gsap.to(spinObj, {
+    progress: 1.0,
+    duration: duration,
+    ease: "power2.inOut",
+    onUpdate: () => {
+      const curTheta = initialTheta + spinObj.progress * Math.PI * 2;
+      camera.position.x = target.x + radius * Math.sin(phi) * Math.sin(curTheta);
+      camera.position.y = target.y + radius * Math.cos(phi);
+      camera.position.z = target.z + radius * Math.sin(phi) * Math.cos(curTheta);
+      camera.lookAt(target);
+      controls.target.copy(target);
+    },
+    onComplete: () => {
+      stop360Spin();
+    }
+  });
+};
+
+const stop360Spin = () => {
+  if (spinTween) {
+    spinTween.kill();
+    spinTween = null;
+  }
+  if (isSpinning360.value) {
+    isSpinning360.value = false;
+    if (controls) {
+      controls.enabled = true;
+      controls.update();
+    }
+    emit('spin-360-status', false);
+  }
+};
+
+const toggle360Spin = () => {
+  if (isSpinning360.value) {
+    stop360Spin();
+  } else {
+    start360Spin();
+  }
 };
 
 const setLighting = (mode) => {
@@ -2792,7 +2879,15 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (animFrameId) cancelAnimationFrame(animFrameId);
   window.removeEventListener("resize", onWindowResize);
-  if (renderer) renderer.dispose();
+  stop360Spin();
+  if (renderer && renderer.domElement) {
+    renderer.domElement.removeEventListener('pointerdown', onCanvasPointerDown);
+    renderer.domElement.removeEventListener('pointermove', onCanvasPointerMove);
+    renderer.domElement.removeEventListener('pointerup', onCanvasPointerUp);
+    renderer.domElement.removeEventListener('auxclick', onAuxClick);
+    renderer.domElement.removeEventListener('wheel', onCanvasWheel);
+    renderer.dispose();
+  }
 });
 
 
@@ -2867,6 +2962,22 @@ let profilingPoints = [];
 const onCanvasPointerDown = (e) => {
   if (!renderer || !camera || e.target !== renderer.domElement) return;
 
+  // 1. 鼠标中键交互捕捉 (按键代码 1: 中键)
+  if (e.button === 1) {
+    e.preventDefault();
+    middleDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
+    if (isSpinning360.value) {
+      stop360Spin();
+      return;
+    }
+    return;
+  }
+
+  // 任意其它点击操作均平滑打断 360 度自动环视
+  if (isSpinning360.value) {
+    stop360Spin();
+  }
+
   const rect = renderer.domElement.getBoundingClientRect();
   pointerVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   pointerVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -2931,6 +3042,34 @@ const onCanvasPointerDown = (e) => {
         emit('roadbook-point-added', { x: pt.x, y: pt.y, z: pt.z });
       }
     }
+  }
+};
+
+const onCanvasPointerUp = (e) => {
+  if (e.button === 1) {
+    e.preventDefault();
+    const dist = Math.hypot(e.clientX - middleDownPos.x, e.clientY - middleDownPos.y);
+    const dt = performance.now() - middleDownPos.time;
+    // 如果位移小于 6px 且时间在 500ms 内，判定为中键单击：启动 360 度平滑全景环绕自转
+    if (dist < 6 && dt < 500) {
+      if (isSpinning360.value) {
+        stop360Spin();
+      } else {
+        start360Spin();
+      }
+    }
+  }
+};
+
+const onAuxClick = (e) => {
+  if (e.button === 1) {
+    e.preventDefault();
+  }
+};
+
+const onCanvasWheel = () => {
+  if (isSpinning360.value) {
+    stop360Spin();
   }
 };
 
@@ -3310,7 +3449,10 @@ defineExpose({
   startFPVFlight,
   stopFPVFlight,
   setSeason,
-  setGisMode
+  setGisMode,
+  start360Spin,
+  stop360Spin,
+  toggle360Spin
 });
 </script>
 
@@ -3514,6 +3656,72 @@ defineExpose({
   font-size: 13.5px;
   color: #e2e8f0;
   letter-spacing: 0.04em;
+}
+
+/* 🔄 360° 全景环绕自转浮动交互胶囊 */
+.spin-360-pill {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 9999px;
+  background: rgba(10, 16, 28, 0.94);
+  border: 1px solid rgba(245, 185, 66, 0.65);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(245, 185, 66, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #fff;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.spin-icon {
+  font-size: 15px;
+  display: inline-block;
+  animation: spinIconAnim 3s linear infinite;
+}
+
+@keyframes spinIconAnim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fef08a;
+  letter-spacing: 0.02em;
+}
+
+.spin-tip {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.spin-close-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: all 0.15s;
+}
+
+.spin-close-btn:hover {
+  background: rgba(239, 68, 68, 0.75);
+  color: #fff;
 }
 </style>
 

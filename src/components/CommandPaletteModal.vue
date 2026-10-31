@@ -110,6 +110,7 @@ import {
   CloudSnow,
   Swords,
   Box,
+  RotateCw,
   FlaskConical
 } from 'lucide-vue-next';
 
@@ -130,7 +131,8 @@ const emit = defineEmits([
   'open-changelog',
   'switch-mode',
   'change-lighting',
-  'change-season'
+  'change-season',
+  'toggle-360-spin'
 ]);
 
 const inputRef = ref(null);
@@ -139,6 +141,7 @@ const selectedIndex = ref(0);
 
 // 工具与快捷操作库
 const TOOLS = [
+  { id: 'spin360', title: '360° 全景环绕旋转 (鼠标中键)', desc: '相机围绕当前观察中心点进行 360 度全景自转巡视', badge: '交互', icon: RotateCw, action: () => emit('toggle-360-spin') },
   { id: 'gallery', title: '三秦实景影像集', desc: '16 处国家级地标高清真实自然摄影画廊', badge: '媒体库', icon: GalleryIcon, action: () => emit('open-gallery') },
   { id: 'tour', title: '《航拍三秦》巡航导览', desc: '电影级自动运镜自秦岭穿行至陕北长城', badge: '导览', icon: Video, action: () => emit('open-tour') },
   { id: 'roadbook', title: '3D 贴地飞行路书工坊', desc: '秦岭 210 国道、褒斜道与李白入陕自驾路线', badge: '研学', icon: Navigation, action: () => emit('open-roadbook') },

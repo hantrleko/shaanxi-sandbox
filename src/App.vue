@@ -28,6 +28,7 @@
       @challenge-click="onChallengeClick"
       @select-culture="onSelectCulture"
       @select-poetry="onSelectPoetry"
+      @spin-360-status="val => isSpinning360 = val"
       @roadbook-point-added="onRoadbookPointAdded"
     />
 
@@ -219,6 +220,7 @@
         :season-mode="seasonMode"
         :lighting-mode="lightingMode"
         :gis-mode="gisMode"
+        :is-spinning="isSpinning360"
         :azimuth="cameraAzimuth"
         :pitch="cameraPitch"
         @update-layers="onUpdateLayers"
@@ -226,6 +228,7 @@
         @change-lighting="onLightingChange"
         @change-gis="onChangeGis"
         @reset-north="onResetNorth"
+        @toggle-360-spin="onToggle360Spin"
       />
     </template>
 
@@ -268,6 +271,7 @@
       @switch-mode="onSwitchMode"
       @change-lighting="onLightingChange"
       @change-season="onChangeSeason"
+      @toggle-360-spin="onToggle360Spin"
     />
   </div>
 </template>
@@ -342,6 +346,7 @@ const selectedCulturalItem = ref(null);
 const seasonMode = ref('natural');
 const gisMode = ref('natural');
 const selectedPoetrySpot = ref(null);
+const isSpinning360 = ref(false);
 const isChangelogActive = ref(false);
 const isRoadbookActive = ref(false);
 const customRoadbookPoints = ref([]);
@@ -510,6 +515,13 @@ const onChangeGis = (mode) => {
   gisMode.value = mode;
   if (threeRef.value) {
     threeRef.value.setGisMode(mode);
+  }
+};
+
+// 🔄 鼠标中键 / 右侧工具栏触发 360° 全景环视自转
+const onToggle360Spin = () => {
+  if (threeRef.value) {
+    threeRef.value.toggle360Spin();
   }
 };
 

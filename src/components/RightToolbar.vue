@@ -68,7 +68,19 @@
         <span class="rail-lbl">{{ azimuth }}°</span>
       </button>
 
-      <!-- 5. 遥测信息速览气泡 -->
+      <!-- 6. 360° 环视旋转按钮 (支持鼠标中键单击/拖拽) -->
+      <button
+        class="rail-btn spin-btn"
+        :class="{ active: isSpinning }"
+        @click="$emit('toggle-360-spin')"
+        title="360° 全景环绕旋转 (鼠标中键单击或拖拽)"
+        aria-label="360度旋转"
+      >
+        <RotateCw :size="16" :class="{ 'spinning-icon': isSpinning }" />
+        <span class="rail-lbl">360°</span>
+      </button>
+
+      <!-- 7. 遥测信息速览气泡 -->
       <div class="rail-telemetry" :title="`遥感源: DEM 30m · 仰角: ${pitch}°`">
         <span class="tele-tag">3D</span>
         <span class="tele-pitch">{{ pitch }}°</span>
@@ -175,6 +187,7 @@ import {
   Sunrise,
   Moon,
   Activity,
+  RotateCw,
   X
 } from 'lucide-vue-next';
 
@@ -186,6 +199,7 @@ const props = defineProps({
   seasonMode: { type: String, default: 'natural' },
   lightingMode: { type: String, default: 'dawn' },
   gisMode: { type: String, default: 'natural' },
+  isSpinning: { type: Boolean, default: false },
   azimuth: { type: Number, default: 0 },
   pitch: { type: Number, default: 35 }
 });
@@ -195,7 +209,8 @@ const emit = defineEmits([
   'change-season',
   'change-lighting',
   'change-gis',
-  'reset-north'
+  'reset-north',
+  'toggle-360-spin'
 ]);
 
 const activeFlyout = ref(null);
@@ -391,6 +406,28 @@ const toggleLayer = (key) => {
   border-left: 3.5px solid transparent;
   border-right: 3.5px solid transparent;
   border-top: 6px solid #cbd5e1;
+}
+
+/* 360° 环视按钮 */
+.spin-btn:hover {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.spin-btn.active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.22);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45);
+}
+
+.spinning-icon {
+  animation: spinCwAnim 2.5s linear infinite;
+  color: #f59e0b;
+}
+
+@keyframes spinCwAnim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .rail-telemetry {
