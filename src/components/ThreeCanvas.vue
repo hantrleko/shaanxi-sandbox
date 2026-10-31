@@ -83,8 +83,8 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import gsap from 'gsap';
-import { POI_LIST, CULTURAL_ITEMS } from '../data/shaanxiData.js';
-import { CITY_BOUNDARIES, REAL_RIVERS, REAL_POIS, REAL_REGIONS, REAL_CAMPAIGN_ROUTES } from '../data/shaanxiGeoVectors.js';
+import { POI_LIST, CULTURAL_ITEMS, POETRY_SPOTS } from '../data/shaanxiData.js';
+import { CITY_BOUNDARIES, REAL_RIVERS, REAL_POIS, REAL_REGIONS, REAL_CAMPAIGN_ROUTES, REAL_SHU_ROADS, REAL_QIN_ZHIDAO } from '../data/shaanxiGeoVectors.js';
 import { soundscape } from '../utils/soundscape.js';
 
 const props = defineProps({
@@ -94,11 +94,12 @@ const props = defineProps({
   activeModelStage: { type: Number, default: 1 },
   activeCampaign: { type: Object, default: null },
   activeCampaignStageIndex: { type: Number, default: 0 },
-  lightingMode: { type: String, default: 'dawn' }, // 'dawn' | 'noon' | 'sunset'
+  lightingMode: { type: String, default: 'dawn' }, // 'dawn' | 'noon' | 'sunset' | 'night'
   seasonMode: { type: String, default: 'natural' }, // 'natural' | 'spring' | 'summer' | 'autumn' | 'winter'
+  gisMode: { type: String, default: 'natural' }, // 'natural' | 'hypsometric' | 'slope' | 'ink'
   layers: {
     type: Object,
-    default: () => ({ border: true, rivers: true, qinlingLine: true, silkRoad: true, pois: true })
+    default: () => ({ border: true, rivers: true, qinlingLine: true, silkRoad: true, pois: true, cultural: false, shuRoads: true, qinZhiDao: true, poetrySpots: true, valleyMist: true })
   },
   activeLabId: { type: String, default: 'loess' },
   currentTectonicStage: { type: Number, default: 0 },
@@ -116,6 +117,7 @@ const emit = defineEmits([
   'profile-calculated',
   'challenge-click',
   'select-culture',
+  'select-poetry',
   'cancel-profiling',
   'roadbook-point-added'
 ]);
@@ -132,7 +134,8 @@ let terrainReticleMesh = null;
 let scene, camera, renderer, controls;
 let macroGroup, bonsaiGroup, modelGroup, campaignGroup;
 let borderSubGroup, riversSubGroup, qinlingSubGroup, silkRoadSubGroup, poisSubGroup, culturalSubGroup, profilingMeasureGroup, citiesSubGroup;
-let terrainMesh, sunLight, skyFillLight;
+let shuRoadsSubGroup, qinZhiDaoSubGroup, poetrySubGroup, valleyMistGroup;
+let terrainMesh, sunLight, skyFillLight, starfieldMesh;
 let silkRoadLine = null;
 let qinlingLineMesh = null;
 let animFrameId = null;
@@ -144,12 +147,20 @@ let animatedCrystals = [];
 let animatedSonarRings = [];
 let silkRoadParticles = null;
 let riverMeshes = [];
+let animatedValleyMist = [];
+let caravanParticles = null;
+let animatedPoetryBeacons = [];
 
 // 四季片元着色器 Uniforms
 let seasonUniforms = {
   uSeason: { value: 0.0 },
   uPrevSeason: { value: 0.0 },
   uSeasonBlend: { value: 1.0 }
+};
+
+// GIS 分析着色器 Uniforms
+let gisUniforms = {
+  uGisMode: { value: 0.0 }
 };
 
 const seasonCodeMap = {
@@ -250,6 +261,10 @@ const initThree = () => {
   riversSubGroup = new THREE.Group();
   qinlingSubGroup = new THREE.Group();
   silkRoadSubGroup = new THREE.Group();
+  shuRoadsSubGroup = new THREE.Group();
+  qinZhiDaoSubGroup = new THREE.Group();
+  poetrySubGroup = new THREE.Group();
+  valleyMistGroup = new THREE.Group();
   poisSubGroup = new THREE.Group();
   culturalSubGroup = new THREE.Group();
   profilingMeasureGroup = new THREE.Group();
@@ -259,10 +274,16 @@ const initThree = () => {
   macroGroup.add(riversSubGroup);
   macroGroup.add(qinlingSubGroup);
   macroGroup.add(silkRoadSubGroup);
+  macroGroup.add(shuRoadsSubGroup);
+  macroGroup.add(qinZhiDaoSubGroup);
+  macroGroup.add(poetrySubGroup);
+  macroGroup.add(valleyMistGroup);
   macroGroup.add(poisSubGroup);
   macroGroup.add(culturalSubGroup);
   macroGroup.add(profilingMeasureGroup);
   macroGroup.add(citiesSubGroup);
+
+  buildStarfield();
 
   renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown);
   renderer.domElement.addEventListener('pointermove', onCanvasPointerMove);
@@ -349,6 +370,9 @@ function loadRealTerrainAssets() {
               buildQinlingLine();
               buildSilkRoad();
               buildProceduralCities();
+              buildHistoricalRoads();
+              buildPoetrySpots();
+              buildValleyMist();
               buildSpatialPins();
               buildCulturalHotspots();
               buildBonsaiBlock();
@@ -368,6 +392,9 @@ function loadRealTerrainAssets() {
               buildQinlingLine();
               buildSilkRoad();
               buildProceduralCities();
+              buildHistoricalRoads();
+              buildPoetrySpots();
+              buildValleyMist();
               buildSpatialPins();
               buildBonsaiBlock();
               buildEvolutionModel();
@@ -462,6 +489,8 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
     shader.uniforms.uSeason = seasonUniforms.uSeason;
     shader.uniforms.uPrevSeason = seasonUniforms.uPrevSeason;
     shader.uniforms.uSeasonBlend = seasonUniforms.uSeasonBlend;
+    shader.uniforms.uGisMode = gisUniforms.uGisMode;
+    mat.userData.uGisMode = gisUniforms.uGisMode;
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -481,6 +510,7 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
        uniform float uSeason;
        uniform float uPrevSeason;
        uniform float uSeasonBlend;
+       uniform float uGisMode;
        varying vec3 vTerrainWorldPos;
 
        vec3 calcSeasonCol(float s, vec3 orig, vec3 pos) {
@@ -534,7 +564,7 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
        // 1. 四季色彩过渡
        vec3 colPrev = calcSeasonCol(uPrevSeason, diffuseColor.rgb, vTerrainWorldPos);
        vec3 colCurr = calcSeasonCol(uSeason, diffuseColor.rgb, vTerrainWorldPos);
-       diffuseColor.rgb = mix(colPrev, colCurr, uSeasonBlend);
+       vec3 baseCol = mix(colPrev, colCurr, uSeasonBlend);
 
        // 2. 电影级大气天光 Fresnel 散射边缘微光 (Atmospheric Rim Glow)
        vec3 viewDir = normalize(cameraPosition - vTerrainWorldPos);
@@ -545,13 +575,54 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
        // 3. 高海拔太白/华山花岗岩雪峰极顶高光 (Alpine Hypsometric Crest Highlight)
        float alpineMask = smoothstep(13.8, 18.5, vTerrainWorldPos.y);
        vec3 peakSnowTint = vec3(0.96, 0.98, 1.05);
-       diffuseColor.rgb = mix(diffuseColor.rgb, peakSnowTint, alpineMask * 0.28);
+       baseCol = mix(baseCol, peakSnowTint, alpineMask * 0.28);
 
        // 4. 陕北暖黄土高原台地微光漫射
        float loessWarmth = (1.0 - smoothstep(-6.0, 12.0, vTerrainWorldPos.z)) * smoothstep(2.5, 8.0, vTerrainWorldPos.y);
-       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 1.02, 0.90), loessWarmth * 0.22);
+       baseCol = mix(baseCol, baseCol * vec3(1.08, 1.02, 0.90), loessWarmth * 0.22);
+       baseCol += rimScattering;
 
-       diffuseColor.rgb += rimScattering;`
+       // 5. GIS 专业专题分析着色器 (GIS Shader Modes)
+       if (uGisMode > 0.5 && uGisMode < 1.5) {
+         // [1.0] 高程分层设色模式 (Hypsometric Tinting)
+         float th = vTerrainWorldPos.y;
+         vec3 cLow = vec3(0.12, 0.54, 0.28);    // 渭河/汉江低平原 (<450m)
+         vec3 cLoess = vec3(0.88, 0.64, 0.22);  // 黄土塬梁 (600-1300m)
+         vec3 cMtn = vec3(0.45, 0.25, 0.12);    // 秦巴中山带 (1300-2600m)
+         vec3 cSnow = vec3(0.96, 0.98, 1.02);   // 太白冰川极顶 (>2800m)
+         vec3 hypCol = cLow;
+         if (th < 3.2) {
+           hypCol = mix(cLow, cLoess, smoothstep(1.0, 3.2, th));
+         } else if (th < 10.5) {
+           hypCol = mix(cLoess, cMtn, smoothstep(3.2, 10.5, th));
+         } else {
+           hypCol = mix(cMtn, cSnow, smoothstep(10.5, 17.5, th));
+         }
+         // 叠加微弱等高线条带
+         float iso = abs(fract(th * 0.6) - 0.5);
+         if (iso < 0.04) hypCol *= 1.18;
+         diffuseColor.rgb = hypCol;
+       } else if (uGisMode > 1.5 && uGisMode < 2.5) {
+         // [2.0] 地形坡度陡缓分析 (Slope Steepness: 法线法)
+         float slope = 1.0 - abs(vNormal.y);
+         vec3 cFlat = vec3(0.12, 0.68, 0.45);   // 平原沃野 (<10°)
+         vec3 cMed = vec3(0.95, 0.75, 0.18);    // 缓坡梯田 (10-35°)
+         vec3 cSteep = vec3(0.92, 0.18, 0.15);  // 绝壁险峰 (>35° 华山断崖)
+         vec3 slopeCol = mix(cFlat, cMed, smoothstep(0.12, 0.38, slope));
+         slopeCol = mix(slopeCol, cSteep, smoothstep(0.38, 0.72, slope));
+         diffuseColor.rgb = slopeCol;
+       } else if (uGisMode > 2.5) {
+         // [3.0] 秦汉青绿山水水墨古卷 (Ancient Ink & Gold)
+         vec3 paper = vec3(0.92, 0.86, 0.74);   // 宣纸陈黄底色
+         float ridge = 1.0 - abs(dot(vNormal, vec3(0.0, 1.0, 0.0)));
+         vec3 malachite = vec3(0.06, 0.42, 0.32);// 矿物石青
+         vec3 inkDark = vec3(0.12, 0.10, 0.09); // 焦墨皴法
+         vec3 inkCol = mix(paper, malachite, smoothstep(0.18, 0.62, ridge));
+         if (vTerrainWorldPos.y > 11.5) inkCol = mix(inkCol, inkDark, 0.55);
+         diffuseColor.rgb = inkCol;
+       } else {
+         diffuseColor.rgb = baseCol;
+       }`
     );
   };
 
@@ -1149,6 +1220,518 @@ function buildProceduralCities() {
 
     citiesSubGroup.add(cGroup);
   });
+
+  // 3. 延安宝塔山专属三维微雕 (九层八角密檐砖塔 + 塔刹金光)
+  const baotaGroup = new THREE.Group();
+  const baotaX = 4.1;
+  const baotaZ = -17.8;
+  const baotaY = getTerrainHeightAt(baotaX, baotaZ) + 0.1;
+  baotaGroup.position.set(baotaX, baotaY, baotaZ);
+
+  const bBaseGeo = new THREE.CylinderGeometry(0.7, 0.8, 0.35, 8);
+  const bBaseMat = new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.8 });
+  const bBase = new THREE.Mesh(bBaseGeo, bBaseMat);
+  bBase.position.y = 0.175;
+  baotaGroup.add(bBase);
+
+  const pagodaBrickMat = new THREE.MeshStandardMaterial({
+    color: 0x78350f,
+    roughness: 0.85,
+    metalness: 0.1
+  });
+  const pagodaEavesMat = new THREE.MeshStandardMaterial({
+    color: 0x292524,
+    roughness: 0.6
+  });
+
+  let curH = 0.35;
+  for (let lvl = 0; lvl < 9; lvl++) {
+    const radiusBot = 0.52 - lvl * 0.038;
+    const radiusTop = radiusBot - 0.025;
+    const tierH = 0.28;
+    const bodyGeo = new THREE.CylinderGeometry(radiusTop, radiusBot, tierH, 8);
+    const body = new THREE.Mesh(bodyGeo, pagodaBrickMat);
+    body.position.y = curH + tierH / 2;
+    baotaGroup.add(body);
+
+    const eaveGeo = new THREE.CylinderGeometry(radiusTop + 0.08, radiusTop + 0.02, 0.06, 8);
+    const eave = new THREE.Mesh(eaveGeo, pagodaEavesMat);
+    eave.position.y = curH + tierH + 0.03;
+    baotaGroup.add(eave);
+    curH += tierH + 0.06;
+  }
+  const finialGeo = new THREE.ConeGeometry(0.12, 0.45, 8);
+  const finialMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+  const finial = new THREE.Mesh(finialGeo, finialMat);
+  finial.position.y = curH + 0.22;
+  baotaGroup.add(finial);
+
+  citiesSubGroup.add(baotaGroup);
+
+  // 4. 西岳华山专属三维微雕 (金锁关云台双坡歇山石木亭 + 绝壁险道)
+  const huashanGroup = new THREE.Group();
+  const huaX = 17.1;
+  const huaZ = 15.2;
+  const huaY = getTerrainHeightAt(huaX, huaZ) + 0.15;
+  huashanGroup.position.set(huaX, huaY, huaZ);
+
+  const huaPlat = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 0.8), wallMat);
+  huaPlat.position.y = 0.15;
+  huashanGroup.add(huaPlat);
+
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4 });
+  [[-0.28, -0.28], [0.28, -0.28], [-0.28, 0.28], [0.28, 0.28]].forEach(([px, pz]) => {
+    const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.65, 6), pillarMat);
+    pil.position.set(px, 0.45, pz);
+    huashanGroup.add(pil);
+  });
+
+  const roofGeo = new THREE.ConeGeometry(0.65, 0.35, 4);
+  roofGeo.rotateY(Math.PI / 4);
+  const roofMat = new THREE.MeshStandardMaterial({
+    color: 0xd97706,
+    emissive: 0xf59e0b,
+    emissiveIntensity: 0.5,
+    roughness: 0.3
+  });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.y = 0.9;
+  huashanGroup.add(roof);
+
+  const lockBandGeo = new THREE.RingGeometry(0.1, 0.55, 16);
+  lockBandGeo.rotateX(-Math.PI / 2);
+  const lockBand = new THREE.Mesh(lockBandGeo, new THREE.MeshBasicMaterial({
+    color: 0xfbbf24,
+    transparent: true,
+    opacity: 0.75,
+    side: THREE.DoubleSide
+  }));
+  lockBand.position.y = 0.32;
+  huashanGroup.add(lockBand);
+
+  citiesSubGroup.add(huashanGroup);
+
+  // 5. 榆林镇北台专属三维微雕 (万里长城第一台：四层梯级方台雄关要塞)
+  const zhenbeiGroup = new THREE.Group();
+  const zbX = 9.2;
+  const zbZ = -44.2;
+  const zbY = getTerrainHeightAt(zbX, zbZ) + 0.1;
+  zhenbeiGroup.position.set(zbX, zbY, zbZ);
+
+  const zMat = new THREE.MeshStandardMaterial({
+    color: 0x57534e,
+    roughness: 0.85,
+    metalness: 0.15
+  });
+  const zbEmissive = new THREE.MeshStandardMaterial({
+    color: 0x292524,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.4,
+    roughness: 0.7
+  });
+
+  const TIER_SPECS = [
+    { w: 1.6, h: 0.38 },
+    { w: 1.25, h: 0.35 },
+    { w: 0.95, h: 0.32 },
+    { w: 0.65, h: 0.30 }
+  ];
+
+  let curZbH = 0;
+  TIER_SPECS.forEach((ts, idx) => {
+    const tier = new THREE.Mesh(new THREE.BoxGeometry(ts.w, ts.h, ts.w), idx === 3 ? zbEmissive : zMat);
+    tier.position.y = curZbH + ts.h / 2;
+    zhenbeiGroup.add(tier);
+    curZbH += ts.h;
+  });
+
+  const beaconPlatform = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.22, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+  beaconPlatform.position.y = curZbH + 0.11;
+  zhenbeiGroup.add(beaconPlatform);
+
+  citiesSubGroup.add(zhenbeiGroup);
+}
+
+// 🌌 构建二十八宿星空穹顶与银河繁星系统
+function buildStarfield() {
+  if (starfieldMesh) {
+    scene.remove(starfieldMesh);
+    starfieldMesh.geometry.dispose();
+    starfieldMesh.material.dispose();
+    starfieldMesh = null;
+  }
+  const starCount = 1800;
+  const starGeo = new THREE.BufferGeometry();
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+  const sizes = new Float32Array(starCount);
+
+  const starColors = [
+    new THREE.Color(0xffffff),
+    new THREE.Color(0xa5f3fc),
+    new THREE.Color(0xfef08a),
+    new THREE.Color(0xfbcfe8),
+    new THREE.Color(0x67e8f9)
+  ];
+
+  for (let i = 0; i < starCount; i++) {
+    const u = Math.random();
+    const v = Math.random();
+    const theta = u * 2.0 * Math.PI;
+    const phi = Math.acos(2.0 * v - 1.0);
+    const r = 380 + Math.random() * 70;
+
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = Math.abs(r * Math.cos(phi)) + 15;
+    const z = r * Math.sin(phi) * Math.sin(theta);
+
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+
+    const col = starColors[Math.floor(Math.random() * starColors.length)];
+    colors[i * 3] = col.r;
+    colors[i * 3 + 1] = col.g;
+    colors[i * 3 + 2] = col.b;
+
+    sizes[i] = 1.2 + Math.random() * 2.4;
+  }
+
+  starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  starGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.3, 'rgba(224,242,254,0.8)');
+  grad.addColorStop(0.8, 'rgba(56,189,248,0.2)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 32, 32);
+  const starTex = new THREE.CanvasTexture(canvas);
+
+  const starMat = new THREE.PointsMaterial({
+    size: 2.2,
+    vertexColors: true,
+    map: starTex,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  starfieldMesh = new THREE.Points(starGeo, starMat);
+  starfieldMesh.visible = (props.lightingMode === 'night');
+  scene.add(starfieldMesh);
+}
+
+// ☁️ 构建秦岭体积云海与汉江晨雾系统
+function buildValleyMist() {
+  while (valleyMistGroup.children.length > 0) {
+    valleyMistGroup.remove(valleyMistGroup.children[0]);
+  }
+  animatedValleyMist = [];
+
+  const cCanvas = document.createElement('canvas');
+  cCanvas.width = 128;
+  cCanvas.height = 128;
+  const cCtx = cCanvas.getContext('2d');
+  const cGrad = cCtx.createRadialGradient(64, 64, 8, 64, 64, 62);
+  cGrad.addColorStop(0, 'rgba(240, 249, 255, 0.45)');
+  cGrad.addColorStop(0.5, 'rgba(224, 242, 254, 0.22)');
+  cGrad.addColorStop(0.8, 'rgba(186, 230, 253, 0.08)');
+  cGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  cCtx.fillStyle = cGrad;
+  cCtx.fillRect(0, 0, 128, 128);
+  const mistTex = new THREE.CanvasTexture(cCanvas);
+
+  const mistMat = new THREE.MeshBasicMaterial({
+    map: mistTex,
+    transparent: true,
+    opacity: 0.38,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+    side: THREE.DoubleSide
+  });
+
+  const MIST_CENTERS = [
+    { x: 3.5, z: 22.0, w: 26, d: 8, h: 4.5, count: 18 },
+    { x: -9.5, z: 24.5, w: 22, d: 10, h: 5.2, count: 16 },
+    { x: -11.5, z: 36.0, w: 28, d: 12, h: 2.8, count: 18 },
+    { x: 7.5, z: 41.5, w: 24, d: 10, h: 2.6, count: 14 },
+    { x: 19.8, z: -5.2, w: 10, d: 24, h: 3.8, count: 12 }
+  ];
+
+  MIST_CENTERS.forEach((zone) => {
+    for (let k = 0; k < zone.count; k++) {
+      const pw = (zone.w * 0.35) + Math.random() * (zone.w * 0.45);
+      const pd = (zone.d * 0.35) + Math.random() * (zone.d * 0.45);
+      const pGeo = new THREE.PlaneGeometry(pw, pd);
+      pGeo.rotateX(-Math.PI / 2);
+
+      const pMesh = new THREE.Mesh(pGeo, mistMat.clone());
+      const px = zone.x + (Math.random() - 0.5) * zone.w;
+      const pz = zone.z + (Math.random() - 0.5) * zone.d;
+      const groundY = getTerrainHeightAt(px, pz);
+      const py = groundY + zone.h + Math.random() * 2.2;
+
+      pMesh.position.set(px, py, pz);
+      pMesh.rotation.y = Math.random() * Math.PI;
+
+      valleyMistGroup.add(pMesh);
+      animatedValleyMist.push({
+        mesh: pMesh,
+        baseX: px,
+        baseZ: pz,
+        baseY: py,
+        speedX: (Math.random() - 0.45) * 0.008,
+        speedZ: (Math.random() - 0.45) * 0.006,
+        rotSpeed: (Math.random() - 0.5) * 0.0012,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  });
+
+  valleyMistGroup.visible = !!props.layers?.valleyMist;
+}
+
+// 🛤️ 构建陕南四大古蜀道与陕北大秦直道三维管线与商队粒子系统
+function buildHistoricalRoads() {
+  while (shuRoadsSubGroup.children.length > 0) {
+    shuRoadsSubGroup.remove(shuRoadsSubGroup.children[0]);
+  }
+  while (qinZhiDaoSubGroup.children.length > 0) {
+    qinZhiDaoSubGroup.remove(qinZhiDaoSubGroup.children[0]);
+  }
+
+  const ROAD_STYLES = {
+    'chencang': { color: 0x10b981, radius: 0.16, opacity: 0.95 },
+    'baoxie': { color: 0xf59e0b, radius: 0.17, opacity: 0.95 },
+    'tangluo': { color: 0x06b6d4, radius: 0.15, opacity: 0.92 },
+    'ziwu': { color: 0xec4899, radius: 0.16, opacity: 0.95 }
+  };
+
+  const roadCurves = [];
+
+  // A. 四大古蜀道立体管道
+  Object.keys(REAL_SHU_ROADS).forEach(roadKey => {
+    const rawCoords = REAL_SHU_ROADS[roadKey];
+    if (!rawCoords || rawCoords.length < 2) return;
+
+    const style = ROAD_STYLES[roadKey] || { color: 0x10b981, radius: 0.15, opacity: 0.9 };
+    const points = rawCoords.map(coord => {
+      const terrainY = getTerrainHeightAt(coord[0], coord[2]);
+      const safeY = Math.max(coord[1], terrainY + 0.35);
+      return new THREE.Vector3(coord[0], safeY, coord[2]);
+    });
+
+    const curve = new THREE.CatmullRomCurve3(points);
+    curve.curveType = 'catmullrom';
+    curve.tension = 0.5;
+    roadCurves.push(curve);
+
+    const tubeGeo = new THREE.TubeGeometry(curve, points.length * 8, style.radius, 8, false);
+    const tubeMat = new THREE.MeshStandardMaterial({
+      color: style.color,
+      emissive: style.color,
+      emissiveIntensity: 0.75,
+      roughness: 0.35,
+      metalness: 0.7,
+      transparent: true,
+      opacity: style.opacity
+    });
+
+    const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+    tubeMesh.castShadow = true;
+    shuRoadsSubGroup.add(tubeMesh);
+
+    // 沿线关隘微型驿站
+    for (let i = 0; i < points.length; i += 2) {
+      const pt = points[i];
+      const stationGeo = new THREE.BoxGeometry(0.32, 0.28, 0.32);
+      const stationMat = new THREE.MeshStandardMaterial({
+        color: 0x78350f,
+        emissive: style.color,
+        emissiveIntensity: 0.4
+      });
+      const st = new THREE.Mesh(stationGeo, stationMat);
+      st.position.set(pt.x, pt.y + 0.14, pt.z);
+      shuRoadsSubGroup.add(st);
+    }
+  });
+
+  // B. 大秦直道 (古代帝国超级公路)
+  if (REAL_QIN_ZHIDAO && REAL_QIN_ZHIDAO.length >= 2) {
+    const qinPts = REAL_QIN_ZHIDAO.map(coord => {
+      const terrainY = getTerrainHeightAt(coord[0], coord[2]);
+      const safeY = Math.max(coord[1], terrainY + 0.35);
+      return new THREE.Vector3(coord[0], safeY, coord[2]);
+    });
+
+    const qinCurve = new THREE.CatmullRomCurve3(qinPts);
+    qinCurve.curveType = 'catmullrom';
+    qinCurve.tension = 0.5;
+    roadCurves.push(qinCurve);
+
+    const qinTubeGeo = new THREE.TubeGeometry(qinCurve, qinPts.length * 8, 0.26, 8, false);
+    const qinTubeMat = new THREE.MeshStandardMaterial({
+      color: 0xea580c,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.85,
+      roughness: 0.4,
+      metalness: 0.6
+    });
+    const qinMesh = new THREE.Mesh(qinTubeGeo, qinTubeMat);
+    qinMesh.castShadow = true;
+    qinZhiDaoSubGroup.add(qinMesh);
+
+    qinPts.forEach((pt, pIdx) => {
+      if (pIdx % 2 === 0) {
+        const beaconGeo = new THREE.CylinderGeometry(0.2, 0.3, 0.5, 6);
+        const beaconMat = new THREE.MeshStandardMaterial({
+          color: 0x9a3412,
+          emissive: 0xf59e0b,
+          emissiveIntensity: 0.6
+        });
+        const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+        beacon.position.set(pt.x, pt.y + 0.25, pt.z);
+        qinZhiDaoSubGroup.add(beacon);
+      }
+    });
+  }
+
+  // C. 商队流光粒子系统
+  if (roadCurves.length > 0) {
+    const totalCaravanCount = 90;
+    const caravanGeo = new THREE.BufferGeometry();
+    const posArr = new Float32Array(totalCaravanCount * 3);
+    const colArr = new Float32Array(totalCaravanCount * 3);
+    const caravanData = [];
+
+    for (let c = 0; c < totalCaravanCount; c++) {
+      const curveIdx = c % roadCurves.length;
+      const targetCurve = roadCurves[curveIdx];
+      const progress = Math.random();
+      const pt = targetCurve.getPoint(progress);
+
+      posArr[c * 3] = pt.x;
+      posArr[c * 3 + 1] = pt.y + 0.2;
+      posArr[c * 3 + 2] = pt.z;
+
+      const isQin = curveIdx === roadCurves.length - 1;
+      const pColor = isQin ? new THREE.Color(0xfbbf24) : new THREE.Color(0x34d399);
+      colArr[c * 3] = pColor.r;
+      colArr[c * 3 + 1] = pColor.g;
+      colArr[c * 3 + 2] = pColor.b;
+
+      caravanData.push({
+        curve: targetCurve,
+        progress: progress,
+        speed: 0.0006 + Math.random() * 0.0008
+      });
+    }
+
+    caravanGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    caravanGeo.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+
+    const cMat = new THREE.PointsMaterial({
+      size: 1.8,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+
+    caravanParticles = new THREE.Points(caravanGeo, cMat);
+    caravanParticles.userData = { caravanData };
+    shuRoadsSubGroup.add(caravanParticles);
+  }
+
+  shuRoadsSubGroup.visible = !!props.layers?.shuRoads;
+  qinZhiDaoSubGroup.visible = !!props.layers?.qinZhiDao;
+}
+
+// 🏮 构建唐诗宋词地理空间信标 (朱砂古印微雕 + 通天金星光柱)
+function buildPoetrySpots() {
+  while (poetrySubGroup.children.length > 0) {
+    poetrySubGroup.remove(poetrySubGroup.children[0]);
+  }
+  animatedPoetryBeacons = [];
+
+  POETRY_SPOTS.forEach(spot => {
+    const spotGroup = new THREE.Group();
+    const groundY = getTerrainHeightAt(spot.pos[0], spot.pos[2]);
+    const posY = Math.max(spot.pos[1], groundY + 0.3);
+    spotGroup.position.set(spot.pos[0], posY, spot.pos[2]);
+
+    spotGroup.userData = { isPoetry: true, poetrySpot: spot };
+
+    // 1. 朱砂古印微雕立方体
+    const sealGeo = new THREE.BoxGeometry(0.55, 0.65, 0.55);
+    const sealMat = new THREE.MeshStandardMaterial({
+      color: 0xb91c1c,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.7,
+      roughness: 0.25,
+      metalness: 0.4
+    });
+    const sealMesh = new THREE.Mesh(sealGeo, sealMat);
+    sealMesh.position.y = 0.55;
+    sealMesh.userData = { isPoetry: true, poetrySpot: spot };
+    spotGroup.add(sealMesh);
+
+    // 印钮金顶
+    const finialGeo = new THREE.ConeGeometry(0.2, 0.35, 4);
+    finialGeo.rotateY(Math.PI / 4);
+    const finialMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+    const finialMesh = new THREE.Mesh(finialGeo, finialMat);
+    finialMesh.position.y = 0.95;
+    finialMesh.userData = { isPoetry: true, poetrySpot: spot };
+    spotGroup.add(finialMesh);
+
+    // 2. 垂直通天金星光柱
+    const beamGeo = new THREE.CylinderGeometry(0.04, 0.18, 9.0, 16);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0xf59e0b,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+    beamMesh.position.y = 4.5;
+    spotGroup.add(beamMesh);
+
+    // 3. 地面朱金光环
+    const ringGeo = new THREE.RingGeometry(0.2, 0.95, 24);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xd97706,
+      transparent: true,
+      opacity: 0.65,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.position.y = 0.08;
+    spotGroup.add(ringMesh);
+
+    poetrySubGroup.add(spotGroup);
+
+    animatedPoetryBeacons.push({
+      seal: sealMesh,
+      finial: finialMesh,
+      ring: ringMesh,
+      baseY: 0.55,
+      phase: Math.random() * Math.PI * 2
+    });
+  });
+
+  poetrySubGroup.visible = !!props.layers?.poetrySpots;
 }
 
 // 构建全息多面体晶棱 POI 空间信标 (高科技钻石微雕 + 天际渐变光柱 + 地面同心声呐脉冲)
@@ -1800,16 +2383,29 @@ const setLighting = (mode) => {
     sunLight.color.setHex(0xfbbf24);
     sunLight.intensity = 2.4;
     skyFillLight.color.setHex(0x38bdf8);
+    if (starfieldMesh) starfieldMesh.visible = false;
+    if (scene) scene.background = new THREE.Color(0x060b14);
   } else if (mode === "noon") {
     sunLight.position.set(20, 130, 20);
     sunLight.color.setHex(0xffffff);
     sunLight.intensity = 2.0;
     skyFillLight.color.setHex(0x93c5fd);
+    if (starfieldMesh) starfieldMesh.visible = false;
+    if (scene) scene.background = new THREE.Color(0x070d18);
   } else if (mode === "sunset") {
     sunLight.position.set(-80, 35, -40);
     sunLight.color.setHex(0xf43f5e);
     sunLight.intensity = 2.6;
     skyFillLight.color.setHex(0x818cf8);
+    if (starfieldMesh) starfieldMesh.visible = false;
+    if (scene) scene.background = new THREE.Color(0x0a0f1d);
+  } else if (mode === "night") {
+    sunLight.position.set(-30, -50, -30);
+    sunLight.color.setHex(0x1e3a8a);
+    sunLight.intensity = 0.25;
+    skyFillLight.color.setHex(0x0f172a);
+    if (starfieldMesh) starfieldMesh.visible = true;
+    if (scene) scene.background = new THREE.Color(0x020617);
   }
 };
 
@@ -1951,6 +2547,49 @@ const animate = () => {
     winterSnowParticles.geometry.attributes.position.needsUpdate = true;
   }
 
+  // 5. 银河繁星穹顶微速运转 (Starfield Dome Rotation)
+  if (starfieldMesh && starfieldMesh.visible) {
+    starfieldMesh.rotation.y += 0.00015;
+  }
+
+  // 6. 秦岭云海漫涌浮动 (Valley Mist Drifting)
+  if (animatedValleyMist && animatedValleyMist.length > 0 && valleyMistGroup.visible) {
+    const mistTime = performance.now() * 0.0008;
+    animatedValleyMist.forEach(m => {
+      m.mesh.position.x = m.baseX + Math.sin(mistTime + m.phase) * 1.5;
+      m.mesh.position.z = m.baseZ + Math.cos(mistTime * 0.8 + m.phase) * 1.2;
+      m.mesh.position.y = m.baseY + Math.sin(mistTime * 1.5 + m.phase) * 0.25;
+      m.mesh.rotation.y += m.rotSpeed;
+    });
+  }
+
+  // 7. 古蜀道与秦直道商队粒子穿行 (Caravan Particles)
+  if (caravanParticles && caravanParticles.geometry && caravanParticles.userData?.caravanData && shuRoadsSubGroup.visible) {
+    const cData = caravanParticles.userData.caravanData;
+    const cPos = caravanParticles.geometry.attributes.position.array;
+    for (let c = 0; c < cData.length; c++) {
+      const item = cData[c];
+      item.progress += item.speed;
+      if (item.progress > 1.0) item.progress = 0.0;
+      const pt = item.curve.getPoint(item.progress);
+      cPos[c * 3] = pt.x;
+      cPos[c * 3 + 1] = pt.y + 0.18;
+      cPos[c * 3 + 2] = pt.z;
+    }
+    caravanParticles.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // 8. 唐诗宋词朱砂古印信标律动 (Poetry Beacons Pulse)
+  if (animatedPoetryBeacons && animatedPoetryBeacons.length > 0 && poetrySubGroup.visible) {
+    const pTime = performance.now() * 0.0016;
+    animatedPoetryBeacons.forEach(pb => {
+      pb.seal.rotation.y += 0.012;
+      pb.finial.rotation.y += 0.012;
+      pb.seal.position.y = pb.baseY + Math.sin(pTime * 2.2 + pb.phase) * 0.1;
+      pb.finial.position.y = pb.baseY + 0.4 + Math.sin(pTime * 2.2 + pb.phase) * 0.1;
+    });
+  }
+
   if (globeMesh) {
     globeMesh.rotation.y += 0.003;
   }
@@ -2068,10 +2707,33 @@ watch(() => props.layers, (newLayers) => {
   if (riversSubGroup) riversSubGroup.visible = !!newLayers.rivers;
   if (qinlingSubGroup) qinlingSubGroup.visible = !!newLayers.qinlingLine;
   if (silkRoadSubGroup) silkRoadSubGroup.visible = !!newLayers.silkRoad;
+  if (shuRoadsSubGroup) shuRoadsSubGroup.visible = !!newLayers.shuRoads;
+  if (qinZhiDaoSubGroup) qinZhiDaoSubGroup.visible = !!newLayers.qinZhiDao;
+  if (poetrySubGroup) poetrySubGroup.visible = !!newLayers.poetrySpots;
+  if (valleyMistGroup) valleyMistGroup.visible = !!newLayers.valleyMist;
   if (poisSubGroup) poisSubGroup.visible = !!newLayers.pois;
   if (culturalSubGroup) culturalSubGroup.visible = !!newLayers.cultural;
   if (citiesSubGroup) citiesSubGroup.visible = newLayers.pois !== false;
 }, { deep: true, immediate: true });
+
+// GIS 分析着色器模式监听
+const setGisMode = (mode) => {
+  const codeMap = {
+    natural: 0.0,
+    hypsometric: 1.0,
+    slope: 2.0,
+    ink: 3.0
+  };
+  const code = codeMap[mode] !== undefined ? codeMap[mode] : 0.0;
+  gisUniforms.uGisMode.value = code;
+  if (terrainMesh && terrainMesh.material && terrainMesh.material.userData?.uGisMode) {
+    terrainMesh.material.userData.uGisMode.value = code;
+  }
+};
+
+watch(() => props.gisMode, (mode) => {
+  setGisMode(mode);
+}, { immediate: true });
 
 // 盆景参数监听
 watch([() => props.activeBonsaiId, () => props.bonsaiExaggeration], () => {
@@ -2242,6 +2904,20 @@ const onCanvasPointerDown = (e) => {
       while (obj.parent && !obj.userData?.culturalItem) obj = obj.parent;
       if (obj.userData?.culturalItem) {
         emit('select-culture', obj.userData.culturalItem);
+      }
+    }
+  }
+
+  // 3.5 唐诗宋词地理空间信标点击
+  if (props.layers?.poetrySpots && poetrySubGroup) {
+    const hits = raycaster.intersectObjects(poetrySubGroup.children, true);
+    if (hits.length > 0) {
+      let obj = hits[0].object;
+      while (obj.parent && !obj.userData?.poetrySpot) obj = obj.parent;
+      if (obj.userData?.poetrySpot) {
+        soundscape.playBeaconChime();
+        emit('select-poetry', obj.userData.poetrySpot);
+        return;
       }
     }
   }
@@ -2633,7 +3309,8 @@ defineExpose({
   clearRoadbook,
   startFPVFlight,
   stopFPVFlight,
-  setSeason
+  setSeason,
+  setGisMode
 });
 </script>
 

@@ -32,16 +32,29 @@
         class="rail-btn"
         :class="{ active: activeFlyout === 'lighting' }"
         @click="toggleFlyout('lighting')"
-        title="光影时间 - 晨曦、正午、夕照氛围切换"
+        title="光影时间 - 晨曦、正午、夕照、月夜切换"
         aria-label="光影时间"
       >
         <SunMedium :size="17" />
         <span class="rail-lbl">光照</span>
       </button>
 
+      <!-- 4. GIS 科学分析着色器按钮 -->
+      <button
+        class="rail-btn gis-btn"
+        :class="{ active: activeFlyout === 'gis' }"
+        @click="toggleFlyout('gis')"
+        title="GIS 分析 (G) - 高程分层、坡度分析、青绿古卷"
+        aria-label="GIS 分析"
+      >
+        <Activity :size="17" />
+        <span class="rail-lbl">GIS</span>
+        <span class="gis-dot" v-if="gisMode !== 'natural'"></span>
+      </button>
+
       <div class="rail-divider"></div>
 
-      <!-- 4. 三维罗盘与复位正北 -->
+      <!-- 5. 三维罗盘与复位正北 -->
       <button
         class="rail-btn compass-btn"
         @click="$emit('reset-north')"
@@ -129,6 +142,23 @@
             </div>
           </button>
         </div>
+
+        <!-- 飞出内容 4: GIS 分析着色器 -->
+        <div v-if="activeFlyout === 'gis'" class="flyout-body gis-grid">
+          <button
+            v-for="g in GIS_ITEMS"
+            :key="g.id"
+            class="gis-tile"
+            :class="{ active: gisMode === g.id }"
+            @click="$emit('change-gis', g.id)"
+          >
+            <span class="gis-icon">{{ g.icon }}</span>
+            <div class="gis-info">
+              <span class="gis-name">{{ g.name }}</span>
+              <span class="gis-desc">{{ g.desc }}</span>
+            </div>
+          </button>
+        </div>
       </div>
     </transition>
   </div>
@@ -143,16 +173,19 @@ import {
   Sun,
   Sunset,
   Sunrise,
+  Moon,
+  Activity,
   X
 } from 'lucide-vue-next';
 
 const props = defineProps({
   layers: {
     type: Object,
-    default: () => ({ border: true, rivers: true, qinlingLine: true, silkRoad: true, pois: true, cultural: false })
+    default: () => ({ border: true, rivers: true, qinlingLine: true, silkRoad: true, pois: true, cultural: false, shuRoads: true, qinZhiDao: true, poetrySpots: true, valleyMist: true })
   },
   seasonMode: { type: String, default: 'natural' },
   lightingMode: { type: String, default: 'dawn' },
+  gisMode: { type: String, default: 'natural' },
   azimuth: { type: Number, default: 0 },
   pitch: { type: Number, default: 35 }
 });
@@ -161,6 +194,7 @@ const emit = defineEmits([
   'update-layers',
   'change-season',
   'change-lighting',
+  'change-gis',
   'reset-north'
 ]);
 
@@ -171,7 +205,11 @@ const LAYER_ITEMS = [
   { key: 'rivers', name: '黄河/长江水系脉络', color: '#06b6d4' },
   { key: 'qinlingLine', name: '秦岭 800mm 气候分界线', color: '#10b981' },
   { key: 'silkRoad', name: '丝绸之路流金干线', color: '#f59e0b' },
-  { key: 'pois', name: '3D 空间地标信标 (POI)', color: '#a855f7' }
+  { key: 'shuRoads', name: '陕南四大古蜀道 (陈仓/褒斜/傥骆/子午)', color: '#ec4899' },
+  { key: 'qinZhiDao', name: '陕北秦直道 (古代高速公路)', color: '#ef4444' },
+  { key: 'poetrySpots', name: '唐诗宋词地理信标 (诗意三秦)', color: '#a855f7' },
+  { key: 'valleyMist', name: '秦岭峡谷翻涌晨雾云海', color: '#94a3b8' },
+  { key: 'pois', name: '3D 空间地标信标 (POI)', color: '#38bdf8' }
 ];
 
 const SEASON_ITEMS = [
@@ -185,13 +223,22 @@ const SEASON_ITEMS = [
 const LIGHTING_ITEMS = [
   { id: 'dawn', name: '晨曦朝霞', icon: Sunrise, desc: '金光初照 · 温暖晨辉' },
   { id: 'noon', name: '正午纯阳', icon: Sun, desc: '通透高亮 · 真实光影' },
-  { id: 'sunset', name: '夕照霞光', icon: Sunset, desc: '残阳如血 · 紫霞映山' }
+  { id: 'sunset', name: '夕照霞光', icon: Sunset, desc: '残阳如血 · 紫霞映山' },
+  { id: 'night', name: '长安月夜', icon: Moon, desc: '繁星穹顶 · 万家灯火' }
+];
+
+const GIS_ITEMS = [
+  { id: 'natural', name: '自然实景卫星', icon: '🛰️', desc: '高精遥感影像与四季流转' },
+  { id: 'hypsometric', name: '高程分层设色', icon: '📈', desc: '平原绿→黄土黄→山地棕→雪顶白' },
+  { id: 'slope', name: '地形坡度分析', icon: '📐', desc: '平原青绿→缓坡金黄→断崖赤红' },
+  { id: 'ink', name: '秦汉青绿古卷', icon: '🖌️', desc: '金碧山水古卷与水墨意境' }
 ];
 
 const flyoutTitle = computed(() => {
   if (activeFlyout.value === 'layers') return '沙盒地质与地理图层';
   if (activeFlyout.value === 'season') return '四季气候流转着色器';
   if (activeFlyout.value === 'lighting') return '太阳高度角与时序光照';
+  if (activeFlyout.value === 'gis') return 'GIS 科学专题分析滤镜';
   return '';
 });
 
@@ -199,6 +246,7 @@ const flyoutIcon = computed(() => {
   if (activeFlyout.value === 'layers') return Layers;
   if (activeFlyout.value === 'season') return Sparkles;
   if (activeFlyout.value === 'lighting') return SunMedium;
+  if (activeFlyout.value === 'gis') return Activity;
   return Layers;
 });
 
@@ -289,6 +337,17 @@ const toggleLayer = (key) => {
 .season-dot.summer { background: #22c55e; }
 .season-dot.autumn { background: #f97316; }
 .season-dot.winter { background: #e0f2fe; }
+
+.gis-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+}
 
 .rail-divider {
   width: 24px;
@@ -568,6 +627,59 @@ const toggleLayer = (key) => {
 .l-desc {
   font-size: var(--text-xs, 11px);
   color: var(--text-muted, #94a3b8);
+}
+
+/* GIS 分析滤镜网格 */
+.gis-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gis-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.gis-tile:hover {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.gis-tile.active {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+}
+
+.gis-icon {
+  font-size: 18px;
+}
+
+.gis-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gis-name {
+  font-size: var(--text-sm, 12px);
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.gis-desc {
+  font-size: 10.5px;
+  color: var(--text-dim, #94a3b8);
 }
 
 @media (max-width: 768px) {

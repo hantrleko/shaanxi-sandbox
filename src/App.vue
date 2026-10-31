@@ -11,6 +11,7 @@
       :active-campaign-stage-index="activeCampaignStageIndex"
       :lighting-mode="lightingMode"
       :season-mode="seasonMode"
+      :gis-mode="gisMode"
       :layers="layers"
       :active-lab-id="activeLabId"
       :current-tectonic-stage="currentTectonicStage"
@@ -26,6 +27,7 @@
       @cancel-profiling="onToggleProfiling"
       @challenge-click="onChallengeClick"
       @select-culture="onSelectCulture"
+      @select-poetry="onSelectPoetry"
       @roadbook-point-added="onRoadbookPointAdded"
     />
 
@@ -202,17 +204,27 @@
         @fly-to="onFlyToCulture"
       />
 
+      <!-- 📜 唐诗宋词地理空间卡 (宣纸古风名句、原声朗读与地理解析) -->
+      <PoetryCard
+        v-if="selectedPoetrySpot"
+        :poetry-spot="selectedPoetrySpot"
+        @close="selectedPoetrySpot = null"
+        @fly-to="onFlyToPoetry"
+      />
+
       <!-- 🎛️ 右侧垂直环境与图层控制轨 (整合图层、四季、光照、指北针、遥测，彻底消除与底部坞碰撞) -->
       <RightToolbar
         v-if="!isTourActive"
         :layers="layers"
         :season-mode="seasonMode"
         :lighting-mode="lightingMode"
+        :gis-mode="gisMode"
         :azimuth="cameraAzimuth"
         :pitch="cameraPitch"
         @update-layers="onUpdateLayers"
         @change-season="onChangeSeason"
         @change-lighting="onLightingChange"
+        @change-gis="onChangeGis"
         @reset-north="onResetNorth"
       />
     </template>
@@ -280,6 +292,7 @@ const TacticalWargameModal = defineAsyncComponent(() => import('./components/Tac
 const GeoDetectiveModal = defineAsyncComponent(() => import('./components/GeoDetectiveModal.vue'));
 const PosterModal = defineAsyncComponent(() => import('./components/PosterModal.vue'));
 const CulturalCard = defineAsyncComponent(() => import('./components/CulturalCard.vue'));
+const PoetryCard = defineAsyncComponent(() => import('./components/PoetryCard.vue'));
 const ChangelogModal = defineAsyncComponent(() => import('./components/ChangelogModal.vue'));
 const SceneryGalleryModal = defineAsyncComponent(() => import('./components/SceneryGalleryModal.vue'));
 const PoiPhotoCard = defineAsyncComponent(() => import('./components/PoiPhotoCard.vue'));
@@ -307,7 +320,7 @@ const activeModelStage = ref(1);
 
 const activeCampaignId = ref('camp_chencang');
 const activeCampaignStageIndex = ref(0);
-const lightingMode = ref('dawn'); // 'dawn' | 'noon' | 'sunset'
+const lightingMode = ref('dawn'); // 'dawn' | 'noon' | 'sunset' | 'night'
 
 const isPlaying = ref(false);
 const isAutoPlaying = ref(false);
@@ -325,8 +338,10 @@ const isPosterActive = ref(false);
 const snapshotUrl = ref('');
 const selectedCulturalItem = ref(null);
 
-// V2.0 旗舰版状态 (四季气候流转、3D路书工坊、版本更迭中心、实景画廊)
+// V5.0 PRO 状态 (四季、GIS专题着色、古蜀道/秦直道、唐诗宋词、秦岭云海)
 const seasonMode = ref('natural');
+const gisMode = ref('natural');
+const selectedPoetrySpot = ref(null);
 const isChangelogActive = ref(false);
 const isRoadbookActive = ref(false);
 const customRoadbookPoints = ref([]);
@@ -340,7 +355,11 @@ const layers = reactive({
   qinlingLine: true,
   silkRoad: true,
   pois: true,
-  cultural: true
+  cultural: true,
+  shuRoads: true,
+  qinZhiDao: true,
+  poetrySpots: true,
+  valleyMist: true
 });
 
 const currentTheme = computed(() => {
@@ -472,6 +491,25 @@ const onSelectCulture = (item) => {
 const onFlyToCulture = (pos) => {
   if (threeRef.value) {
     threeRef.value.flyTo([pos[0] + 4, pos[1] + 14, pos[2] + 16], pos, 1.8);
+  }
+};
+
+// 🏮 唐诗宋词空间信标
+const onSelectPoetry = (spot) => {
+  selectedPoetrySpot.value = spot;
+};
+
+const onFlyToPoetry = (pos) => {
+  if (threeRef.value && pos) {
+    threeRef.value.flyTo([pos[0] + 4, pos[1] + 16, pos[2] + 20], pos, 1.8);
+  }
+};
+
+// 🗺️ GIS 科学专题着色
+const onChangeGis = (mode) => {
+  gisMode.value = mode;
+  if (threeRef.value) {
+    threeRef.value.setGisMode(mode);
   }
 };
 

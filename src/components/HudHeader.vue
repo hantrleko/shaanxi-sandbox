@@ -13,10 +13,10 @@
         </div>
       </div>
 
-      <!-- V4.1 PRO 旗舰版本升级日志入口 -->
-      <button class="ver-pill-badge" @click="$emit('open-changelog')" title="点击查看 V4.1 山河灵境视效美化与版本演进日志">
+      <!-- V5.0 PRO 旗舰版本升级日志入口 -->
+      <button class="ver-pill-badge" @click="$emit('open-changelog')" title="点击查看 V5.0 时空苍穹 · 四维历史地理孪生版本演进日志">
         <span class="ver-pulse-dot"></span>
-        <span class="ver-txt">v4.1 PRO</span>
+        <span class="ver-txt">v5.0 PRO</span>
       </button>
     </div>
 
