@@ -80,10 +80,14 @@
         <span class="rail-lbl">360°</span>
       </button>
 
-      <!-- 7. 遥测信息速览气泡 -->
-      <div class="rail-telemetry" :title="`遥感源: DEM 30m · 仰角: ${pitch}°`">
-        <span class="tele-tag">3D</span>
-        <span class="tele-pitch">{{ pitch }}°</span>
+      <!-- 7. 遥测信息速览气泡 / 实时地表探针 -->
+      <div
+        class="rail-telemetry"
+        :class="{ 'has-telemetry': !!telemetry }"
+        :title="telemetry ? `当前指向: ${telemetry.region}\n经纬: ${telemetry.lng}, ${telemetry.lat}\n高程: ${telemetry.elevation}` : `遥感源: DEM 30m · 仰角: ${pitch}°`"
+      >
+        <span class="tele-tag">{{ telemetry ? '探针' : '3D' }}</span>
+        <span class="tele-pitch num-tabular">{{ telemetry ? telemetry.elevation : `${pitch}°` }}</span>
       </div>
     </aside>
 
@@ -201,7 +205,8 @@ const props = defineProps({
   gisMode: { type: String, default: 'natural' },
   isSpinning: { type: Boolean, default: false },
   azimuth: { type: Number, default: 0 },
-  pitch: { type: Number, default: 35 }
+  pitch: { type: Number, default: 35 },
+  telemetry: { type: Object, default: null }
 });
 
 const emit = defineEmits([
@@ -447,6 +452,21 @@ const toggleLayer = (key) => {
 .tele-tag {
   color: var(--brand-cyan, #38bdf8);
   font-weight: 700;
+}
+
+.rail-telemetry.has-telemetry {
+  border-top-color: rgba(245, 158, 11, 0.45);
+}
+
+.rail-telemetry.has-telemetry .tele-tag {
+  color: #f59e0b;
+}
+
+.rail-telemetry.has-telemetry .tele-pitch {
+  color: #fbbf24;
+  font-weight: 700;
+  white-space: nowrap;
+  font-size: 8.5px;
 }
 
 /* 飞出式抽屉面板 (Flyout) */

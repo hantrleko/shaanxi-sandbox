@@ -42,28 +42,67 @@
 
     <!-- 正常展开面板主容器 -->
     <div v-show="!isCollapsed || isMobile" class="panel-content-wrap custom-scrollbar">
-      <!-- 📸 16:9 置顶真实地理实景大图 -->
+      <!-- 📸 16:9 置顶真实地理实景大图 (支持单图与古今双图滑动卷帘对比) -->
       <div
         v-if="currentPhotoUrl"
+        ref="bannerRef"
         class="hero-photo-banner"
-        @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
-        title="点击放大查看高清摄影大图"
+        :class="{ 'is-split-active': isSplitMode && chapter.altPhotoUrl }"
+        @click="!isSplitMode && $emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
+        :title="isSplitMode ? '拖拽中轴滑动对比古今风貌' : '点击放大查看高清摄影大图'"
       >
-        <img :src="currentPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
+        <!-- 普通单图呈现 -->
+        <template v-if="!isSplitMode || !chapter.altPhotoUrl">
+          <img :src="currentPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
+        </template>
+
+        <!-- 双图水平滑动卷帘对比 (Before/After Split Slider) -->
+        <template v-else>
+          <img :src="chapter.photoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
+          <div
+            class="split-overlay-layer"
+            :style="{ clipPath: `inset(0 0 0 ${splitPos}%)` }"
+          >
+            <img :src="chapter.altPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
+          </div>
+          <!-- 交互滑动条与手柄 -->
+          <div
+            class="split-divider-line"
+            :style="{ left: `${splitPos}%` }"
+            @pointerdown.stop="onStartSplitDrag"
+          >
+            <div class="split-handle-btn">
+              <span>⇋</span>
+            </div>
+          </div>
+          <!-- 两侧古今身份浮签 -->
+          <div class="split-tag split-tag-left">今日实景</div>
+          <div class="split-tag split-tag-right">{{ chapter.altBadge || '胜迹/文物' }}</div>
+        </template>
+
         <div class="hero-photo-gradient"></div>
         <div class="hero-photo-top-bar">
           <span class="photo-live-badge">
             <span class="pulse-dot"></span>
-            {{ showAltPhoto ? (chapter.altBadge || '胜迹/文物') : '真实地理摄影' }}
+            {{ isSplitMode ? '古今双图卷帘对比' : (showAltPhoto ? (chapter.altBadge || '胜迹/文物') : '真实地理摄影') }}
           </span>
           <div class="banner-actions" @click.stop>
             <button
               v-if="chapter.altPhotoUrl"
               class="photo-toggle-pill"
+              :class="{ active: isSplitMode }"
+              @click="isSplitMode = !isSplitMode"
+              title="切换古今卷帘对比"
+            >
+              {{ isSplitMode ? '✕ 单图' : '⇋ 对比' }}
+            </button>
+            <button
+              v-if="chapter.altPhotoUrl && !isSplitMode"
+              class="photo-toggle-pill"
               @click="showAltPhoto = !showAltPhoto"
               :title="showAltPhoto ? '切换为今日实景摄影' : '切换为胜迹/复原风物'"
             >
-              {{ showAltPhoto ? '📸 今日实景 ⇋' : '🏛️ 胜迹风物 ⇋' }}
+              {{ showAltPhoto ? '📸 今日' : '🏛️ 胜迹' }}
             </button>
             <button
               class="photo-expand-pill"
@@ -75,7 +114,7 @@
             </button>
           </div>
         </div>
-        <div class="hero-photo-caption" v-if="currentPhotoCaption">
+        <div class="hero-photo-caption" v-if="currentPhotoCaption && !isSplitMode">
           {{ currentPhotoCaption }}
         </div>
       </div>
@@ -518,6 +557,12 @@
       <button class="footer-btn listen-btn" :class="{ playing: isPlaying }" @click="$emit('listen-current')">
         <Volume2 v-if="!isPlaying" :size="14" />
         <VolumeX v-else :size="14" />
+        <div v-if="isPlaying" class="audio-wave-bars">
+          <span class="wave-bar bar-1"></span>
+          <span class="wave-bar bar-2"></span>
+          <span class="wave-bar bar-3"></span>
+          <span class="wave-bar bar-4"></span>
+        </div>
         <span>{{ isPlaying ? '暂停朗读' : '🎧 听这段' }}</span>
       </button>
 
@@ -568,6 +613,33 @@ const activeTab = ref('overview');
 const activeSentenceIndex = ref(0);
 const showAltPhoto = ref(false);
 let timer = null;
+
+// 古今实景双图滑动对比
+const bannerRef = ref(null);
+const isSplitMode = ref(false);
+const splitPos = ref(50);
+const isDraggingSplit = ref(false);
+
+const onStartSplitDrag = (e) => {
+  e.preventDefault();
+  isDraggingSplit.value = true;
+  window.addEventListener('pointermove', onSplitDragMove);
+  window.addEventListener('pointerup', onStopSplitDrag);
+};
+
+const onSplitDragMove = (e) => {
+  if (!isDraggingSplit.value || !bannerRef.value) return;
+  const rect = bannerRef.value.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const pct = Math.max(8, Math.min(92, (x / rect.width) * 100));
+  splitPos.value = Math.round(pct);
+};
+
+const onStopSplitDrag = () => {
+  isDraggingSplit.value = false;
+  window.removeEventListener('pointermove', onSplitDragMove);
+  window.removeEventListener('pointerup', onStopSplitDrag);
+};
 
 // 移动端响应式侦测与 Bottom Sheet 状态 ('peek' | 'half' | 'full')
 const isMobile = ref(false);
@@ -649,6 +721,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkMobile);
+  window.removeEventListener('pointermove', onSplitDragMove);
+  window.removeEventListener('pointerup', onStopSplitDrag);
   if (timer) clearInterval(timer);
 });
 </script>
@@ -750,6 +824,80 @@ onBeforeUnmount(() => {
 
 .hero-photo-banner:hover .hero-photo-img {
   transform: scale(1.04);
+}
+
+/* 📸 古今实景双图水平卷帘对比 */
+.hero-photo-banner.is-split-active {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+.hero-photo-banner.is-split-active:hover .hero-photo-img {
+  transform: none;
+}
+
+.split-overlay-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.split-divider-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2.5px;
+  background: #f59e0b;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  z-index: 10;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.85);
+}
+
+.split-handle-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(11, 26, 43, 0.95);
+  border: 1.5px solid #f59e0b;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.split-tag {
+  position: absolute;
+  bottom: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  z-index: 8;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.split-tag-left {
+  left: 10px;
+  background: rgba(6, 13, 23, 0.88);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.split-tag-right {
+  right: 10px;
+  background: rgba(26, 16, 8, 0.88);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.45);
 }
 
 .hero-photo-gradient {
@@ -1206,6 +1354,32 @@ onBeforeUnmount(() => {
   background: rgba(245, 185, 66, 0.2);
   border-color: var(--accent-gold, #f5b942);
   color: #fde68a;
+}
+
+/* 动态音频频率波动柱 */
+.audio-wave-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  margin-right: 2px;
+}
+
+.wave-bar {
+  width: 2.5px;
+  background: #f59e0b;
+  border-radius: 1px;
+  animation: waveBarBounce 0.8s ease-in-out infinite alternate;
+}
+
+.bar-1 { height: 5px; animation-delay: 0.1s; }
+.bar-2 { height: 12px; animation-delay: 0.3s; }
+.bar-3 { height: 4px; animation-delay: 0.2s; }
+.bar-4 { height: 9px; animation-delay: 0.4s; }
+
+@keyframes waveBarBounce {
+  0% { transform: scaleY(0.3); }
+  100% { transform: scaleY(1.0); }
 }
 
 .focus-btn {

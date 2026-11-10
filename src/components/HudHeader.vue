@@ -152,6 +152,17 @@
         <span class="cmd-kbd">⌘K</span>
       </button>
 
+      <!-- 纯净观赏模式 (快捷键 H) -->
+      <button
+        class="icon-tool-btn zen-btn"
+        :class="{ active: isZenMode }"
+        @click="$emit('toggle-zen-mode')"
+        :title="isZenMode ? '退出纯净观赏模式 (H)' : '纯净观赏模式 (H) - 隐藏界面全屏漫游'"
+      >
+        <EyeOff v-if="isZenMode" :size="15" />
+        <Eye v-else :size="15" />
+      </button>
+
       <!-- 全屏切换 -->
       <button class="icon-tool-btn" @click="$emit('toggle-fullscreen')" title="切换浏览器全屏浏览 (F)">
         <Maximize2 :size="15" />
@@ -176,7 +187,9 @@ import {
   Crosshair,
   Camera,
   Search,
-  Maximize2
+  Maximize2,
+  Eye,
+  EyeOff
 } from 'lucide-vue-next';
 import { BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
 
@@ -185,7 +198,8 @@ const props = defineProps({
   currentThemeId: { type: String, required: true },
   currentMode: { type: String, default: 'macro' },
   isProfilingActive: { type: Boolean, default: false },
-  isRoadbookActive: { type: Boolean, default: false }
+  isRoadbookActive: { type: Boolean, default: false },
+  isZenMode: { type: Boolean, default: false }
 });
 
 const emit = defineEmits([
@@ -193,6 +207,7 @@ const emit = defineEmits([
   'change-theme',
   'switch-mode',
   'toggle-fullscreen',
+  'toggle-zen-mode',
   'open-tour',
   'open-roadbook',
   'open-gallery',
@@ -612,6 +627,13 @@ onBeforeUnmount(() => {
   color: #fff;
   border-color: rgba(56, 189, 248, 0.4);
   background: rgba(56, 189, 248, 0.15);
+}
+
+.zen-btn.active {
+  background: rgba(245, 185, 66, 0.25);
+  border-color: #f59e0b;
+  color: #fef08a;
+  box-shadow: 0 0 12px rgba(245, 185, 66, 0.4);
 }
 
 /* 响应式断点 */

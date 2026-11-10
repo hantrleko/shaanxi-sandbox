@@ -40,12 +40,15 @@
   --border-light: rgba(56, 189, 248, 0.18);
   --border-active: rgba(56, 189, 248, 0.45);
   --border-gold: rgba(245, 185, 66, 0.45);
+  --border-gold-bright: rgba(245, 185, 66, 0.85);
+  --border-specular: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(56, 189, 248, 0.12) 50%, rgba(245, 185, 66, 0.3) 100%);
 
   /* --- 6. 阴影与景深 (3级 elevation) --- */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.5), 0 0 16px rgba(11, 26, 43, 0.4);
   --shadow-lg: 0 20px 48px -8px rgba(0, 0, 0, 0.7), 0 0 32px rgba(2, 132, 199, 0.15);
-  --shadow-glass: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+  --shadow-glass: inset 0 1px 1px 0 rgba(255, 255, 255, 0.16), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.35), 0 16px 40px -10px rgba(0, 0, 0, 0.75);
+  --shadow-gold-sheen: 0 0 24px rgba(245, 185, 66, 0.28), inset 0 1px 0 0 rgba(245, 185, 66, 0.4);
 
   /* --- 7. 空间与排版尺寸 --- */
   --font-serif: 'Noto Serif SC', 'Songti SC', SimSun, serif;
@@ -119,4 +122,46 @@
   box-shadow: 0 0 16px var(--accent-gold-glow);
   color: #ffffff;
   transform: translateY(-1px);
+}
+
+/* 数字等宽排版 */
+.num-tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* 秦汉金石装饰折角 (Corner Bracket Deco) */
+.has-corner-bracket {
+  position: relative;
+}
+
+.has-corner-bracket::before,
+.has-corner-bracket::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  border-color: var(--accent-gold);
+  border-style: solid;
+  opacity: 0.65;
+  transition: opacity var(--motion-base), border-color var(--motion-base);
+}
+
+.has-corner-bracket::before {
+  top: 3px;
+  left: 3px;
+  border-width: 1.5px 0 0 1.5px;
+}
+
+.has-corner-bracket::after {
+  bottom: 3px;
+  right: 3px;
+  border-width: 0 1.5px 1.5px 0;
+}
+
+.has-corner-bracket:hover::before,
+.has-corner-bracket:hover::after {
+  opacity: 1;
+  border-color: #fde047;
 }

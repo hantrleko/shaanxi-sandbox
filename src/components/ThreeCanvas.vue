@@ -1,5 +1,8 @@
 <template>
   <div class="canvas-container" ref="containerRef">
+    <!-- 电影级全景镜头暗角与大气天光辉光覆盖层 -->
+    <div class="cinematic-vignette-overlay" :style="{ pointerEvents: 'none' }"></div>
+
     <!-- 测绘模式实时步骤交互提示栏 -->
     <div v-if="isProfilingActive" class="interactive-step-hud">
       <div class="hud-pill-box">
@@ -18,16 +21,34 @@
         <button class="spin-close-btn" @click.stop="stop360Spin" title="退出 360° 旋转">✕</button>
       </div>
     </transition>
-    <!-- 3D 浮动 POI 标签覆盖层 (智能屏幕避让与视距分级 LOD：彻底告别文字交错) -->
+
+    <!-- 3D 浮动 POI 标签覆盖层 (全息折线引线 + 海拔标牌 + 视距分级 LOD) -->
     <div
       v-if="currentMode === 'macro'"
       class="poi-overlay"
       :style="{ pointerEvents: 'none' }"
     >
+      <!-- 全息折线引线 SVG 图层 (Leader Lines Overlay) -->
+      <svg class="leader-lines-svg">
+        <g v-for="poi in visibleScreenPois" :key="'lead-' + poi.id">
+          <!-- 地表光标锚点 -->
+          <circle :cx="poi.anchorX" :cy="poi.anchorY" r="2.5" fill="#f59e0b" opacity="0.9" />
+          <circle :cx="poi.anchorX" :cy="poi.anchorY" r="6" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.35" />
+          <!-- 优雅折线引线 -->
+          <polyline
+            :points="`${poi.anchorX},${poi.anchorY} ${poi.elbowX},${poi.elbowY} ${poi.labelAnchorX},${poi.labelAnchorY}`"
+            fill="none"
+            :stroke="poi.id === selectedPoiId ? '#f59e0b' : 'rgba(56, 189, 248, 0.45)'"
+            :stroke-width="poi.id === selectedPoiId ? 1.6 : 1.0"
+            stroke-dasharray="3 2"
+          />
+        </g>
+      </svg>
+
       <div
         v-for="poi in visibleScreenPois"
         :key="poi.id"
-        class="poi-badge"
+        class="poi-badge has-corner-bracket"
         :class="{
           active: selectedPoiId === poi.id,
           expanded: hoveredPoiId === poi.id || selectedPoiId === poi.id,
@@ -43,6 +64,7 @@
       >
         <div class="poi-dot" :class="poi.type"></div>
         <div class="poi-title">{{ poi.name }}</div>
+        <span class="poi-elev-tag" v-if="poi.elevation">{{ poi.elevation }}</span>
         <div class="poi-sub" v-if="hoveredPoiId === poi.id || selectedPoiId === poi.id">{{ poi.badge }}</div>
 
         <!-- 悬停即时实景微缩图卡 (150x85 Hover Quick Card) -->
@@ -130,7 +152,8 @@ const emit = defineEmits([
   'select-poetry',
   'cancel-profiling',
   'roadbook-point-added',
-  'spin-360-status'
+  'spin-360-status',
+  'geo-telemetry'
 ]);
 
 const containerRef = ref(null);
@@ -724,62 +747,200 @@ function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
   skirtMesh.receiveShadow = true;
   macroGroup.add(skirtMesh);
 
-  // 3. 黑曜石精密基座与蓝色倒角金线
-  const pedestalGeo = new THREE.BoxGeometry(83.6, 2.5, 143.6);
-  const pedestalMat = new THREE.MeshStandardMaterial({
-    color: 0x080c14,
-    roughness: 0.6,
-    metalness: 0.85
+  // 3. 黑曜石双层重阶典藏底座 (Tiered Museum Pedestal)
+  // 上阶：黑曜石托盘 + 蔚蓝高光边线
+  const upperPedestalGeo = new THREE.BoxGeometry(84.4, 2.2, 144.4);
+  const upperPedestalMat = new THREE.MeshStandardMaterial({
+    color: 0x070c16,
+    roughness: 0.35,
+    metalness: 0.88
   });
-  const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
-  pedestal.position.set(0, -3.25, 0);
-  macroGroup.add(pedestal);
+  const upperPedestal = new THREE.Mesh(upperPedestalGeo, upperPedestalMat);
+  upperPedestal.position.set(0, -3.1, 0);
+  macroGroup.add(upperPedestal);
 
-  const rimGeo = new THREE.EdgesGeometry(pedestalGeo);
-  const rimMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5 });
-  const rimLine = new THREE.LineSegments(rimGeo, rimMat);
-  pedestal.add(rimLine);
+  const upperRimGeo = new THREE.EdgesGeometry(upperPedestalGeo);
+  const upperRimMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.55 });
+  upperPedestal.add(new THREE.LineSegments(upperRimGeo, upperRimMat));
 
-  // 4. 极坐标雷达战术底座刻度环 (Tactical Polar Grid)
-  const radarGeo = new THREE.PlaneGeometry(240, 240);
-  radarGeo.rotateX(-Math.PI / 2);
+  // 下阶：秦汉错金重阶台座 + 典雅朱金倒角边线
+  const lowerPedestalGeo = new THREE.BoxGeometry(88.8, 1.8, 148.8);
+  const lowerPedestalMat = new THREE.MeshStandardMaterial({
+    color: 0x03060b,
+    roughness: 0.5,
+    metalness: 0.8
+  });
+  const lowerPedestal = new THREE.Mesh(lowerPedestalGeo, lowerPedestalMat);
+  lowerPedestal.position.set(0, -5.0, 0);
+  macroGroup.add(lowerPedestal);
 
-  const radarCanvas = document.createElement('canvas');
-  radarCanvas.width = 1024;
-  radarCanvas.height = 1024;
-  const rCtx = radarCanvas.getContext('2d');
+  const lowerRimGeo = new THREE.EdgesGeometry(lowerPedestalGeo);
+  const lowerRimMat = new THREE.LineBasicMaterial({ color: 0xd97706, transparent: true, opacity: 0.65 });
+  lowerPedestal.add(new THREE.LineSegments(lowerRimGeo, lowerRimMat));
 
-  rCtx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
-  rCtx.lineWidth = 2;
-  [180, 320, 440, 490].forEach(r => {
-    rCtx.beginPath();
-    rCtx.arc(512, 512, r, 0, Math.PI * 2);
-    rCtx.stroke();
+  // 4. 错金经纬刻度与四神兽罗盘环 (Celestial Graticule & Four Guardians Compass)
+  const compassGeo = new THREE.PlaneGeometry(260, 260);
+  compassGeo.rotateX(-Math.PI / 2);
+
+  const compassCanvas = document.createElement('canvas');
+  compassCanvas.width = 2048;
+  compassCanvas.height = 2048;
+  const cCtx = compassCanvas.getContext('2d');
+
+  // 外同心罗盘金环与刻度线
+  const center = 1024;
+  cCtx.lineWidth = 2.5;
+  cCtx.strokeStyle = 'rgba(217, 119, 6, 0.32)';
+  [380, 560, 760, 920, 990].forEach(r => {
+    cCtx.beginPath();
+    cCtx.arc(center, center, r, 0, Math.PI * 2);
+    cCtx.stroke();
   });
 
-  rCtx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
-  rCtx.beginPath(); rCtx.moveTo(0, 512); rCtx.lineTo(1024, 512); rCtx.stroke();
-  rCtx.beginPath(); rCtx.moveTo(512, 0); rCtx.lineTo(512, 1024); rCtx.stroke();
+  cCtx.lineWidth = 1.2;
+  cCtx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
+  [470, 660, 840].forEach(r => {
+    cCtx.beginPath();
+    cCtx.arc(center, center, r, 0, Math.PI * 2);
+    cCtx.stroke();
+  });
 
-  rCtx.fillStyle = '#38bdf8';
-  rCtx.font = 'bold 22px monospace';
-  rCtx.textAlign = 'center';
-  rCtx.textBaseline = 'middle';
-  rCtx.fillText('000° N', 512, 40);
-  rCtx.fillText('090° E', 970, 512);
-  rCtx.fillText('180° S', 512, 984);
-  rCtx.fillText('270° W', 54, 512);
+  // 360 度细密刻度辐射短线
+  for (let deg = 0; deg < 360; deg += 3) {
+    const rad = (deg * Math.PI) / 180;
+    const isMajor = deg % 30 === 0;
+    const isMid = deg % 10 === 0;
+    const rStart = 920;
+    const rEnd = isMajor ? 990 : (isMid ? 965 : 942);
+    cCtx.strokeStyle = isMajor ? 'rgba(245, 158, 11, 0.6)' : (isMid ? 'rgba(56, 189, 248, 0.35)' : 'rgba(148, 163, 184, 0.18)');
+    cCtx.lineWidth = isMajor ? 2.5 : 1.2;
+    cCtx.beginPath();
+    cCtx.moveTo(center + Math.cos(rad) * rStart, center + Math.sin(rad) * rStart);
+    cCtx.lineTo(center + Math.cos(rad) * rEnd, center + Math.sin(rad) * rEnd);
+    cCtx.stroke();
+  }
 
-  const radarTex = new THREE.CanvasTexture(radarCanvas);
-  const radarMat = new THREE.MeshBasicMaterial({
-    map: radarTex,
+  // 经纬十字正交标尺线
+  cCtx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+  cCtx.lineWidth = 1.5;
+  cCtx.beginPath(); cCtx.moveTo(0, center); cCtx.lineTo(2048, center); cCtx.stroke();
+  cCtx.beginPath(); cCtx.moveTo(center, 0); cCtx.lineTo(center, 2048); cCtx.stroke();
+
+  // 四神兽与主罗盘方位印记
+  cCtx.textAlign = 'center';
+  cCtx.textBaseline = 'middle';
+
+  // 北 · 玄武
+  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
+  cCtx.fillStyle = '#f59e0b';
+  cCtx.fillText('玄武 · 北极 000° N', center, 65);
+  cCtx.font = '18px monospace';
+  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+  cCtx.fillText('39°00\'00"N | 陕北神木极北之界', center, 102);
+
+  // 南 · 朱雀
+  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
+  cCtx.fillStyle = '#f59e0b';
+  cCtx.fillText('朱雀 · 南极 180° S', center, 1980);
+  cCtx.font = '18px monospace';
+  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+  cCtx.fillText('31°42\'00"N | 大巴山镇巴南陲之境', center, 1945);
+
+  // 东 · 青龙
+  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
+  cCtx.fillStyle = '#f59e0b';
+  cCtx.fillText('青龙 · 东极 090° E', 1940, center - 20);
+  cCtx.font = '18px monospace';
+  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+  cCtx.fillText('111°15\'E', 1940, center + 18);
+
+  // 西 · 白虎
+  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
+  cCtx.fillStyle = '#f59e0b';
+  cCtx.fillText('白虎 · 西极 270° W', 110, center - 20);
+  cCtx.font = '18px monospace';
+  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+  cCtx.fillText('105°29\'E', 110, center + 18);
+
+  // 经纬格网标尺注记
+  cCtx.font = 'bold 19px monospace';
+  cCtx.fillStyle = 'rgba(217, 119, 6, 0.55)';
+  cCtx.fillText('106°E', center - 460, center - 14);
+  cCtx.fillText('108°E', center - 160, center - 14);
+  cCtx.fillText('110°E', center + 260, center - 14);
+  cCtx.fillText('34°N (秦岭主脊)', center + 18, center - 240);
+  cCtx.fillText('36°N (延安黄土)', center + 18, center - 540);
+  cCtx.fillText('38°N (长城榆林)', center + 18, center - 780);
+
+  const compassTex = new THREE.CanvasTexture(compassCanvas);
+  const compassMat = new THREE.MeshBasicMaterial({
+    map: compassTex,
     transparent: true,
-    opacity: 0.65,
+    opacity: 0.85,
     depthWrite: false
   });
-  const radarMesh = new THREE.Mesh(radarGeo, radarMat);
-  radarMesh.position.set(0, -4.55, 0);
-  macroGroup.add(radarMesh);
+  const compassMesh = new THREE.Mesh(compassGeo, compassMat);
+  compassMesh.position.set(0, -5.85, 0);
+  macroGroup.add(compassMesh);
+
+  // 5. 南侧典藏级错金青铜铭牌 (Museum Collection Plaque)
+  const plaqueCanvas = document.createElement('canvas');
+  plaqueCanvas.width = 1024;
+  plaqueCanvas.height = 256;
+  const pCtx = plaqueCanvas.getContext('2d');
+
+  pCtx.fillStyle = '#0a0f1d';
+  pCtx.fillRect(0, 0, 1024, 256);
+
+  // 双道错金回纹边框
+  pCtx.strokeStyle = '#d97706';
+  pCtx.lineWidth = 4;
+  pCtx.strokeRect(12, 12, 1000, 232);
+  pCtx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+  pCtx.lineWidth = 1.5;
+  pCtx.strokeRect(20, 20, 984, 216);
+
+  // 四角金石折角
+  const drawCorner = (x, y, dx, dy) => {
+    pCtx.strokeStyle = '#f59e0b';
+    pCtx.lineWidth = 3;
+    pCtx.beginPath();
+    pCtx.moveTo(x, y + dy * 16);
+    pCtx.lineTo(x, y);
+    pCtx.lineTo(x + dx * 16, y);
+    pCtx.stroke();
+  };
+  drawCorner(26, 26, 1, 1);
+  drawCorner(998, 26, -1, 1);
+  drawCorner(26, 230, 1, -1);
+  drawCorner(998, 230, -1, -1);
+
+  // 标题与副标题
+  pCtx.textAlign = 'center';
+  pCtx.textBaseline = 'middle';
+  pCtx.fillStyle = '#fef08a';
+  pCtx.font = 'bold 42px "Songti SC", "SimSun", serif';
+  pCtx.fillText('三秦大地 · 三维数字地貌与文明孪生沙盘', 512, 78);
+
+  pCtx.fillStyle = '#38bdf8';
+  pCtx.font = '600 20px monospace';
+  pCtx.fillText('SHAANXI 3D TERRAIN TWIN | DEM 30M · QIN-HAN SHU ROADS', 512, 134);
+
+  pCtx.fillStyle = 'rgba(203, 213, 225, 0.75)';
+  pCtx.font = '16px monospace';
+  pCtx.fillText('NORTH LAT 31°42′ ~ 39°35′ · EAST LNG 105°29′ ~ 111°15′ · ELEV 180M ~ 3771M', 512, 182);
+
+  const plaqueTex = new THREE.CanvasTexture(plaqueCanvas);
+  const plaqueGeo = new THREE.PlaneGeometry(36, 9);
+  const plaqueMat = new THREE.MeshBasicMaterial({
+    map: plaqueTex,
+    side: THREE.DoubleSide
+  });
+  const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat);
+  // 南侧朝外倾斜22度让镜头完美俯视
+  plaqueMesh.position.set(0, -3.8, 75.2);
+  plaqueMesh.rotation.x = -0.38;
+  macroGroup.add(plaqueMesh);
 }
 
 // 绘制全省十地市真实矢量境界 (低噪点细虚线，杜绝粗暴切割)
@@ -2268,7 +2429,7 @@ function buildCampaignVisuals() {
 }
 
 
-// 投影 POI 屏幕空间坐标并执行严密的空间碰撞避让 (彻底告别文字重叠)
+// 投影 POI 屏幕空间坐标并执行严密的空间碰撞避让与全息引线解算 (彻底告别文字重叠)
 function updatePoiScreenPositions() {
   if (!camera || !containerRef.value) return;
   const width = containerRef.value.clientWidth;
@@ -2277,12 +2438,24 @@ function updatePoiScreenPositions() {
   if (props.currentMode === "macro") {
     // 1. 初步投影与屏幕裁剪计算
     const projectedPois = POI_LIST.map((poi) => {
-      const vec = new THREE.Vector3(poi.pos[0], poi.pos[1] + 1.8, poi.pos[2]);
-      vec.project(camera);
-      const inFrustum = vec.z < 1.0 && Math.abs(vec.x) <= 0.94 && Math.abs(vec.y) <= 0.92;
-      const x = Math.round((vec.x * 0.5 + 0.5) * width);
-      const y = Math.round((-vec.y * 0.5 + 0.5) * height);
+      // 地表真实锚点屏幕投影
+      const anchorVec = new THREE.Vector3(poi.pos[0], poi.pos[1], poi.pos[2]);
+      anchorVec.project(camera);
+      const anchorX = Math.round((anchorVec.x * 0.5 + 0.5) * width);
+      const anchorY = Math.round((-anchorVec.y * 0.5 + 0.5) * height);
+
+      const inFrustum = anchorVec.z < 1.0 && anchorX >= 24 && anchorX <= width - 24 && anchorY >= 24 && anchorY <= height - 24;
       const distToCam = camera.position.distanceTo(new THREE.Vector3(poi.pos[0], poi.pos[1], poi.pos[2]));
+
+      // 视距 LOD 与引线折角计算 (靠近右侧边缘则向左延伸，保持空间舒展)
+      const isRightSide = anchorX > width - 160;
+      const dir = isRightSide ? -1 : 1;
+      const elbowX = anchorX + dir * 18;
+      const elbowY = anchorY - 22;
+      const labelAnchorX = anchorX + dir * 28;
+      const labelAnchorY = anchorY - 22;
+      const badgeX = anchorX + dir * 68;
+      const badgeY = anchorY - 22;
 
       // 优先级计算：当前选中最高，鼠标悬停次之，省会及顶级枢纽优先
       let priority = 10;
@@ -2292,8 +2465,14 @@ function updatePoiScreenPositions() {
 
       return {
         ...poi,
-        x,
-        y,
+        anchorX,
+        anchorY,
+        elbowX,
+        elbowY,
+        labelAnchorX,
+        labelAnchorY,
+        x: badgeX,
+        y: badgeY,
         distToCam,
         inFrustum,
         priority,
@@ -3074,7 +3253,7 @@ const onCanvasWheel = () => {
 };
 
 const onCanvasPointerMove = (e) => {
-  if (!renderer || !camera || (!props.isProfilingActive && !props.isChallengeActive && !props.isRoadbookActive)) {
+  if (!renderer || !camera) {
     if (terrainReticleMesh) terrainReticleMesh.visible = false;
     return;
   }
@@ -3088,12 +3267,36 @@ const onCanvasPointerMove = (e) => {
     const hits = raycaster.intersectObject(terrainMesh);
     if (hits.length > 0) {
       const hit = hits[0].point;
-      terrainReticleMesh.position.set(hit.x, hit.y + 0.15, hit.z);
-      terrainReticleMesh.visible = true;
+
+      // 实时三维遥感解算 (经度、纬度、高程与地域分区)
+      const lngVal = 108.8 + hit.x * 0.0725;
+      const latVal = 34.3 - hit.z * 0.062;
+      const elevM = Math.round(180 + Math.max(0, hit.y / 18.5) * 3591);
+
+      let regionName = "关中平原平畴";
+      if (hit.z > 14) regionName = "陕南秦巴山地";
+      else if (hit.z < -10) regionName = "陕北黄土高原";
+
+      emit('geo-telemetry', {
+        lng: lngVal.toFixed(3) + '°E',
+        lat: latVal.toFixed(3) + '°N',
+        elevation: `${elevM} m`,
+        region: regionName,
+        worldPos: [hit.x, hit.y, hit.z]
+      });
+
+      if (props.isProfilingActive || props.isChallengeActive || props.isRoadbookActive) {
+        if (terrainReticleMesh) {
+          terrainReticleMesh.position.set(hit.x, hit.y + 0.15, hit.z);
+          terrainReticleMesh.visible = true;
+        }
+      }
       return;
     }
   }
-  terrainReticleMesh.visible = false;
+
+  emit('geo-telemetry', null);
+  if (terrainReticleMesh) terrainReticleMesh.visible = false;
 };
 
 const handleProfilingHit = (point) => {
@@ -3464,10 +3667,43 @@ defineExpose({
   overflow: hidden;
 }
 
+/* 电影级全景镜头暗角与大气天光辉光覆盖层 */
+.cinematic-vignette-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 48%, transparent 56%, rgba(4, 8, 16, 0.40) 86%, rgba(2, 5, 11, 0.72) 100%);
+  mix-blend-mode: multiply;
+  z-index: 5;
+}
+
 .poi-overlay {
   position: absolute;
   inset: 0;
   overflow: hidden;
+}
+
+/* 全息折线引线 SVG 图层 (Leader Lines Overlay) */
+.leader-lines-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.poi-elev-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 8.5px;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 2px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* 紧凑高质感单行 POI 全息晶石标牌 (EUGENE FINANCE 国风朱金与深海蓝光) */

@@ -299,16 +299,16 @@ export const EVOLUTION_STAGES = [
 
 // 真实 GIS 投影坐标对齐的 POI 列表 (与 3D 光柱及卫星影像 100% 重合)
 export const POI_LIST = [
-  { id: "xian", name: "西安 (长安)", type: "capital", pos: [6.24, 1.32, 16.98], badge: "十三朝古都 · 丝路起点", photoUrl: imgPrefix + "images/scenery/dayanta.jpg" },
-  { id: "huashan", name: "西岳华山", type: "mountain", pos: [17.1, 6.67, 14.77], badge: "天下奇险第一山 (2154m)", photoUrl: imgPrefix + "images/scenery/hua_shan.jpg" },
-  { id: "taibai", name: "太白山拔仙台", type: "mountain", pos: [-4.84, 17.33, 22.75], badge: "秦岭主峰 (3771.2m)", photoUrl: imgPrefix + "images/scenery/taibai_shan.jpg" },
-  { id: "bingmayong", name: "秦始皇陵兵马俑", type: "relic", pos: [9.46, 1.81, 16.34], badge: "世界第八大奇迹", photoUrl: imgPrefix + "images/scenery/bingmayong.jpg" },
-  { id: "hukou", name: "黄河壶口瀑布", type: "nature", pos: [20.57, 1.94, -10.53], badge: "千里黄河一壶收", photoUrl: imgPrefix + "images/scenery/hukou_waterfall.jpg" },
-  { id: "yanan", name: "延安宝塔山", type: "red", pos: [11.46, 4.2, -17.31], badge: "革命圣地 · 延河水", photoUrl: imgPrefix + "images/scenery/baota_shan.jpg" },
-  { id: "yulin", name: "榆林古城镇北台", type: "city", pos: [13.78, 4.82, -44.8], badge: "塞上驼城 · 万里长城第一台", photoUrl: imgPrefix + "images/scenery/zhenbeitai.jpg" },
-  { id: "baoji", name: "宝鸡青铜器之乡", type: "city", pos: [-10.78, 2.26, 16.67], badge: "炎帝故里 · 陈仓要塞", photoUrl: imgPrefix + "images/scenery/famen_temple.jpg" },
-  { id: "hanzhong", name: "汉中拜将坛", type: "city", pos: [-11.93, 1.94, 36.04], badge: "汉家发祥地 · 天府之国", photoUrl: imgPrefix + "images/scenery/hanzhong_flower.jpg" },
-  { id: "ankang", name: "安康瀛湖", type: "city", pos: [7.09, 0.85, 41.71], badge: "秦巴明珠 · 汉江秀水", photoUrl: imgPrefix + "images/scenery/hanjiang_water.jpg" }
+  { id: "xian", name: "西安 (长安)", type: "capital", pos: [6.24, 1.32, 16.98], badge: "十三朝古都 · 丝路起点", elevation: "420m", photoUrl: imgPrefix + "images/scenery/dayanta.jpg" },
+  { id: "huashan", name: "西岳华山", type: "mountain", pos: [17.1, 6.67, 14.77], badge: "天下奇险第一山 (2154m)", elevation: "2154m", photoUrl: imgPrefix + "images/scenery/hua_shan.jpg" },
+  { id: "taibai", name: "太白山拔仙台", type: "mountain", pos: [-4.84, 17.33, 22.75], badge: "秦岭主峰 (3771.2m)", elevation: "3771m", photoUrl: imgPrefix + "images/scenery/taibai_shan.jpg" },
+  { id: "bingmayong", name: "秦始皇陵兵马俑", type: "relic", pos: [9.46, 1.81, 16.34], badge: "世界第八大奇迹", elevation: "460m", photoUrl: imgPrefix + "images/scenery/bingmayong.jpg" },
+  { id: "hukou", name: "黄河壶口瀑布", type: "nature", pos: [20.57, 1.94, -10.53], badge: "千里黄河一壶收", elevation: "450m", photoUrl: imgPrefix + "images/scenery/hukou_waterfall.jpg" },
+  { id: "yanan", name: "延安宝塔山", type: "red", pos: [11.46, 4.2, -17.31], badge: "革命圣地 · 延河水", elevation: "960m", photoUrl: imgPrefix + "images/scenery/baota_shan.jpg" },
+  { id: "yulin", name: "榆林古城镇北台", type: "city", pos: [13.78, 4.82, -44.8], badge: "塞上驼城 · 万里长城第一台", elevation: "1080m", photoUrl: imgPrefix + "images/scenery/zhenbeitai.jpg" },
+  { id: "baoji", name: "宝鸡青铜器之乡", type: "city", pos: [-10.78, 2.26, 16.67], badge: "炎帝故里 · 陈仓要塞", elevation: "550m", photoUrl: imgPrefix + "images/scenery/famen_temple.jpg" },
+  { id: "hanzhong", name: "汉中拜将坛", type: "city", pos: [-11.93, 1.94, 36.04], badge: "汉家发祥地 · 天府之国", elevation: "510m", photoUrl: imgPrefix + "images/scenery/hanzhong_flower.jpg" },
+  { id: "ankang", name: "安康瀛湖", type: "city", pos: [7.09, 0.85, 41.71], badge: "秦巴明珠 · 汉江秀水", elevation: "360m", photoUrl: imgPrefix + "images/scenery/hanjiang_water.jpg" }
 ];
 
 export const CAMPAIGNS = [

@@ -6,7 +6,7 @@
         <div class="header-left">
           <div class="ver-badge-glow">
             <span class="pulse-dot"></span>
-            <span class="ver-title">v2.0.0 PRO</span>
+            <span class="ver-title">v5.0 PRO</span>
           </div>
           <div class="title-text">
             <h2 class="main-title">版本演化与升级日志</h2>
@@ -20,11 +20,11 @@
       <div class="metrics-strip">
         <div class="strip-item">
           <span class="s-label">当前运行版本</span>
-          <span class="s-val highlight">v2.0.0 PRO (2026.10)</span>
+          <span class="s-val highlight">v5.0.0 PRO 旗舰版</span>
         </div>
         <div class="strip-item">
           <span class="s-label">渲染引擎核心</span>
-          <span class="s-val">WebGL / Three.js r128</span>
+          <span class="s-val">WebGL / Three.js 0.186</span>
         </div>
         <div class="strip-item">
           <span class="s-label">空间声学引擎</span>

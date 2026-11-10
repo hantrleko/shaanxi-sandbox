@@ -30,7 +30,16 @@
       @select-poetry="onSelectPoetry"
       @spin-360-status="val => isSpinning360 = val"
       @roadbook-point-added="onRoadbookPointAdded"
+      @geo-telemetry="val => liveTelemetry = val"
     />
+
+    <!-- 纯净观赏模式下悬浮恢复胶囊 (按 H 或点击退出) -->
+    <transition name="fade">
+      <div v-if="isZenMode" class="zen-restore-bar" @click="isZenMode = false">
+        <span class="zen-restore-dot"></span>
+        <span>纯净观赏模式进行中 · 点击或按 [H] 退出</span>
+      </div>
+    </transition>
 
     <!-- 首页门户大屏欢迎遮罩 (带 EUGENE FINANCE 品牌徽章、V4.0 标识与沉浸入口) -->
     <HomePortal
@@ -44,8 +53,8 @@
       @open-gallery="onOpenGallery"
     />
 
-    <!-- HUD 界面层 (非门户模式时呈现) -->
-    <template v-else>
+    <!-- HUD 界面层 (非门户且非纯净观赏模式时呈现) -->
+    <template v-else-if="!isZenMode">
       <!-- 顶部 HUD 导航 (带品牌徽章、V4.0 演更日志、四季流转与 3D 路书) -->
       <HudHeader
         v-if="!isTourActive"
@@ -56,7 +65,9 @@
         :season-mode="seasonMode"
         :is-profiling-active="isProfilingActive"
         :is-roadbook-active="isRoadbookActive"
+        :is-zen-mode="isZenMode"
         @open-portal="showPortal = true"
+        @toggle-zen-mode="isZenMode = !isZenMode"
         @change-theme="onChangeTheme"
         @switch-mode="onSwitchMode"
         @toggle-fullscreen="onToggleFullscreen"
@@ -223,6 +234,7 @@
         :is-spinning="isSpinning360"
         :azimuth="cameraAzimuth"
         :pitch="cameraPitch"
+        :telemetry="liveTelemetry"
         @update-layers="onUpdateLayers"
         @change-season="onChangeSeason"
         @change-lighting="onLightingChange"
@@ -234,7 +246,7 @@
 
     <!-- 🖼️ POI 点击地标实景图卡浮窗 (随时感知真实地理风貌) -->
     <PoiPhotoCard
-      v-if="selectedPoi && !isTourActive && !isRoadbookActive"
+      v-if="selectedPoi && !isTourActive && !isRoadbookActive && !isZenMode"
       :poi="selectedPoi"
       @close="selectedPoi = null"
       @view-large="onViewLargePhoto"
@@ -347,6 +359,8 @@ const seasonMode = ref('natural');
 const gisMode = ref('natural');
 const selectedPoetrySpot = ref(null);
 const isSpinning360 = ref(false);
+const isZenMode = ref(false);
+const liveTelemetry = ref(null);
 const isChangelogActive = ref(false);
 const isRoadbookActive = ref(false);
 const customRoadbookPoints = ref([]);
@@ -836,6 +850,12 @@ const onKeydown = (e) => {
     if (targetTag !== 'input' && targetTag !== 'textarea') {
       e.preventDefault();
       isCmdOpen.value = true;
+    }
+  }
+  if (e.key === 'h' || e.key === 'H') {
+    const targetTag = e.target.tagName?.toLowerCase();
+    if (targetTag !== 'input' && targetTag !== 'textarea') {
+      isZenMode.value = !isZenMode.value;
     }
   }
 };

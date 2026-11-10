@@ -14,9 +14,9 @@
           </div>
         </div>
 
-        <button class="portal-ver-pill" @click="$emit('open-changelog')" title="点击查看 v4.0.0 PRO 架构演更与升级日志">
+        <button class="portal-ver-pill" @click="$emit('open-changelog')" title="点击查看 v5.0.0 PRO 架构演更与升级日志">
           <span class="pv-dot"></span>
-          <span>v4.0 PRO 旗舰版 · 更新日志 ➔</span>
+          <span>v5.0 PRO 旗舰版 · 更新日志 ➔</span>
         </button>
       </div>
 
@@ -182,8 +182,9 @@ defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective', 's
 .portal-backdrop {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(8, 14, 24, 0.42) 0%, rgba(6, 10, 18, 0.74) 55%, rgba(4, 7, 12, 0.95) 100%);
-  backdrop-filter: blur(8px);
+  background: radial-gradient(ellipse at center, rgba(6, 12, 22, 0.28) 0%, rgba(6, 10, 18, 0.65) 55%, rgba(4, 7, 12, 0.92) 100%);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
 }
 
 .portal-content {
