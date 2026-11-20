@@ -297,4 +297,25 @@ watch(() => props.active, (val) => {
 .download-btn:hover {
   background: #d97706;
 }
+
+@media (max-width: 768px) {
+  .poster-modal-overlay {
+    padding: calc(10px + var(--safe-top)) 10px calc(10px + var(--safe-bottom));
+  }
+  .poster-card {
+    padding: 12px 14px;
+    max-height: 92dvh;
+  }
+  .canvas-preview-wrapper {
+    height: 55dvh;
+  }
+  .btns-row {
+    justify-content: stretch;
+  }
+  .cancel-btn,
+  .download-btn {
+    flex: 1;
+    text-align: center;
+  }
+}
 </style>

@@ -233,16 +233,26 @@ const visibleScreenPois = computed(() => {
 });
 
 
+function applyResponsiveCameraFov(width, height) {
+  if (!camera) return;
+  const aspect = width / Math.max(1, height);
+  camera.aspect = aspect;
+  camera.fov = aspect < 0.85 ? Math.min(62, Math.round(40 / Math.max(0.65, aspect))) : 40;
+}
+
 // 初始化场景
 const initThree = () => {
   const width = containerRef.value.clientWidth;
   const height = containerRef.value.clientHeight;
+  const isMobileViewport = width <= 768 || navigator.maxTouchPoints > 0;
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x06090e);
   scene.fog = new THREE.FogExp2(0x06090e, 0.0032);
 
-  camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1500);
+  camera = new THREE.PerspectiveCamera(40, width / Math.max(1, height), 0.1, 1500);
+  applyResponsiveCameraFov(width, height);
+  camera.updateProjectionMatrix();
   camera.position.set(0, 95, 125);
 
   renderer = new THREE.WebGLRenderer({
@@ -252,7 +262,7 @@ const initThree = () => {
     preserveDrawingBuffer: true
   });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileViewport ? 1.5 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.18;
   renderer.shadowMap.enabled = true;
@@ -264,7 +274,11 @@ const initThree = () => {
   controls.dampingFactor = 0.05;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.minDistance = 8;
-  controls.maxDistance = 350;
+  controls.maxDistance = 420;
+  controls.touches = {
+    ONE: THREE.TOUCH.ROTATE,
+    TWO: THREE.TOUCH.DOLLY_PAN
+  };
   // 🖱️ 鼠标按键映射：支持按住鼠标中键自由 360° 拖动旋转沙盘与俯仰视角 (GIS/CAD标准手势)
   controls.mouseButtons = {
     LEFT: THREE.MOUSE.ROTATE,
@@ -279,8 +293,9 @@ const initThree = () => {
   sunLight = new THREE.DirectionalLight(0xffedd5, 2.2);
   sunLight.position.set(70, 110, 50);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 4096;
-  sunLight.shadow.mapSize.height = 4096;
+  const shadowRes = isMobileViewport ? 1024 : 4096;
+  sunLight.shadow.mapSize.width = shadowRes;
+  sunLight.shadow.mapSize.height = shadowRes;
   sunLight.shadow.bias = -0.00008;
   sunLight.shadow.camera.near = 10;
   sunLight.shadow.camera.far = 400;
@@ -2436,6 +2451,8 @@ function updatePoiScreenPositions() {
   const height = containerRef.value.clientHeight;
 
   if (props.currentMode === "macro") {
+    const isMobileView = width <= 768;
+
     // 1. 初步投影与屏幕裁剪计算
     const projectedPois = POI_LIST.map((poi) => {
       // 地表真实锚点屏幕投影
@@ -2444,18 +2461,21 @@ function updatePoiScreenPositions() {
       const anchorX = Math.round((anchorVec.x * 0.5 + 0.5) * width);
       const anchorY = Math.round((-anchorVec.y * 0.5 + 0.5) * height);
 
-      const inFrustum = anchorVec.z < 1.0 && anchorX >= 24 && anchorX <= width - 24 && anchorY >= 24 && anchorY <= height - 24;
+      const margin = isMobileView ? 12 : 24;
+      const inFrustum = anchorVec.z < 1.0 && anchorX >= margin && anchorX <= width - margin && anchorY >= margin && anchorY <= height - margin;
       const distToCam = camera.position.distanceTo(new THREE.Vector3(poi.pos[0], poi.pos[1], poi.pos[2]));
 
-      // 视距 LOD 与引线折角计算 (靠近右侧边缘则向左延伸，保持空间舒展)
-      const isRightSide = anchorX > width - 160;
+      // 视距 LOD 与引线折角计算 (移动端紧凑折线 + 边缘自适应防裁切)
+      const isRightSide = anchorX > (isMobileView ? width * 0.56 : width - 160);
       const dir = isRightSide ? -1 : 1;
-      const elbowX = anchorX + dir * 18;
-      const elbowY = anchorY - 22;
-      const labelAnchorX = anchorX + dir * 28;
-      const labelAnchorY = anchorY - 22;
-      const badgeX = anchorX + dir * 68;
-      const badgeY = anchorY - 22;
+      const elbowX = anchorX + dir * (isMobileView ? 10 : 18);
+      const elbowY = anchorY - (isMobileView ? 16 : 22);
+      const labelAnchorX = anchorX + dir * (isMobileView ? 16 : 28);
+      const labelAnchorY = anchorY - (isMobileView ? 16 : 22);
+      const badgeX = isMobileView
+        ? Math.max(50, Math.min(width - 50, anchorX + dir * 42))
+        : anchorX + dir * 68;
+      const badgeY = anchorY - (isMobileView ? 16 : 22);
 
       // 优先级计算：当前选中最高，鼠标悬停次之，省会及顶级枢纽优先
       let priority = 10;
@@ -2490,8 +2510,14 @@ function updatePoiScreenPositions() {
         return;
       }
 
-      // 如果左侧图文面板展开，且 POI 落在左侧遮挡区域（x < 390），且非用户悬停/聚焦，则智能隐匿，杜绝文字底透撞车
-      if (props.isPanelOpen && poi.x < 390 && poi.priority < 90) {
+      // 桌面端左侧图文面板展开时，隐藏被面板遮挡区域的低优先级 POI
+      if (!isMobileView && props.isPanelOpen && poi.x < 390 && poi.priority < 90) {
+        poi.visible = false;
+        return;
+      }
+
+      // 移动端避开顶部 HUD 与底部抽屉条遮挡区
+      if (isMobileView && (poi.anchorY < 62 || poi.anchorY > height - 100) && poi.priority < 90) {
         poi.visible = false;
         return;
       }
@@ -2502,7 +2528,7 @@ function updatePoiScreenPositions() {
         placedBoxes.push({
           x: poi.x,
           y: poi.y,
-          w: 80,
+          w: isMobileView ? 88 : 80,
           h: 28
         });
         return;
@@ -2510,8 +2536,8 @@ function updatePoiScreenPositions() {
 
       // 其余点位与已排布的标签进行轴对齐矩形碰撞检测
       let collided = false;
-      const checkW = 68;
-      const checkH = 26;
+      const checkW = isMobileView ? 78 : 68;
+      const checkH = isMobileView ? 30 : 26;
 
       for (let i = 0; i < placedBoxes.length; i++) {
         const b = placedBoxes[i];
@@ -2692,7 +2718,7 @@ const onWindowResize = () => {
   if (!containerRef.value || !renderer || !camera) return;
   const width = containerRef.value.clientWidth;
   const height = containerRef.value.clientHeight;
-  camera.aspect = width / height;
+  applyResponsiveCameraFov(width, height);
   updateCameraViewportOffset();
   renderer.setSize(width, height);
 };
@@ -3136,27 +3162,10 @@ function buildCulturalHotspots() {
 const raycaster = new THREE.Raycaster();
 const pointerVec = new THREE.Vector2();
 let profilingPoints = [];
-  profilingStep.value = 1;
+let primaryDownPos = null;
+profilingStep.value = 1;
 
-const onCanvasPointerDown = (e) => {
-  if (!renderer || !camera || e.target !== renderer.domElement) return;
-
-  // 1. 鼠标中键交互捕捉 (按键代码 1: 中键)
-  if (e.button === 1) {
-    e.preventDefault();
-    middleDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
-    if (isSpinning360.value) {
-      stop360Spin();
-      return;
-    }
-    return;
-  }
-
-  // 任意其它点击操作均平滑打断 360 度自动环视
-  if (isSpinning360.value) {
-    stop360Spin();
-  }
-
+const handlePrimaryCanvasTap = (e) => {
   const rect = renderer.domElement.getBoundingClientRect();
   pointerVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   pointerVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -3194,6 +3203,7 @@ const onCanvasPointerDown = (e) => {
       while (obj.parent && !obj.userData?.culturalItem) obj = obj.parent;
       if (obj.userData?.culturalItem) {
         emit('select-culture', obj.userData.culturalItem);
+        return;
       }
     }
   }
@@ -3224,6 +3234,36 @@ const onCanvasPointerDown = (e) => {
   }
 };
 
+const onCanvasPointerDown = (e) => {
+  if (!renderer || !camera || e.target !== renderer.domElement) return;
+
+  // 1. 鼠标中键交互捕捉 (按键代码 1: 中键)
+  if (e.button === 1) {
+    e.preventDefault();
+    middleDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
+    if (isSpinning360.value) {
+      stop360Spin();
+      return;
+    }
+    return;
+  }
+
+  // 任意其它点击操作均平滑打断 360 度自动环视
+  if (isSpinning360.value) {
+    stop360Spin();
+  }
+
+  // 仅记录主指针按下起点，待 pointerup 确认短距离轻点后再触发业务点击，防止触屏单指旋转误触打点
+  if (e.button === 0 || e.pointerType === 'touch') {
+    primaryDownPos = {
+      x: e.clientX,
+      y: e.clientY,
+      time: performance.now(),
+      pointerType: e.pointerType
+    };
+  }
+};
+
 const onCanvasPointerUp = (e) => {
   if (e.button === 1) {
     e.preventDefault();
@@ -3236,6 +3276,16 @@ const onCanvasPointerUp = (e) => {
       } else {
         start360Spin();
       }
+    }
+    return;
+  }
+
+  if (primaryDownPos && (e.button === 0 || e.pointerType === 'touch')) {
+    const dist = Math.hypot(e.clientX - primaryDownPos.x, e.clientY - primaryDownPos.y);
+    const dt = performance.now() - primaryDownPos.time;
+    primaryDownPos = null;
+    if (dist < 10 && dt < 450 && renderer && camera) {
+      handlePrimaryCanvasTap(e);
     }
   }
 };
@@ -3253,6 +3303,7 @@ const onCanvasWheel = () => {
 };
 
 const onCanvasPointerMove = (e) => {
+  if (e.pointerType === 'touch') return;
   if (!renderer || !camera) {
     if (terrainReticleMesh) terrainReticleMesh.visible = false;
     return;
@@ -3665,6 +3716,7 @@ defineExpose({
   height: 100%;
   position: relative;
   overflow: hidden;
+  touch-action: none;
 }
 
 /* 电影级全景镜头暗角与大气天光辉光覆盖层 */
@@ -3959,7 +4011,6 @@ defineExpose({
   background: rgba(239, 68, 68, 0.75);
   color: #fff;
 }
-</style>
 
 .interactive-step-hud {
   position: absolute;
@@ -4012,3 +4063,45 @@ defineExpose({
   background: #ef4444;
   color: #fff;
 }
+
+@media (max-width: 768px) {
+  .poi-badge {
+    padding: 3px 7px;
+    gap: 4px;
+  }
+  .poi-title {
+    font-size: 10px;
+  }
+  .poi-elev-tag {
+    display: none;
+  }
+  .poi-badge.active .poi-elev-tag {
+    display: inline;
+  }
+  .poi-hover-preview {
+    display: none !important;
+  }
+  .spin-360-pill {
+    top: calc(60px + var(--safe-top));
+    padding: 5px 12px;
+    max-width: calc(100vw - 16px);
+  }
+  .spin-tip {
+    display: none;
+  }
+  .interactive-step-hud {
+    top: calc(60px + var(--safe-top));
+    width: calc(100vw - 16px);
+    max-width: 360px;
+  }
+  .hud-pill-box {
+    padding: 5px 10px;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .hud-step-text {
+    font-size: 11px;
+  }
+}
+</style>

@@ -85,7 +85,7 @@ const fallbackScenery = computed(() => {
   border-radius: 14px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.2);
   overflow: hidden;
-  z-index: 20;
+  z-index: 65;
   animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
@@ -238,5 +238,25 @@ const fallbackScenery = computed(() => {
 .card-action-btn:hover {
   color: #7dd3fc;
   text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .poi-photo-card {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    bottom: calc(10px + var(--safe-bottom));
+    max-height: 75dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .card-cover-box {
+    height: 130px;
+  }
+  .card-close {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
 }
 </style>

@@ -142,6 +142,13 @@
                 <span class="m-desc">3D 沙盘快照与文旅海报生成</span>
               </div>
             </button>
+            <button class="menu-item mobile-only-item" @click="handleTool('changelog')" role="menuitem">
+              <Globe :size="15" class="item-icn blue" />
+              <div class="item-text">
+                <span class="m-title">v5.0 PRO 更新日志</span>
+                <span class="m-desc">查看时空苍穹版本演化历程</span>
+              </div>
+            </button>
           </div>
         </transition>
       </div>
@@ -164,7 +171,7 @@
       </button>
 
       <!-- 全屏切换 -->
-      <button class="icon-tool-btn" @click="$emit('toggle-fullscreen')" title="切换浏览器全屏浏览 (F)">
+      <button class="icon-tool-btn fullscreen-btn" @click="$emit('toggle-fullscreen')" title="切换浏览器全屏浏览 (F)">
         <Maximize2 :size="15" />
       </button>
     </div>
@@ -231,6 +238,7 @@ const handleTool = (tool) => {
   else if (tool === 'detective') emit('open-detective');
   else if (tool === 'wargame') emit('open-wargame');
   else if (tool === 'poster') emit('open-poster');
+  else if (tool === 'changelog') emit('open-changelog');
 };
 
 const handleOutsideClick = (e) => {
@@ -636,6 +644,10 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 12px rgba(245, 185, 66, 0.4);
 }
 
+.mobile-only-item {
+  display: none;
+}
+
 /* 响应式断点 */
 @media (max-width: 1024px) {
   .brand-sub { display: none; }
@@ -644,14 +656,71 @@ onBeforeUnmount(() => {
 
 @media (max-width: 768px) {
   .hud-header {
-    left: 8px;
-    right: 8px;
-    top: 8px;
-    height: 48px;
-    padding: 0 10px;
+    top: calc(8px + var(--safe-top));
+    left: calc(8px + var(--safe-left));
+    right: calc(8px + var(--safe-right));
+    height: 46px;
+    padding: 0 8px;
+    gap: 4px;
   }
-  .theme-nav { display: none; }
-  .header-divider { display: none; }
-  .cmd-kbd { display: none; }
+  .header-left {
+    gap: 0;
+  }
+  .brand-badge-box {
+    padding: 2px;
+    gap: 0;
+  }
+  .brand-info,
+  .ver-pill-badge,
+  .theme-nav,
+  .header-divider,
+  .cmd-kbd,
+  .fullscreen-btn {
+    display: none;
+  }
+  .mode-capsule-nav {
+    padding: 2px;
+    gap: 2px;
+  }
+  .mode-btn {
+    padding: 6px 8px;
+  }
+  .header-right {
+    gap: 4px;
+  }
+  .explore-btn {
+    padding: 6px 8px;
+    font-size: 11px;
+    gap: 3px;
+  }
+  .cmd-trigger-btn {
+    padding: 6px 7px;
+  }
+  .icon-tool-btn {
+    width: 30px;
+    height: 30px;
+  }
+  .explore-menu {
+    position: fixed;
+    top: calc(58px + var(--safe-top));
+    right: calc(8px + var(--safe-right));
+    width: min(270px, calc(100vw - 16px));
+    max-height: calc(100dvh - 76px - var(--safe-top) - var(--safe-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    z-index: 80;
+  }
+  .mobile-only-item {
+    display: flex;
+  }
+}
+
+@media (max-width: 400px) {
+  .explore-btn span {
+    display: none;
+  }
+  .mode-btn {
+    padding: 6px 6px;
+  }
 }
 </style>

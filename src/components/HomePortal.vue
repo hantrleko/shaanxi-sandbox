@@ -554,11 +554,106 @@ defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective', 's
 }
 
 @media (max-width: 768px) {
-  .metrics-row, .themes-grid-compact, .hero-actions-row {
-    grid-template-columns: 1fr;
+  .portal-overlay {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    align-items: flex-start;
+    padding: calc(14px + var(--safe-top)) 14px calc(24px + var(--safe-bottom));
+  }
+  .portal-content {
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+  .portal-brand-badge-row {
+    width: 100%;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .portal-brand-badge {
+    padding: 4px 10px 4px 5px;
+    gap: 7px;
+  }
+  .portal-brand-img {
+    width: 24px;
+    height: 24px;
+  }
+  .sys-name {
+    display: none;
+  }
+  .portal-ver-pill {
+    padding: 5px 10px;
+    font-size: 10.5px;
   }
   .portal-title {
-    font-size: 28px;
+    font-size: 26px;
+    letter-spacing: 0.08em;
+  }
+  .portal-en-title {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+  .portal-desc {
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 2px;
+  }
+  .metrics-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .metric-chip {
+    padding: 8px 6px;
+  }
+  .m-val {
+    font-size: 15px;
+  }
+  .m-lbl {
+    font-size: 9.5px;
+  }
+  .hero-actions-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .hero-action-btn {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .btn-icon-wrap {
+    width: 32px;
+    height: 32px;
+  }
+  .btn-main-label {
+    font-size: 12.5px;
+  }
+  .btn-sub-label {
+    font-size: 10px;
+  }
+  .themes-grid-compact {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .theme-card {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .card-num {
+    font-size: 12px;
+  }
+  .card-title {
+    font-size: 12px;
+  }
+  .card-sub {
+    font-size: 9.5px;
+  }
+  .portal-footer {
+    width: 100%;
+    margin-top: 4px;
+  }
+  .enter-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px;
+    font-size: 14px;
   }
 }
 </style>

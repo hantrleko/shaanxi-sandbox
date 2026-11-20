@@ -26,9 +26,12 @@
 }
 
 html, body, #app {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
   background-color: var(--bg-dark);
   color: var(--text-main);
   font-family: var(--font-sans);
@@ -97,7 +100,7 @@ html, body, #app {
 /* 纯净观赏模式顶部轻量还原提示 */
 .zen-restore-bar {
   position: absolute;
-  top: 16px;
+  top: calc(14px + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 60;
@@ -105,6 +108,8 @@ html, body, #app {
   align-items: center;
   gap: 8px;
   padding: 6px 18px;
+  max-width: calc(100vw - 24px);
+  white-space: nowrap;
   background: rgba(8, 18, 30, 0.85);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(56, 189, 248, 0.35);
@@ -122,6 +127,13 @@ html, body, #app {
   border-color: var(--accent-gold);
   color: #fef08a;
   transform: translateX(-50%) translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .zen-restore-bar {
+    padding: 6px 14px;
+    font-size: 11px;
+  }
 }
 
 /* Pulse Glow Keyframes */
@@ -149,4 +161,16 @@ html, body, #app {
   50% {
     box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
   }
+}
+
+/* Vue 模态框与浮层进入/离开丝滑阻尼动效 */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0 !important;
+  transform: scale(0.96) !important;
 }

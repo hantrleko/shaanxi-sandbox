@@ -279,4 +279,25 @@ const readVerse = () => {
   background: linear-gradient(135deg, rgba(245, 185, 66, 0.5), rgba(217, 119, 6, 0.6));
   color: #fff;
 }
+
+@media (max-width: 768px) {
+  .poetry-popup {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    bottom: calc(10px + var(--safe-bottom));
+    max-height: 75dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .poetry-card {
+    padding: 12px;
+    gap: 10px;
+  }
+  .close-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
 </style>

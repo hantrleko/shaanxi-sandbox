@@ -424,14 +424,43 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .letterbox-top {
+    padding: calc(10px + var(--safe-top)) 12px 10px;
+  }
+  .brand-img {
+    width: 30px;
+    height: 30px;
+  }
+  .brand-title {
+    font-size: 12.5px;
+  }
+  .exit-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
   .waypoints-nav {
     display: none;
+  }
+  .letterbox-bottom {
+    padding: 14px 14px calc(14px + var(--safe-bottom));
+  }
+  .meta-row {
+    flex-wrap: wrap;
+    gap: 6px;
   }
   .poetry-quote {
     font-size: 14px;
   }
   .narration-text {
     font-size: 12px;
+    max-height: 20dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tour-controls {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }
 </style>

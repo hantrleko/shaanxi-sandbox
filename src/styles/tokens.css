@@ -75,6 +75,12 @@
   --motion-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   --motion-base: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   --motion-slow: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 安全区适配变量 (刘海屏与底部 Home Indicator) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 /* 动态主题切换修饰 */

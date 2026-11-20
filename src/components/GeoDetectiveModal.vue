@@ -445,4 +445,33 @@ defineExpose({
   color: #fff;
   font-weight: 700;
 }
+
+@media (max-width: 768px) {
+  .question-card {
+    top: calc(60px + var(--safe-top));
+    width: calc(100% - 16px);
+    padding: 12px 14px;
+    gap: 8px;
+    max-height: 55dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .q-title {
+    font-size: 13px;
+  }
+  .diploma-card {
+    width: calc(100% - 20px);
+    max-height: 88dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .diploma-border {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+  .summary-grid {
+    gap: 6px;
+    padding: 8px;
+  }
+}
 </style>

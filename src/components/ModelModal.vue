@@ -48,49 +48,81 @@
       </div>
     </div>
 
-    <!-- 左侧演变科学解析面板 -->
-    <aside class="model-info-panel glass-panel">
-      <div class="panel-tag">
-        <span class="tag-icon">🔬</span>
-        <span>{{ currentLabInfo.tag }}</span>
+    <!-- 左侧演变科学解析面板 (移动端底部可折叠抽屉) -->
+    <aside class="model-info-panel glass-panel" :class="{ 'mobile-expanded': isMobileExpanded }">
+      <div class="mobile-model-head">
+        <div class="m-model-title-wrap" @click="isMobileExpanded = !isMobileExpanded">
+          <span class="tag-icon">{{ currentLabInfo.icon }}</span>
+          <span class="m-model-title">{{ currentStageTitle }}</span>
+        </div>
+        <div class="m-model-actions">
+          <template v-if="activeLabId === 'loess'">
+            <button
+              class="m-step-mini"
+              @click="$emit('prev-stage')"
+              :disabled="currentStage === 1"
+              title="上一阶段"
+            >‹</button>
+            <button
+              class="m-step-mini"
+              @click="$emit('next-stage')"
+              :disabled="currentStage === stages.length"
+              title="下一阶段"
+            >›</button>
+          </template>
+          <button
+            class="m-detail-toggle"
+            :class="{ active: isMobileExpanded }"
+            @click="isMobileExpanded = !isMobileExpanded"
+          >
+            {{ isMobileExpanded ? '收起 ▼' : '解析 ▲' }}
+          </button>
+        </div>
       </div>
 
-      <h2 class="stage-title">{{ currentStageTitle }}</h2>
-      <div class="stage-period">{{ currentStagePeriod }}</div>
+      <div class="model-detail-body">
+        <div class="panel-tag">
+          <span class="tag-icon">🔬</span>
+          <span>{{ currentLabInfo.tag }}</span>
+        </div>
 
-      <div class="stage-desc-box">
-        <p>{{ currentStageDesc }}</p>
-      </div>
+        <h2 class="stage-title">{{ currentStageTitle }}</h2>
+        <div class="stage-period">{{ currentStagePeriod }}</div>
 
-      <!-- 动态指示说明 -->
-      <div class="stage-arrow-hint" v-if="activeLabId === 'loess'">
-        <span class="hint-icon">↘</span>
-        <span>青色动态箭头示意暴雨坡面汇流与下切侵蚀方向</span>
-      </div>
+        <div class="stage-desc-box">
+          <p>{{ currentStageDesc }}</p>
+        </div>
 
-      <div class="stage-arrow-hint tectonic" v-if="activeLabId === 'tectonic'">
-        <span class="hint-icon">⬆</span>
-        <span>红色断裂带示意扬子板块北向俯冲推挤与秦岭断块抬升</span>
-      </div>
+        <!-- 动态指示说明 -->
+        <div class="stage-arrow-hint" v-if="activeLabId === 'loess'">
+          <span class="hint-icon">↘</span>
+          <span>青色动态箭头示意暴雨坡面汇流与下切侵蚀方向</span>
+        </div>
 
-      <div class="stage-arrow-hint climate" v-if="activeLabId === 'climate'">
-        <span class="hint-icon">❄️</span>
-        <span>蓝色粒子流：西伯利亚寒流北向阻隔；绿色粒子流：南风迎风降水</span>
-      </div>
+        <div class="stage-arrow-hint tectonic" v-if="activeLabId === 'tectonic'">
+          <span class="hint-icon">⬆</span>
+          <span>红色断裂带示意扬子板块北向俯冲推挤与秦岭断块抬升</span>
+        </div>
 
-      <!-- 步进按钮 -->
-      <div class="step-actions" v-if="activeLabId === 'loess'">
-        <button class="step-nav-btn" @click="$emit('prev-stage')" :disabled="currentStage === 1">
-          ‹ 上一阶段
+        <div class="stage-arrow-hint climate" v-if="activeLabId === 'climate'">
+          <span class="hint-icon">❄️</span>
+          <span>蓝色粒子流：西伯利亚寒流北向阻隔；绿色粒子流：南风迎风降水</span>
+        </div>
+
+        <!-- 步进按钮 -->
+        <div class="step-actions" v-if="activeLabId === 'loess'">
+          <button class="step-nav-btn" @click="$emit('prev-stage')" :disabled="currentStage === 1">
+            ‹ 上一阶段
+          </button>
+          <button class="step-nav-btn" @click="$emit('next-stage')" :disabled="currentStage === stages.length">
+            下一阶段 ›
+          </button>
+        </div>
+
+        <button class="back-macro-btn" @click="$emit('back-to-macro')">
+          ‹ 返回宏观全省沙盘
         </button>
-        <button class="step-nav-btn" @click="$emit('next-stage')" :disabled="currentStage === stages.length">
-          下一阶段 ›
-        </button>
       </div>
-
-      <button class="back-macro-btn" @click="$emit('back-to-macro')">
-        ‹ 返回宏观全省沙盘
-      </button>
     </aside>
   </div>
 </template>
@@ -110,6 +142,7 @@ const emit = defineEmits(['select-stage', 'prev-stage', 'next-stage', 'back-to-m
 
 const activeLabId = ref(props.activeLabId || 'loess');
 const currentTectonicStage = ref(props.currentTectonicStage || 0);
+const isMobileExpanded = ref(false);
 
 watch(() => props.activeLabId, (newLab) => {
   if (newLab) activeLabId.value = newLab;
@@ -398,5 +431,132 @@ const selectTectonicStage = (idx) => {
   background: rgba(56, 189, 248, 0.2);
   border-color: #38bdf8;
   color: #38bdf8;
+}
+
+.mobile-model-head {
+  display: none;
+}
+
+.model-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .model-lab-tabs {
+    top: calc(60px + var(--safe-top));
+    left: 8px;
+    right: 52px;
+    transform: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding: 3px;
+    gap: 4px;
+  }
+  .lab-tab-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+  .model-top-stepper {
+    top: calc(104px + var(--safe-top));
+    left: 8px;
+    right: 52px;
+    transform: none;
+    padding: 5px 8px;
+  }
+  .stepper-title {
+    display: none;
+  }
+  .stepper-buttons {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+  .step-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  .model-info-panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 10px 14px calc(12px + var(--safe-bottom));
+    max-height: 55dvh;
+    overflow-y: auto;
+    gap: 8px;
+    z-index: 25;
+  }
+  .mobile-model-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .m-model-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+  }
+  .m-model-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .m-model-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .m-step-mini {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .m-step-mini:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  .m-detail-toggle {
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    color: #fbbf24;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .m-detail-toggle.active {
+    background: rgba(245, 158, 11, 0.35);
+    color: #fff;
+  }
+  .model-info-panel:not(.mobile-expanded) .model-detail-body {
+    display: none;
+  }
+  .stage-title {
+    font-size: 18px;
+  }
 }
 </style>

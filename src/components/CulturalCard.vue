@@ -183,4 +183,24 @@ defineEmits(['close', 'fly-to']);
 .fly-btn:hover {
   background: #d97706;
 }
+
+@media (max-width: 768px) {
+  .cultural-popup {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    bottom: calc(10px + var(--safe-bottom));
+    max-height: 75dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .popup-card {
+    padding: 12px;
+  }
+  .close-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
 </style>

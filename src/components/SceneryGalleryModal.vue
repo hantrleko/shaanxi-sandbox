@@ -626,4 +626,63 @@ const flyToScenery = (item) => {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
+
+@media (max-width: 768px) {
+  .gallery-overlay {
+    padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom));
+  }
+  .gallery-card {
+    max-height: 94dvh;
+  }
+  .gallery-header {
+    padding: 12px 14px;
+  }
+  .filter-strip {
+    padding: 8px 14px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .cat-pill {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .gallery-grid {
+    padding: 12px 14px;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gallery-footer {
+    padding: 10px 14px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .done-btn {
+    width: 100%;
+  }
+  .lightbox-overlay {
+    padding: calc(10px + var(--safe-top)) 10px calc(10px + var(--safe-bottom));
+  }
+  .lightbox-content {
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lb-img-box,
+  .lb-img {
+    max-height: 45dvh;
+  }
+  .lb-info-box {
+    padding: 14px;
+  }
+  .lb-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .lb-fly-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
 </style>

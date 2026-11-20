@@ -1,7 +1,7 @@
 <template>
   <div class="bonsai-controller" v-if="currentMode === 'bonsai'">
-    <!-- 左侧微观盆景专有卡片 -->
-    <aside class="bonsai-info-panel glass-panel">
+    <!-- 左侧微观盆景专有卡片 (移动端可折叠抽屉) -->
+    <aside class="bonsai-info-panel glass-panel" :class="{ 'mobile-open': isMobileDetailOpen }">
       <div class="panel-tag">
         <span class="tag-icon">🏔️</span>
         <span>BONSAI · 微观高精 3D 盆景切块</span>
@@ -61,6 +61,26 @@
 
     <!-- 底部盆景切换选择卡片流 -->
     <div class="bonsai-bottom-bar glass-panel">
+      <!-- 移动端顶部：盆景速览 + 再取一次 + 详情展开按钮 -->
+      <div class="mobile-bar-top" v-if="currentBonsai">
+        <div class="m-bar-meta" @click="isMobileDetailOpen = !isMobileDetailOpen">
+          <span class="m-bar-title">🏔️ {{ currentBonsai.title }}</span>
+          <span class="m-bar-elev">{{ currentBonsai.elevation }}</span>
+        </div>
+        <div class="m-bar-actions">
+          <button class="m-reextract-btn" @click="$emit('re-extract')" title="再取一次">
+            🔄 再取
+          </button>
+          <button
+            class="m-detail-toggle"
+            :class="{ active: isMobileDetailOpen }"
+            @click="isMobileDetailOpen = !isMobileDetailOpen"
+          >
+            {{ isMobileDetailOpen ? '收起 ▼' : '参数/详情 ▲' }}
+          </button>
+        </div>
+      </div>
+
       <div class="bar-title">微观盆景选择：从沙盘上“切出”这块地，用 Zoom 12 更精细的高程和影像做成 3D 模型</div>
       <div class="bonsai-cards-row">
         <div
@@ -90,6 +110,7 @@ const props = defineProps({
 defineEmits(['select-bonsai', 'update-exaggeration', 'back-to-macro', 're-extract']);
 
 const exaggeration = ref(1.5);
+const isMobileDetailOpen = ref(false);
 
 const currentBonsai = computed(() => {
   return props.bonsais.find(b => b.id === props.currentBonsaiId) || props.bonsais[0];
@@ -315,5 +336,113 @@ const currentBonsai = computed(() => {
   font-size: 10px;
   color: #94a3b8;
   margin-top: 2px;
+}
+
+.mobile-bar-top {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .bonsai-info-panel {
+    display: none;
+    top: auto;
+    bottom: calc(106px + var(--safe-bottom));
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 55dvh;
+    padding: 14px;
+    z-index: 26;
+  }
+  .bonsai-info-panel.mobile-open {
+    display: flex;
+  }
+  .bonsai-title {
+    font-size: 19px;
+  }
+  .bonsai-bottom-bar {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 8px 10px calc(10px + var(--safe-bottom));
+    gap: 6px;
+    z-index: 25;
+  }
+  .mobile-bar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .m-bar-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+  }
+  .m-bar-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .m-bar-elev {
+    font-size: 10px;
+    color: #38bdf8;
+    font-family: monospace;
+    flex-shrink: 0;
+  }
+  .m-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .m-reextract-btn {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #6ee7b7;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .m-detail-toggle {
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: #7dd3fc;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .m-detail-toggle.active {
+    background: rgba(56, 189, 248, 0.32);
+    color: #fff;
+  }
+  .bar-title {
+    display: none;
+  }
+  .bonsai-cards-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .b-card {
+    flex: 0 0 auto;
+    min-width: 130px;
+    padding: 6px 10px;
+  }
+  .b-card-title {
+    font-size: 12px;
+  }
 }
 </style>

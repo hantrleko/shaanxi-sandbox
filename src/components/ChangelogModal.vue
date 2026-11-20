@@ -466,4 +466,42 @@ const changelogData = CHANGELOG_DATA;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
+
+@media (max-width: 768px) {
+  .changelog-modal-overlay {
+    padding: calc(10px + var(--safe-top)) 10px calc(10px + var(--safe-bottom));
+  }
+  .changelog-card {
+    max-height: 92dvh;
+  }
+  .modal-header {
+    padding: 12px 14px;
+  }
+  .metrics-strip {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 8px 14px;
+  }
+  .timeline-container {
+    padding: 14px;
+    gap: 18px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+  .ver-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .modal-footer {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .confirm-btn {
+    width: 100%;
+  }
+}
 </style>

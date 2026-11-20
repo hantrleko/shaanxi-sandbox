@@ -923,4 +923,61 @@ watch(() => props.active, (val) => {
   background: linear-gradient(90deg, #0284c7, #38bdf8);
   transition: width 0.15s ease-out;
 }
+
+@media (max-width: 768px) {
+  .workshop-modal-overlay {
+    padding: 0 8px calc(8px + var(--safe-bottom));
+  }
+  .workshop-card {
+    width: 100%;
+    max-height: 78dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .card-header,
+  .route-tabs,
+  .route-summary-bar,
+  .metrics-grid,
+  .chart-wrapper,
+  .waypoints-strip,
+  .card-footer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .route-summary-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .fly-start-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .flight-cockpit-hud {
+    padding: calc(10px + var(--safe-top)) 10px calc(12px + var(--safe-bottom));
+  }
+  .flight-top-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .flight-gauges {
+    gap: 12px;
+  }
+  .g-val {
+    font-size: 13px;
+  }
+  .flight-bottom-hud {
+    width: 100%;
+    padding: 8px 12px;
+  }
+}
 </style>

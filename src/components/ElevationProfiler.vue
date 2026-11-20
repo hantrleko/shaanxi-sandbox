@@ -349,6 +349,31 @@ const onChartMouseMove = (e) => {
   background: #0369a1;
 }
 
+@media (max-width: 768px) {
+  .profiler-modal {
+    bottom: calc(10px + var(--safe-bottom));
+    width: calc(100% - 16px);
+  }
+  .profiler-card {
+    padding: 12px 14px;
+    gap: 8px;
+    max-height: 75dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chart-container {
+    height: 110px;
+  }
+  .card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .action-btns {
+    justify-content: flex-end;
+  }
+}
+
 @media (max-width: 600px) {
   .metrics-grid {
     grid-template-columns: repeat(2, 1fr);

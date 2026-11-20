@@ -287,6 +287,7 @@ const toggleLayer = (key) => {
   right: 18px;
   z-index: 30;
   display: flex;
+  flex-direction: row-reverse;
   align-items: flex-start;
   gap: 10px;
   pointer-events: auto;
@@ -472,6 +473,9 @@ const toggleLayer = (key) => {
 /* 飞出式抽屉面板 (Flyout) */
 .flyout-card {
   width: 260px;
+  max-height: calc(100dvh - 120px);
+  display: flex;
+  flex-direction: column;
   background: rgba(11, 26, 43, 0.95);
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: var(--radius-md, 12px);
@@ -530,8 +534,11 @@ const toggleLayer = (key) => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
+  min-height: 0;
   max-height: 380px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 图层选择行 */
@@ -741,16 +748,49 @@ const toggleLayer = (key) => {
 
 @media (max-width: 768px) {
   .right-toolbar-root {
-    top: 60px;
-    right: 8px;
+    top: calc(60px + var(--safe-top));
+    right: calc(8px + var(--safe-right));
+    gap: 6px;
+  }
+  .right-rail {
+    padding: 5px 4px;
+    gap: 4px;
+    border-radius: 10px;
   }
   .rail-btn {
-    width: 38px;
+    width: 36px;
+    height: 34px;
+    gap: 1px;
+  }
+  .compass-btn {
     height: 38px;
   }
+  .rail-lbl {
+    font-size: 8.5px;
+  }
+  .rail-divider {
+    width: 18px;
+    margin: 1px 0;
+  }
+  .rail-telemetry {
+    padding: 2px;
+    font-size: 8px;
+  }
   .flyout-card {
-    width: 220px;
-    right: 48px;
+    position: fixed;
+    top: calc(60px + var(--safe-top));
+    right: calc(52px + var(--safe-right));
+    width: min(250px, calc(100vw - 64px));
+    max-height: calc(100dvh - 175px - var(--safe-top) - var(--safe-bottom));
+  }
+  .flyout-body {
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) and (max-height: 700px) {
+  .rail-telemetry {
+    display: none;
   }
 }
 </style>

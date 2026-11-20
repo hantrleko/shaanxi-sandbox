@@ -9,15 +9,57 @@
       'sheet-peek': isMobile && mobileSheetState === 'peek'
     }"
   >
-    <!-- 移动端抽屉手柄条 (Mobile Bottom Sheet Drag Handle) -->
+    <!-- 移动端抽屉手柄条 (支持点击或上下滑动切换 收起/半屏/全屏) -->
     <div
       v-if="isMobile"
       class="mobile-drag-handle-bar"
       @click="cycleMobileSheetState"
+      @touchstart.passive="onSheetTouchStart"
+      @touchend="onSheetTouchEnd"
       role="button"
-      title="点击调整抽屉高度 (收起/半屏/全屏)"
+      title="上下滑动或点击调整抽屉高度 (收起/半屏/全屏)"
     >
       <div class="drag-pill"></div>
+    </div>
+
+    <!-- 移动端紧凑摘要与章节操控条 (三态常驻，确保首屏即可切章或展开详情) -->
+    <div v-if="isMobile && chapter" class="mobile-peek-bar">
+      <div class="mobile-peek-info" @click="togglePeekHalf">
+        <span class="chapter-seal-tag">{{ chapter.num }}/{{ totalChapters }}</span>
+        <span class="mobile-peek-title">{{ chapter.title }}</span>
+        <ChevronDown v-if="mobileSheetState !== 'peek'" :size="15" class="peek-chevron" />
+        <ChevronUp v-else :size="15" class="peek-chevron" />
+      </div>
+      <div class="mobile-peek-controls" @click.stop>
+        <button
+          class="m-ctrl-btn"
+          :disabled="currentChapterIndex <= 0"
+          @click="$emit('prev-chapter')"
+          title="上一章"
+          aria-label="上一章"
+        >
+          <ChevronLeft :size="15" />
+        </button>
+        <button
+          class="m-ctrl-btn m-play-btn"
+          :class="{ active: isAutoPlaying }"
+          @click="$emit('toggle-autoplay')"
+          :title="isAutoPlaying ? '暂停自动巡航' : '开启自动巡航'"
+          aria-label="自动巡航"
+        >
+          <Pause v-if="isAutoPlaying" :size="13" />
+          <Play v-else :size="13" />
+        </button>
+        <button
+          class="m-ctrl-btn"
+          :disabled="currentChapterIndex >= totalChapters - 1"
+          @click="$emit('next-chapter')"
+          title="下一章"
+          aria-label="下一章"
+        >
+          <ChevronRight :size="15" />
+        </button>
+      </div>
     </div>
 
     <!-- 桌面端侧栏收起/展开微动滑钮 -->
@@ -41,7 +83,33 @@
     </div>
 
     <!-- 正常展开面板主容器 -->
-    <div v-show="!isCollapsed || isMobile" class="panel-content-wrap custom-scrollbar">
+    <div v-show="isMobile ? mobileSheetState !== 'peek' : !isCollapsed" class="panel-content-wrap custom-scrollbar">
+      <!-- 移动端专属：三大主题与横向章节快速导航 -->
+      <div v-if="isMobile && mobileSheetState !== 'peek'" class="mobile-nav-block">
+        <div class="mobile-theme-row" v-if="themes && themes.length">
+          <button
+            v-for="t in themes"
+            :key="t.id"
+            class="m-theme-pill"
+            :class="{ active: currentThemeId === t.id }"
+            @click="$emit('change-theme', t.id)"
+          >
+            {{ t.title }}
+          </button>
+        </div>
+        <div class="mobile-chapter-strip custom-scrollbar" v-if="chapters && chapters.length">
+          <button
+            v-for="(ch, idx) in chapters"
+            :key="ch.id"
+            class="m-chap-pill"
+            :class="{ active: currentChapterIndex === idx }"
+            @click="$emit('select-chapter', idx)"
+          >
+            <span class="m-chap-num">{{ ch.num }}</span>
+            <span>{{ ch.title }}</span>
+          </button>
+        </div>
+      </div>
       <!-- 📸 16:9 置顶真实地理实景大图 (支持单图与古今双图滑动卷帘对比) -->
       <div
         v-if="currentPhotoUrl"
@@ -553,7 +621,7 @@
     </div>
 
     <!-- 底部固定操作栏 (永不被内容滚动遮挡) -->
-    <div v-show="!isCollapsed || isMobile" class="fixed-action-footer">
+    <div v-show="isMobile ? mobileSheetState !== 'peek' : !isCollapsed" class="fixed-action-footer">
       <button class="footer-btn listen-btn" :class="{ playing: isPlaying }" @click="$emit('listen-current')">
         <Volume2 v-if="!isPlaying" :size="14" />
         <VolumeX v-else :size="14" />
@@ -579,6 +647,10 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Play,
+  Pause,
   Maximize2,
   BookOpen,
   Activity,
@@ -596,6 +668,9 @@ const props = defineProps({
   currentThemeTitle: { type: String, default: "自然地理" },
   currentThemeId: { type: String, default: "geo" },
   themes: { type: Array, default: () => [] },
+  chapters: { type: Array, default: () => [] },
+  currentChapterIndex: { type: Number, default: 0 },
+  isAutoPlaying: { type: Boolean, default: false },
   isPlaying: { type: Boolean, default: false }
 });
 
@@ -605,7 +680,11 @@ const emit = defineEmits([
   'fly-strata',
   'view-photo',
   'change-theme',
-  'collapse-change'
+  'collapse-change',
+  'prev-chapter',
+  'next-chapter',
+  'select-chapter',
+  'toggle-autoplay'
 ]);
 
 const isCollapsed = ref(false);
@@ -643,7 +722,8 @@ const onStopSplitDrag = () => {
 
 // 移动端响应式侦测与 Bottom Sheet 状态 ('peek' | 'half' | 'full')
 const isMobile = ref(false);
-const mobileSheetState = ref('half');
+const mobileSheetState = ref('peek');
+let sheetTouchStartY = 0;
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth <= 768;
@@ -653,6 +733,28 @@ const cycleMobileSheetState = () => {
   if (mobileSheetState.value === 'peek') mobileSheetState.value = 'half';
   else if (mobileSheetState.value === 'half') mobileSheetState.value = 'full';
   else mobileSheetState.value = 'peek';
+};
+
+const togglePeekHalf = () => {
+  mobileSheetState.value = mobileSheetState.value === 'peek' ? 'half' : 'peek';
+};
+
+const onSheetTouchStart = (e) => {
+  if (e.touches && e.touches.length > 0) {
+    sheetTouchStartY = e.touches[0].clientY;
+  }
+};
+
+const onSheetTouchEnd = (e) => {
+  if (!e.changedTouches || e.changedTouches.length === 0) return;
+  const deltaY = e.changedTouches[0].clientY - sheetTouchStartY;
+  if (deltaY < -28) {
+    if (mobileSheetState.value === 'peek') mobileSheetState.value = 'half';
+    else if (mobileSheetState.value === 'half') mobileSheetState.value = 'full';
+  } else if (deltaY > 28) {
+    if (mobileSheetState.value === 'full') mobileSheetState.value = 'half';
+    else if (mobileSheetState.value === 'half') mobileSheetState.value = 'peek';
+  }
 };
 
 watch(isCollapsed, (val) => {
@@ -853,7 +955,17 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   cursor: ew-resize;
   z-index: 10;
+  touch-action: none;
   box-shadow: 0 0 12px rgba(245, 158, 11, 0.85);
+}
+
+.split-divider-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -16px;
+  right: -16px;
 }
 
 .split-handle-btn {
@@ -1401,7 +1513,7 @@ onBeforeUnmount(() => {
     right: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
-    border-radius: 20px 20px 0 0 !important;
+    border-radius: 18px 18px 0 0 !important;
     border-left: none;
     border-right: none;
     border-bottom: none;
@@ -1409,33 +1521,186 @@ onBeforeUnmount(() => {
   }
 
   .mobile-sheet.sheet-peek {
-    max-height: 160px;
+    max-height: none;
+    height: auto;
+    padding-bottom: var(--safe-bottom);
   }
 
   .mobile-sheet.sheet-half {
-    max-height: 48vh;
+    height: 52dvh;
+    max-height: 52dvh;
   }
 
   .mobile-sheet.sheet-full {
-    max-height: 85vh;
+    height: 84dvh;
+    max-height: 84dvh;
   }
 
   .mobile-drag-handle-bar {
     width: 100%;
-    height: 20px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: grab;
+    touch-action: none;
     flex-shrink: 0;
-    padding-top: 4px;
+    padding-top: 6px;
   }
 
   .drag-pill {
-    width: 36px;
+    width: 38px;
     height: 4px;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.35);
     border-radius: 2px;
+  }
+
+  .mobile-peek-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 14px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+
+  .mobile-peek-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+  }
+
+  .mobile-peek-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .peek-chevron {
+    color: var(--brand-cyan, #38bdf8);
+    flex-shrink: 0;
+  }
+
+  .mobile-peek-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .m-ctrl-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .m-ctrl-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .m-play-btn {
+    background: rgba(2, 132, 199, 0.25);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+  }
+
+  .m-play-btn.active {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: #f59e0b;
+    color: #fde68a;
+  }
+
+  .mobile-nav-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-theme-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .m-theme-pill {
+    flex: 1;
+    padding: 5px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .m-theme-pill.active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--brand-cyan, #38bdf8);
+    color: #fff;
+  }
+
+  .mobile-chapter-strip {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .m-chap-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: #cbd5e1;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .m-chap-pill.active {
+    background: rgba(245, 158, 11, 0.18);
+    border-color: #f59e0b;
+    color: #fef08a;
+    font-weight: 700;
+  }
+
+  .m-chap-num {
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    color: #38bdf8;
+  }
+
+  .panel-content-wrap {
+    padding: 10px 12px calc(68px + var(--safe-bottom));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fixed-action-footer {
+    height: auto;
+    padding: 8px 14px calc(8px + var(--safe-bottom));
   }
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
   <div class="campaign-controller" v-if="currentMode === 'campaign'">
-    <!-- 左侧战役沙盘作战简报面板 -->
-    <aside class="campaign-panel glass-panel" v-if="currentCampaign">
+    <!-- 左侧战役沙盘作战简报面板 (移动端可折叠抽屉) -->
+    <aside class="campaign-panel glass-panel" :class="{ 'mobile-open': isMobileDetailOpen }" v-if="currentCampaign">
       <div class="panel-tag">
         <span class="tag-icon">⚔️</span>
         <span>HISTORICAL CAMPAIGN · 军事战役沙盘推演</span>
@@ -86,6 +86,35 @@
 
     <!-- 底部战役选择器 -->
     <div class="campaign-bar glass-panel">
+      <!-- 移动端顶部：当前战役与阶段快速步进 + 简报折叠开关 -->
+      <div class="mobile-bar-top" v-if="currentCampaign">
+        <div class="m-bar-meta" @click="isMobileDetailOpen = !isMobileDetailOpen">
+          <span class="m-bar-title">⚔️ {{ currentCampaign.title }}</span>
+          <span class="m-bar-step">阶段 {{ currentStageIndex + 1 }}/{{ currentCampaign.stages.length }}</span>
+        </div>
+        <div class="m-bar-actions">
+          <button
+            class="m-step-mini"
+            :disabled="currentStageIndex === 0"
+            @click="$emit('prev-stage')"
+            title="上一阶段"
+          >‹</button>
+          <button
+            class="m-step-mini"
+            :disabled="currentStageIndex >= currentCampaign.stages.length - 1"
+            @click="$emit('next-stage')"
+            title="下一阶段"
+          >›</button>
+          <button
+            class="m-detail-toggle"
+            :class="{ active: isMobileDetailOpen }"
+            @click="isMobileDetailOpen = !isMobileDetailOpen"
+          >
+            {{ isMobileDetailOpen ? '收起简报 ▼' : '战况简报 ▲' }}
+          </button>
+        </div>
+      </div>
+
       <div class="bar-hint">陕西经典历史战役推演：点击切换兵力部署路线与秦岭/黄土古战场</div>
       <div class="campaign-items">
         <div
@@ -104,7 +133,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
   currentMode: { type: String, required: true },
@@ -114,6 +143,8 @@ const props = defineProps({
 });
 
 defineEmits(['select-campaign', 'select-stage', 'prev-stage', 'next-stage', 'back-to-macro']);
+
+const isMobileDetailOpen = ref(false);
 
 const currentCampaign = computed(() => {
   return props.campaigns.find(c => c.id === props.currentCampaignId) || props.campaigns[0];
@@ -406,5 +437,120 @@ const currentStage = computed(() => {
   font-size: 10px;
   color: #94a3b8;
   margin-top: 2px;
+}
+
+.mobile-bar-top {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .campaign-panel {
+    display: none;
+    top: auto;
+    bottom: calc(108px + var(--safe-bottom));
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 55dvh;
+    padding: 14px;
+    z-index: 26;
+  }
+  .campaign-panel.mobile-open {
+    display: flex;
+  }
+  .camp-title {
+    font-size: 19px;
+  }
+  .campaign-bar {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 8px 10px calc(10px + var(--safe-bottom));
+    gap: 6px;
+    z-index: 25;
+  }
+  .mobile-bar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .m-bar-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+  }
+  .m-bar-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .m-bar-step {
+    font-size: 10px;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .m-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .m-step-mini {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .m-step-mini:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  .m-detail-toggle {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #fca5a5;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .m-detail-toggle.active {
+    background: rgba(239, 68, 68, 0.35);
+    color: #fff;
+  }
+  .bar-hint {
+    display: none;
+  }
+  .campaign-items {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .camp-card {
+    flex: 0 0 auto;
+    min-width: 145px;
+    padding: 6px 10px;
+  }
+  .camp-card-title {
+    font-size: 12px;
+  }
 }
 </style>

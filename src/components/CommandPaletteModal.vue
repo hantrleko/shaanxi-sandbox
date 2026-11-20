@@ -466,4 +466,27 @@ watch(() => props.active, (val) => {
   letter-spacing: 0.04em;
   font-size: 10px;
 }
+
+@media (max-width: 768px) {
+  .cmd-overlay {
+    padding: calc(16px + var(--safe-top)) 10px calc(16px + var(--safe-bottom));
+  }
+  .cmd-card {
+    width: 100%;
+    max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
+  }
+  .cmd-search-bar {
+    padding: 12px 14px;
+  }
+  .cmd-input {
+    font-size: 16px;
+  }
+  .cmd-results {
+    max-height: 60dvh;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cmd-footer {
+    display: none;
+  }
+}
 </style>

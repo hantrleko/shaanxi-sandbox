@@ -350,6 +350,27 @@ defineEmits(['close']);
   font-size: 11.5px;
 }
 
+@media (max-width: 768px) {
+  .wargame-modal-overlay {
+    padding: calc(10px + var(--safe-top)) 10px calc(10px + var(--safe-bottom));
+  }
+  .wargame-card {
+    padding: 14px;
+    gap: 12px;
+    max-height: 92dvh;
+    -webkit-overflow-scrolling: touch;
+  }
+  .metric-bar-item {
+    grid-template-columns: 72px 1fr 1fr;
+    gap: 6px;
+  }
+  .legend-row {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+}
+
 @media (max-width: 640px) {
   .routes-comparison-grid {
     grid-template-columns: 1fr;

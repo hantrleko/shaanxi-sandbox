@@ -84,7 +84,7 @@
         @open-cmd="isCmdOpen = true"
       />
 
-      <!-- 宏观沙盘模式：左侧图文卡片 (选项卡媒体 + 剖面联动) -->
+      <!-- 宏观沙盘模式：左侧图文卡片 (选项卡媒体 + 剖面联动 + 移动端底部抽屉导航) -->
       <LeftInfoPanel
         v-if="currentMode === 'macro' && currentChapter && !isTourActive && !isProfilingActive && !isDetectiveActive"
         :chapter="currentChapter"
@@ -92,8 +92,15 @@
         :current-theme-title="currentTheme.title"
         :current-theme-id="currentThemeId"
         :themes="THEMES"
+        :chapters="currentChapters"
+        :current-chapter-index="currentChapterIndex"
+        :is-auto-playing="isAutoPlaying"
         :is-playing="isPlaying"
         @change-theme="onChangeTheme"
+        @prev-chapter="onPrevChapter"
+        @next-chapter="onNextChapter"
+        @select-chapter="onSelectChapter"
+        @toggle-autoplay="onToggleAutoplay"
         @collapse-change="isPanelCollapsed = $event"
         @listen-current="onListenCurrent"
         @focus-feature="onFocusFeature"
@@ -502,8 +509,10 @@ const onOpenPoster = () => {
   }
 };
 
-// 🍜 人文风物
+// 🍜 人文风物（浮窗互斥）
 const onSelectCulture = (item) => {
+  selectedPoi.value = null;
+  selectedPoetrySpot.value = null;
   selectedCulturalItem.value = item;
 };
 
@@ -513,8 +522,10 @@ const onFlyToCulture = (pos) => {
   }
 };
 
-// 🏮 唐诗宋词空间信标
+// 🏮 唐诗宋词空间信标（浮窗互斥）
 const onSelectPoetry = (spot) => {
+  selectedPoi.value = null;
+  selectedCulturalItem.value = null;
   selectedPoetrySpot.value = spot;
 };
 
@@ -772,6 +783,8 @@ const onCameraUpdate = (data) => {
 };
 
 const onPoiSelected = (poi) => {
+  selectedCulturalItem.value = null;
+  selectedPoetrySpot.value = null;
   selectedPoi.value = poi;
 };
 
@@ -871,8 +884,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-root {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   position: relative;
   overflow: hidden;
   background: #06090e;
@@ -910,15 +924,3 @@ onBeforeUnmount(() => {
   color: #38bdf8;
 }
 </style>
-
-/* Vue 模态框与浮层进入/离开丝滑阻尼动效 */
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0 !important;
-  transform: scale(0.96) !important;
-}
