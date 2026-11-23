@@ -1,12 +1,13 @@
 # scripts/download_real_scenery_photos.py
 import os
+from pathlib import Path
 import json
 import urllib.request
 import urllib.parse
 from PIL import Image, ImageEnhance
 
-os.makedirs('public/images/scenery', exist_ok=True)
-os.makedirs('public/images/chapters', exist_ok=True)
+CANDIDATES = Path(__file__).resolve().parent.parent / 'scenery-candidates.local'
+CANDIDATES.mkdir(exist_ok=True)
 
 HEADERS = {'User-Agent': 'ShaanxiSandboxBot/2.0 (contact: admin@eugenefinance.com)'}
 
@@ -158,17 +159,25 @@ SCENERY_TARGETS = [
 
 def fetch_image_url(query):
     q = urllib.parse.quote(query)
-    api_url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={q}&gsrnamespace=6&prop=imageinfo&iiprop=url|size&iiurlwidth=1200&format=json&gsrlimit=3"
+    api_url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={q}&gsrnamespace=6&prop=imageinfo&iiprop=url|size|extmetadata&iiurlwidth=1200&format=json&gsrlimit=3"
     req = urllib.request.Request(api_url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=12) as r:
         data = json.loads(r.read())
         pages = data.get('query', {}).get('pages', {})
-        for pid, p in pages.items():
+        for p in pages.values():
             info = p.get('imageinfo', [{}])[0]
             title = p.get('title', '')
             thumb = info.get('thumburl') or info.get('url')
             if thumb and title.lower().endswith(('.jpg', '.jpeg', '.png')):
-                return thumb
+                metadata = info.get('extmetadata', {})
+                return {
+                    'download_url': thumb,
+                    'source': info.get('descriptionurl'),
+                    'title': title,
+                    'author': metadata.get('Artist', {}).get('value'),
+                    'license': metadata.get('LicenseShortName', {}).get('value'),
+                    'license_url': metadata.get('LicenseUrl', {}).get('value')
+                }
     return None
 
 def download_and_process(img_url, out_path, target_size=(960, 600)):
@@ -215,7 +224,7 @@ def download_and_process(img_url, out_path, target_size=(960, 600)):
 manifest = []
 for item in SCENERY_TARGETS:
     target_id = item['id']
-    out_file = f"public/images/scenery/{target_id}.jpg"
+    out_file = str(CANDIDATES / (target_id + '.jpg'))
     print(f"\nProcessing {item['title']} ({target_id})...")
     
     url = None
@@ -233,43 +242,23 @@ for item in SCENERY_TARGETS:
             
     if url:
         try:
-            download_and_process(url, out_file)
+            download_and_process(url["download_url"], out_file)
             manifest.append({
                 "id": target_id,
                 "title": item["title"],
                 "sub": item["sub"],
                 "region": item["region"],
                 "camera": item["camera"],
-                "url": f"./images/scenery/{target_id}.jpg"
+                "file": Path(out_file).name,
+                "commons_file": url,
+                "commons_query": item["search"]
             })
         except Exception as e:
             print(f"Download/process error for {target_id}: {e}")
     else:
         print(f"No image found for {target_id}")
 
-# 同步更新 chapters 封面实景照片
-chapter_mapping = {
-    "geo_01_shaanxi.jpg": "hua_shan.jpg",
-    "geo_02_qinling.jpg": "taibai_shan.jpg",
-    "geo_03_guanzhong.jpg": "guanzhong_plain.jpg",
-    "geo_04_loess.jpg": "qiankun_wan.jpg",
-    "geo_05_hanjiang.jpg": "hanjiang_water.jpg",
-    "geo_06_rivers.jpg": "hukou_waterfall.jpg",
-    "his_01_huangdi.jpg": "huangdi_ling.jpg",
-    "his_02_zhouyuan.jpg": "xian_city_wall.jpg",
-    "his_03_bingmayong.jpg": "bingmayong.jpg",
-    "his_04_changan.jpg": "dayanta.jpg",
-    "silk_01_zhangqian.jpg": "zhonglou.jpg",
-    "silk_02_xishi.jpg": "famen_temple.jpg"
-}
-
-for ch_name, sc_name in chapter_mapping.items():
-    sc_path = f"public/images/scenery/{sc_name}"
-    ch_path = f"public/images/chapters/{ch_name}"
-    if os.path.exists(sc_path):
-        with open(sc_path, 'rb') as sf:
-            with open(ch_path, 'wb') as df:
-                df.write(sf.read())
-        print(f"Updated chapter photo: {ch_name} <- {sc_name}")
-
-print(f"\nCompleted! Total downloaded real scenery photos: {len(manifest)}")
+(CANDIDATES / 'candidates.json').write_text(
+    json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+)
+print(f"Downloaded {len(manifest)} candidates into {CANDIDATES}")

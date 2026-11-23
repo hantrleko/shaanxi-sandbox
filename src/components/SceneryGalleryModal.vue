@@ -85,12 +85,16 @@
               <span class="lb-region-badge">{{ activeLightboxItem.region }}</span>
               <h3 class="lb-title">{{ activeLightboxItem.title }}</h3>
             </div>
-            <span class="lb-elevation">物理海拔: {{ activeLightboxItem.elevation }}</span>
+            <span v-if="activeLightboxItem.elevation" class="lb-elevation">{{ activeLightboxItem.elevation }}</span>
           </div>
           <p class="lb-desc">{{ activeLightboxItem.desc }}</p>
+          <p class="lb-source">
+            <a v-if="activeLightboxItem.media?.source" :href="activeLightboxItem.media.source" target="_blank" rel="noopener">{{ activeLightboxItem.media.credit }}</a>
+            <span v-else>项目配图 · 原始文件页待核对</span>
+          </p>
           <div class="lb-actions">
             <span class="lb-loc">📍 {{ activeLightboxItem.location }}</span>
-            <button class="lb-fly-btn" @click="flyToScenery(activeLightboxItem); activeLightboxItem = null">
+            <button v-if="activeLightboxItem.camera" class="lb-fly-btn" @click="flyToScenery(activeLightboxItem); activeLightboxItem = null">
               <span>在沙盘中俯瞰此处地理实景 ➔</span>
             </button>
           </div>
@@ -685,4 +689,5 @@ const flyToScenery = (item) => {
     text-align: center;
   }
 }
+.lb-source { font-size: 12px; color: var(--text-muted); }
 </style>

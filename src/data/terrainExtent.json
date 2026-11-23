@@ -1,0 +1,11 @@
+{
+  "zoom": 8,
+  "firstTileX": 202,
+  "firstTileY": 97,
+  "tileColumns": 6,
+  "tileRows": 8,
+  "width": 80,
+  "depth": 140,
+  "minElevation": 150,
+  "maxElevation": 3800
+}

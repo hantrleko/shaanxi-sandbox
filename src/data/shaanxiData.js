@@ -1,3 +1,5 @@
+import chapterMedia from './chapterMedia.json';
+
 // 陕西省地理人文 3D 互动沙盘数据结构 (100% 真实 GIS 与 DEM 物理高度对齐)
 const baseUrl = import.meta.env.BASE_URL || './';
 const imgPrefix = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
@@ -14,7 +16,7 @@ export const SHAANXI_STATS = {
   description: "三秦大地，华夏文明重要发祥地。北依长城、横跨秦岭，纵贯黄河、长江两大流域，拥有陕北黄土高原、八百里秦川、陕南秦巴山地三大自然区。"
 };
 
-export const THEMES = [
+const chaptersByTheme = [
   {
     id: "geo",
     title: "自然地理",
@@ -31,8 +33,8 @@ export const THEMES = [
         camera: { pos: [0, 95, 125], target: [0, 5, 0], pitch: 35 },
         diagramTitle: "陕西省南北地质地貌阶梯剖面示意图",
         diagramType: "profile_shaanxi",
-        photoUrl: imgPrefix + "images/chapters/geo_01_shaanxi.jpg",
-        photoCaption: "三秦大地立体阶梯：黄土高原、关中平原与秦巴山地对峙"
+
+
       },
       {
         id: "geo_02",
@@ -45,11 +47,11 @@ export const THEMES = [
         camera: { pos: [-4.84, 38, 48], target: [-4.84, 14, 22.75], pitch: 28 },
         diagramTitle: "秦岭阻挡冷暖气流垂直剖面模式图",
         diagramType: "profile_qinling",
-        photoUrl: imgPrefix + "images/chapters/geo_02_qinling.jpg",
-        photoCaption: "秦岭主峰太白山拔仙台（3771.2m）云海与第四纪冰川遗迹",
-        altPhotoUrl: imgPrefix + "images/scenery/hua_shan.jpg",
-        altPhotoCaption: "西岳华山西峰斧劈石与奇险千仞之天下第一险山",
-        altBadge: "华岳奇险"
+
+
+
+
+
       },
       {
         id: "geo_03",
@@ -62,11 +64,11 @@ export const THEMES = [
         camera: { pos: [3.97, 24, 32], target: [3.97, 2, 16], pitch: 22 },
         diagramTitle: "关中地堑断陷盆地与八水环绕图",
         diagramType: "profile_guanzhong",
-        photoUrl: imgPrefix + "images/chapters/geo_03_guanzhong.jpg",
-        photoCaption: "八百里秦川沃野千里与渭河冲积扇农业基石",
-        altPhotoUrl: imgPrefix + "images/scenery/guanzhong_plain.jpg",
-        altPhotoCaption: "关中沃野千里与渭河夕照平原风光",
-        altBadge: "沃野夕照"
+
+
+
+
+
       },
       {
         id: "geo_04",
@@ -79,8 +81,8 @@ export const THEMES = [
         camera: { pos: [8.71, 40, -5], target: [8.71, 5, -22], pitch: 28 },
         diagramTitle: "黄土塬梁峁侵蚀演变模式",
         diagramType: "profile_loess",
-        photoUrl: imgPrefix + "images/chapters/geo_04_loess.jpg",
-        photoCaption: "陕北延安安塞黄土高原塬梁峁地貌与生态梯田绿意"
+
+
       },
       {
         id: "geo_05",
@@ -93,8 +95,8 @@ export const THEMES = [
         camera: { pos: [2.0, 30, 62], target: [2.0, 2, 38], pitch: 28 },
         diagramTitle: "汉江水系与丹江口水库上游生态走廊",
         diagramType: "profile_hanjiang",
-        photoUrl: imgPrefix + "images/chapters/geo_05_hanjiang.jpg",
-        photoCaption: "陕南汉江上游安康瀛湖碧水青山生态长廊"
+
+
       },
       {
         id: "geo_06",
@@ -107,8 +109,8 @@ export const THEMES = [
         camera: { pos: [6.34, 18, 25], target: [6.34, 2, 16], pitch: 20 },
         diagramTitle: "古代长安八水水系与引渠复原示意",
         diagramType: "profile_rivers",
-        photoUrl: imgPrefix + "images/chapters/geo_06_rivers.jpg",
-        photoCaption: "高陵泾河渭河交汇处清浊分明的自然奇景"
+
+
       }
     ]
   },
@@ -126,8 +128,8 @@ export const THEMES = [
         highlight: "文明晨曦在关中破晓",
         desc: "蓝田直立人化石记录了早期人类活动。临潼半坡仰韶文化遗址见证了新石器时代彩陶与聚落文明；黄陵县桥山之上，轩辕黄帝陵寝千秋肃穆，被誉为中华第一陵，凝聚着海内外中华儿女的精神纽带。",
         camera: { pos: [11.5, 26, 0], target: [11.5, 3, -15], pitch: 24 },
-        photoUrl: imgPrefix + "images/chapters/his_01_huangdi.jpg",
-        photoCaption: "黄陵桥山黄帝陵古柏群与仰韶半坡人面鱼纹彩陶"
+
+
       },
       {
         id: "his_02",
@@ -138,8 +140,8 @@ export const THEMES = [
         highlight: "礼乐文明从宝鸡周原奠基",
         desc: "周人起于岐山周原，武王伐纣后定都丰镐（今西安西南）。周公制礼作乐，奠定了中国三千年儒家文明与宗法制度之源。宝鸡被誉为青铜器之乡，大盂鼎、毛公鼎铭刻着厚重国史。",
         camera: { pos: [-10.78, 20, 25], target: [-10.78, 2, 16.67], pitch: 20 },
-        photoUrl: imgPrefix + "images/chapters/his_02_zhouyuan.jpg",
-        photoCaption: "宝鸡周原遗址青铜器何尊‘宅兹中国’铭文"
+
+
       },
       {
         id: "his_03",
@@ -150,11 +152,11 @@ export const THEMES = [
         highlight: "书同文，车同轨，统一度量衡",
         desc: "秦孝公用商鞅变法，奋六世之余烈。始皇帝横扫六合，建立中国第一个大一统中央集权王朝。骊山脚下的秦始皇陵与兵马俑坑，以规模浩大的地下陶俑军阵，展现了横扫八荒的无匹雄风。",
         camera: { pos: [12.0, 18, 23], target: [9.46, 2, 16.34], pitch: 18 },
-        photoUrl: imgPrefix + "images/chapters/his_03_bingmayong.jpg",
-        photoCaption: "临潼秦始皇兵马俑一号坑威武地下陶俑军阵",
-        altPhotoUrl: imgPrefix + "images/scenery/huaqing_pool.jpg",
-        altPhotoCaption: "临潼华清宫与骊山烽火台大秦故地今夕风光",
-        altBadge: "骊山胜迹"
+
+
+
+
+
       },
       {
         id: "his_04",
@@ -165,11 +167,11 @@ export const THEMES = [
         highlight: "九天阊阖开宫殿，万国衣冠拜冕旒",
         desc: "唐都长安是当时全球最大的国际大都会，城垣规整，里坊棋布。大明宫含元殿居高临下，大雁塔慈恩寺梵音悠扬。丝路胡商云集西市，李白杜甫等无数诗人在此留下了千古绝唱。",
         camera: { pos: [6.24, 18, 24], target: [6.24, 2, 16.98], pitch: 18 },
-        photoUrl: imgPrefix + "images/chapters/his_04_changan.jpg",
-        photoCaption: "西安大慈恩寺大雁塔与大唐不夜城壮阔盛唐气象",
-        altPhotoUrl: imgPrefix + "images/scenery/xian_city_wall.jpg",
-        altPhotoCaption: "西安明清古城垣南门永宁门夜色与护城河",
-        altBadge: "古都城垣"
+
+
+
+
+
       }
     ]
   },
@@ -187,11 +189,11 @@ export const THEMES = [
         highlight: "十三年不辱使命的和平开拓",
         desc: "汉武帝招募张骞，率百余人出长安西行，联合大月氏夹攻匈奴。历经十三年艰难险阻，张骞‘凿空’通西域。随后汉朝在河西走廊设立四郡，开通了连接欧亚大陆的东西方陆上大通道。",
         camera: { pos: [0.0, 22, 26], target: [-6.0, 2, 16.0], pitch: 20 },
-        photoUrl: imgPrefix + "images/chapters/silk_01_zhangqian.jpg",
-        photoCaption: "莫高窟第323窟汉武帝送张骞出使西域壁画",
-        altPhotoUrl: imgPrefix + "images/scenery/zhonglou.jpg",
-        altPhotoCaption: "今日西安市中心明钟楼——丝绸之路现代起点都会风采",
-        altBadge: "丝路今朝"
+
+
+
+
+
       },
       {
         id: "silk_02",
@@ -202,15 +204,30 @@ export const THEMES = [
         highlight: "买卖全球，胡商云集西市开埠",
         desc: "唐长安西市被称为‘金市’，是丝绸之路的真正起点。来自波斯、粟特的大食商人带着琉璃、香料、葡萄酒在此交易，换回大唐名扬天下的丝绸、瓷器、茶叶与铁器，开启了人类早期全球化盛况。",
         camera: { pos: [6.24, 16, 22], target: [6.24, 2, 16.98], pitch: 16 },
-        photoUrl: imgPrefix + "images/chapters/silk_02_xishi.jpg",
-        photoCaption: "大唐西市遗址博物馆石板路车辙痕迹与丝路起点",
-        altPhotoUrl: imgPrefix + "images/scenery/famen_temple.jpg",
-        altPhotoCaption: "扶风法门寺唐代皇家地宫与丝路琉璃金银秘宝",
-        altBadge: "丝路秘宝"
+
+
+
+
+
       }
     ]
   }
 ];
+
+export const THEMES = chaptersByTheme.map(theme => ({
+  ...theme,
+  chapters: theme.chapters.map(chapter => {
+    const media = chapterMedia[chapter.id];
+    return {
+      ...chapter,
+      media,
+      photoUrl: imgPrefix + media.file,
+      photoCaption: media.caption,
+      altPhotoUrl: media.alternate ? imgPrefix + media.alternate.file : null,
+      altPhotoCaption: media.alternate?.caption
+    };
+  })
+}));
 
 export const BONSAIS = [
   {
@@ -787,7 +804,7 @@ export const GEO_DETECTIVE_QUESTIONS = [
 // 5. 🌸 V2.0 四季气候与流转着色数据
 // ==========================================
 export const SEASONS_DATA = [
-  { id: 'natural', name: '遥感原貌', icon: '🛰️', tag: '30m 真实高精', desc: '原始遥感卫星影像与物理高程本色' },
+  { id: 'natural', name: '遥感原貌', icon: '🛰️', tag: 'DEM 瓦片', desc: '原始遥感卫星影像与物理高程本色' },
   { id: 'spring', name: '春·秦巴花海', icon: '🌸', tag: '3–4月 花海漫野', desc: '汉中安康盆地金色油菜花海光晕与关中麦田新绿' },
   { id: 'summer', name: '夏·翠峦云海', icon: '🌲', tag: '6–8月 绿树浓荫', desc: '秦岭与大巴山翡翠绿林与充沛水系蒸腾' },
   { id: 'autumn', name: '秋·太白金枫', icon: '🍁', tag: '10–11月 霜叶如霞', desc: '太白山落叶松金橙色带与陕北黄土暖阳' },

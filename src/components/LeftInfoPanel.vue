@@ -10,26 +10,27 @@
     }"
   >
     <!-- 移动端抽屉手柄条 (支持点击或上下滑动切换 收起/半屏/全屏) -->
-    <div
+    <button
       v-if="isMobile"
+      type="button"
       class="mobile-drag-handle-bar"
       @click="cycleMobileSheetState"
       @touchstart.passive="onSheetTouchStart"
       @touchend="onSheetTouchEnd"
-      role="button"
-      title="上下滑动或点击调整抽屉高度 (收起/半屏/全屏)"
+      aria-label="切换章节抽屉高度"
+      :aria-expanded="mobileSheetState !== 'peek'"
     >
       <div class="drag-pill"></div>
-    </div>
+    </button>
 
     <!-- 移动端紧凑摘要与章节操控条 (三态常驻，确保首屏即可切章或展开详情) -->
     <div v-if="isMobile && chapter" class="mobile-peek-bar">
-      <div class="mobile-peek-info" @click="togglePeekHalf">
+      <button type="button" class="mobile-peek-info" @click="togglePeekHalf">
         <span class="chapter-seal-tag">{{ chapter.num }}/{{ totalChapters }}</span>
         <span class="mobile-peek-title">{{ chapter.title }}</span>
         <ChevronDown v-if="mobileSheetState !== 'peek'" :size="15" class="peek-chevron" />
         <ChevronUp v-else :size="15" class="peek-chevron" />
-      </div>
+      </button>
       <div class="mobile-peek-controls" @click.stop>
         <button
           class="m-ctrl-btn"
@@ -67,7 +68,7 @@
       v-if="!isMobile"
       class="panel-collapse-toggle"
       @click="isCollapsed = !isCollapsed"
-      :title="isCollapsed ? '展开左侧面板 (L)' : '收起面板以纯净浏览 3D 沙盒 (L)'"
+      :title="isCollapsed ? '展开章节' : '收起章节'"
       aria-label="展开或收起图文面板"
     >
       <ChevronLeft v-if="!isCollapsed" :size="16" />
@@ -110,83 +111,6 @@
           </button>
         </div>
       </div>
-      <!-- 📸 16:9 置顶真实地理实景大图 (支持单图与古今双图滑动卷帘对比) -->
-      <div
-        v-if="currentPhotoUrl"
-        ref="bannerRef"
-        class="hero-photo-banner"
-        :class="{ 'is-split-active': isSplitMode && chapter.altPhotoUrl }"
-        @click="!isSplitMode && $emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
-        :title="isSplitMode ? '拖拽中轴滑动对比古今风貌' : '点击放大查看高清摄影大图'"
-      >
-        <!-- 普通单图呈现 -->
-        <template v-if="!isSplitMode || !chapter.altPhotoUrl">
-          <img :src="currentPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
-        </template>
-
-        <!-- 双图水平滑动卷帘对比 (Before/After Split Slider) -->
-        <template v-else>
-          <img :src="chapter.photoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
-          <div
-            class="split-overlay-layer"
-            :style="{ clipPath: `inset(0 0 0 ${splitPos}%)` }"
-          >
-            <img :src="chapter.altPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
-          </div>
-          <!-- 交互滑动条与手柄 -->
-          <div
-            class="split-divider-line"
-            :style="{ left: `${splitPos}%` }"
-            @pointerdown.stop="onStartSplitDrag"
-          >
-            <div class="split-handle-btn">
-              <span>⇋</span>
-            </div>
-          </div>
-          <!-- 两侧古今身份浮签 -->
-          <div class="split-tag split-tag-left">今日实景</div>
-          <div class="split-tag split-tag-right">{{ chapter.altBadge || '胜迹/文物' }}</div>
-        </template>
-
-        <div class="hero-photo-gradient"></div>
-        <div class="hero-photo-top-bar">
-          <span class="photo-live-badge">
-            <span class="pulse-dot"></span>
-            {{ isSplitMode ? '古今双图卷帘对比' : (showAltPhoto ? (chapter.altBadge || '胜迹/文物') : '真实地理摄影') }}
-          </span>
-          <div class="banner-actions" @click.stop>
-            <button
-              v-if="chapter.altPhotoUrl"
-              class="photo-toggle-pill"
-              :class="{ active: isSplitMode }"
-              @click="isSplitMode = !isSplitMode"
-              title="切换古今卷帘对比"
-            >
-              {{ isSplitMode ? '✕ 单图' : '⇋ 对比' }}
-            </button>
-            <button
-              v-if="chapter.altPhotoUrl && !isSplitMode"
-              class="photo-toggle-pill"
-              @click="showAltPhoto = !showAltPhoto"
-              :title="showAltPhoto ? '切换为今日实景摄影' : '切换为胜迹/复原风物'"
-            >
-              {{ showAltPhoto ? '📸 今日' : '🏛️ 胜迹' }}
-            </button>
-            <button
-              class="photo-expand-pill"
-              @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)"
-              title="全屏放大"
-            >
-              <Maximize2 :size="11" />
-              <span>放大</span>
-            </button>
-          </div>
-        </div>
-        <div class="hero-photo-caption" v-if="currentPhotoCaption && !isSplitMode">
-          {{ currentPhotoCaption }}
-        </div>
-      </div>
-
       <!-- 章节核心信息头 (序号印章 + 主副标题) -->
       <div class="panel-header-block">
         <div class="title-meta-row">
@@ -207,7 +131,7 @@
           :aria-selected="activeTab === 'overview'"
         >
           <BookOpen :size="13" />
-          <span>史地概览</span>
+          <span>概览</span>
         </button>
         <button
           v-if="chapter.diagramTitle"
@@ -218,7 +142,7 @@
           :aria-selected="activeTab === 'diagram'"
         >
           <Activity :size="13" />
-          <span>地质剖面</span>
+          <span>图解</span>
         </button>
         <button
           class="seg-tab"
@@ -228,7 +152,7 @@
           :aria-selected="activeTab === 'scenery'"
         >
           <Camera :size="13" />
-          <span>实景风物</span>
+          <span>配图</span>
         </button>
         <button
           class="seg-tab"
@@ -238,7 +162,7 @@
           :aria-selected="activeTab === 'pois'"
         >
           <MapPin :size="13" />
-          <span>空间地标</span>
+          <span>地标</span>
         </button>
       </div>
 
@@ -247,7 +171,7 @@
         <div class="desc-content">
           <p class="sentence-stream">
             <span
-              v-for="(sent, sIdx) in sentences"
+              v-for="(sent, sIdx) in (readingFull || (isMobile && mobileSheetState === 'full') ? sentences : sentences.slice(0, 1))"
               :key="sIdx"
               class="sentence-span"
               :class="{ active: isPlaying && activeSentenceIndex === sIdx }"
@@ -257,17 +181,10 @@
           </p>
         </div>
 
-        <!-- 时代与核心指标印章卡片 -->
-        <div class="badge-row">
-          <div class="badge-card" v-if="chapter.timeBadge">
-            <div class="badge-val">{{ chapter.timeBadge }}</div>
-            <div class="badge-lbl">时代 · 地理特征</div>
-          </div>
-          <div class="badge-card highlight" v-if="chapter.highlight">
-            <div class="badge-val">{{ chapter.highlight }}</div>
-            <div class="badge-lbl">核心要点</div>
-          </div>
-        </div>
+        <button
+          v-if="sentences.length > 1 && !(isMobile && mobileSheetState === 'full')" type="button" class="read-chapter" :aria-expanded="readingFull"
+          @click="readingFull = !readingFull"
+        >{{ readingFull ? '收起正文' : '阅读全文' }}</button>
       </div>
 
       <!-- 选项卡 2：交互式地质剖面图解 (修复 { chapter.diagramTitle } 单括号 Bug) -->
@@ -580,28 +497,99 @@
             <text x="245" y="98" font-size="6.5" fill="#93c5fd">浐河 · 灞河东流 (灞柳风雪)</text>
           </svg>
 
-          <div class="card-caption">点选上方地质单元标签，镜头自动飞越到对应真实地貌</div>
+          <div class="card-caption">教学示意图 · 点选可在沙盘定位</div>
         </div>
       </div>
 
-      <!-- 选项卡 3：实景风物摄影 (大图全景与摄影志) -->
-      <div v-show="activeTab === 'scenery'" class="tab-pane">
-        <div class="scenery-feature-card glass-panel">
-          <div class="feature-img-box" @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption)">
-            <img :src="currentPhotoUrl" :alt="chapter.title" class="feature-img" />
-            <span class="preview-tag">点击开启画廊</span>
+      <div v-if="activeTab === 'scenery'" class="tab-pane media-pane">
+      <!-- 📸 16:9 置顶真实地理实景大图 (支持单图与古今双图滑动卷帘对比) -->
+      <div
+        v-if="currentPhotoUrl"
+        ref="bannerRef"
+        class="hero-photo-banner"
+        :class="{ 'is-split-active': isSplitMode && chapter.altPhotoUrl }"
+        @click="!isSplitMode && $emit('view-photo', currentPhotoUrl, currentPhotoCaption, currentPhotoMedia)"
+        :title="isSplitMode ? '拖拽中轴滑动对比古今风貌' : '点击放大查看高清摄影大图'"
+      >
+        <!-- 普通单图呈现 -->
+        <template v-if="!isSplitMode || !chapter.altPhotoUrl">
+          <img :src="currentPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
+        </template>
+
+        <!-- 双图水平滑动卷帘对比 (Before/After Split Slider) -->
+        <template v-else>
+          <img :src="chapter.photoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
+          <div
+            class="split-overlay-layer"
+            :style="{ clipPath: `inset(0 0 0 ${splitPos}%)` }"
+          >
+            <img :src="chapter.altPhotoUrl" :alt="chapter.title" class="hero-photo-img" loading="lazy" />
           </div>
-          <div class="feature-meta">
-            <span class="meta-title">{{ chapter.title }} · 摄影志</span>
-            <p class="meta-desc">{{ currentPhotoCaption }}</p>
+          <!-- 交互滑动条与手柄 -->
+          <div
+            class="split-divider-line"
+            :style="{ left: `${splitPos}%` }"
+            @pointerdown.stop="onStartSplitDrag"
+          >
+            <div class="split-handle-btn">
+              <span>⇋</span>
+            </div>
           </div>
+          <!-- 两侧古今身份浮签 -->
+          <div class="split-tag split-tag-left">{{ chapter.media.kind }}</div>
+          <div class="split-tag split-tag-right">{{ chapter.media.alternate.kind }}</div>
+        </template>
+
+        <div class="hero-photo-gradient"></div>
+        <div class="hero-photo-top-bar">
+          <span class="photo-live-badge">
+            {{ isSplitMode ? '两幅配图对照' : (showAltPhoto ? (chapter.media.alternate.kind) : chapter.media.kind) }}
+          </span>
+          <div class="banner-actions" @click.stop>
+            <button
+              v-if="chapter.altPhotoUrl"
+              class="photo-toggle-pill"
+              :class="{ active: isSplitMode }"
+              @click="isSplitMode = !isSplitMode"
+              title="切换配图对照"
+            >
+              {{ isSplitMode ? '✕ 单图' : '⇋ 对比' }}
+            </button>
+            <button
+              v-if="chapter.altPhotoUrl && !isSplitMode"
+              class="photo-toggle-pill"
+              @click="showAltPhoto = !showAltPhoto"
+              :title="showAltPhoto ? '切换为今日实景摄影' : '切换为胜迹/复原风物'"
+            >
+              {{ showAltPhoto ? '主图' : '配图' }}
+            </button>
+            <button
+              class="photo-expand-pill"
+              @click="$emit('view-photo', currentPhotoUrl, currentPhotoCaption, currentPhotoMedia)"
+              title="全屏放大"
+            >
+              <Maximize2 :size="11" />
+              <span>放大</span>
+            </button>
+          </div>
+        </div>
+        <div class="hero-photo-caption" v-if="currentPhotoCaption && !isSplitMode">
+          {{ currentPhotoCaption }}
+        </div>
+      </div>
+
+        <div class="photo-source">
+          <span>{{ currentPhotoMedia.kind }} · {{ currentPhotoCaption }}</span>
+          <a v-if="currentPhotoMedia.source" :href="currentPhotoMedia.source" target="_blank" rel="noopener">{{ currentPhotoMedia.credit }}</a>
+          <small v-else>项目配图 · 原始文件页待核对</small>
         </div>
       </div>
 
       <!-- 选项卡 4：空间地标信标 (本章关联 POI 一键直达) -->
-      <div v-show="activeTab === 'pois'" class="tab-pane">
+      <div v-if="activeTab === 'pois'" class="tab-pane">
         <div class="poi-quick-list">
-          <div
+          <button
+            type="button"
             v-for="poi in relatedPois"
             :key="poi.id"
             class="poi-row-card glass-panel"
@@ -614,8 +602,8 @@
                 <span class="poi-badge-txt">{{ poi.badge }}</span>
               </div>
             </div>
-            <span class="poi-fly-arrow">飞向 ➔</span>
-          </div>
+            <span class="poi-fly-arrow">定位</span>
+          </button>
         </div>
       </div>
     </div>
@@ -631,12 +619,12 @@
           <span class="wave-bar bar-3"></span>
           <span class="wave-bar bar-4"></span>
         </div>
-        <span>{{ isPlaying ? '暂停朗读' : '🎧 听这段' }}</span>
+        <span>{{ isPlaying ? '停止朗读' : '播放讲解' }}</span>
       </button>
 
       <button class="footer-btn focus-btn" @click="$emit('focus-feature')">
         <Crosshair :size="14" />
-        <span>聚焦视点</span>
+        <span>在地图定位</span>
       </button>
     </div>
   </aside>
@@ -664,6 +652,8 @@ import { POI_LIST } from '../data/shaanxiData.js';
 
 const props = defineProps({
   chapter: { type: Object, required: true },
+  startingSheet: { type: String, default: 'peek' },
+  startingCollapsed: Boolean,
   totalChapters: { type: Number, default: 6 },
   currentThemeTitle: { type: String, default: "自然地理" },
   currentThemeId: { type: String, default: "geo" },
@@ -681,13 +671,15 @@ const emit = defineEmits([
   'view-photo',
   'change-theme',
   'collapse-change',
+  'sheet-change',
   'prev-chapter',
   'next-chapter',
   'select-chapter',
   'toggle-autoplay'
 ]);
 
-const isCollapsed = ref(false);
+const isCollapsed = ref(props.startingCollapsed);
+const readingFull = ref(false);
 const activeTab = ref('overview');
 const activeSentenceIndex = ref(0);
 const showAltPhoto = ref(false);
@@ -722,14 +714,16 @@ const onStopSplitDrag = () => {
 
 // 移动端响应式侦测与 Bottom Sheet 状态 ('peek' | 'half' | 'full')
 const isMobile = ref(false);
-const mobileSheetState = ref('peek');
+const mobileSheetState = ref(props.startingSheet);
 let sheetTouchStartY = 0;
+let lastSheetSwipe = -Infinity;
 
 const checkMobile = () => {
-  isMobile.value = window.innerWidth <= 768;
+  isMobile.value = window.matchMedia('(max-width: 760px) and (orientation: portrait)').matches;
 };
 
 const cycleMobileSheetState = () => {
+  if (performance.now() - lastSheetSwipe < 350) return;
   if (mobileSheetState.value === 'peek') mobileSheetState.value = 'half';
   else if (mobileSheetState.value === 'half') mobileSheetState.value = 'full';
   else mobileSheetState.value = 'peek';
@@ -748,6 +742,7 @@ const onSheetTouchStart = (e) => {
 const onSheetTouchEnd = (e) => {
   if (!e.changedTouches || e.changedTouches.length === 0) return;
   const deltaY = e.changedTouches[0].clientY - sheetTouchStartY;
+  if (Math.abs(deltaY) >= 28) lastSheetSwipe = performance.now();
   if (deltaY < -28) {
     if (mobileSheetState.value === 'peek') mobileSheetState.value = 'half';
     else if (mobileSheetState.value === 'half') mobileSheetState.value = 'full';
@@ -756,6 +751,8 @@ const onSheetTouchEnd = (e) => {
     else if (mobileSheetState.value === 'half') mobileSheetState.value = 'peek';
   }
 };
+
+watch(mobileSheetState, (state) => emit('sheet-change', state));
 
 watch(isCollapsed, (val) => {
   emit('collapse-change', val);
@@ -780,9 +777,13 @@ const currentPhotoCaption = computed(() => {
   return props.chapter?.photoCaption || '';
 });
 
+const currentPhotoMedia = computed(() => showAltPhoto.value && props.chapter.media.alternate ? props.chapter.media.alternate : props.chapter.media);
+
 // 本章节关联的地标点
 const relatedPois = computed(() => {
-  return POI_LIST.slice(0, 5);
+  const target = props.chapter.camera.target;
+  const distance = poi => Math.hypot(poi.pos[0] - target[0], poi.pos[2] - target[2]);
+  return [...POI_LIST].sort((a, b) => distance(a) - distance(b)).slice(0, 4);
 });
 
 const flyTo = (pos) => {
@@ -795,11 +796,14 @@ const flyToPoi = (poi) => {
 
 watch(() => props.chapter?.id, () => {
   showAltPhoto.value = false;
+  isSplitMode.value = false;
+  readingFull.value = false;
   activeTab.value = 'overview';
 });
 
 watch(() => props.isPlaying, (playing) => {
   if (playing) {
+    readingFull.value = true;
     activeSentenceIndex.value = 0;
     if (timer) clearInterval(timer);
     const intervalMs = Math.max(2500, Math.floor(18000 / (sentences.value.length || 1)));
@@ -1506,7 +1510,7 @@ onBeforeUnmount(() => {
 }
 
 /* 移动端底部抽屉 (Bottom Sheet) 样式 */
-@media (max-width: 768px) {
+@media (max-width: 760px) and (orientation: portrait) {
   .left-info-panel.mobile-sheet {
     top: auto !important;
     left: 0 !important;
@@ -1702,5 +1706,73 @@ onBeforeUnmount(() => {
     height: auto;
     padding: 8px 14px calc(8px + var(--safe-bottom));
   }
+}
+
+.left-info-panel {
+  inset: var(--map-top) auto auto var(--map-inline);
+  width: var(--chapter-width);
+  max-height: calc(100dvh - var(--map-top) - var(--safe-bottom) - 18px);
+  background: var(--map-panel);
+  border-color: var(--map-line);
+  border-radius: 9px;
+  box-shadow: 0 10px 26px rgba(3, 15, 17, .22);
+  backdrop-filter: none;
+  transition: none;
+}
+.left-info-panel.collapsed {
+  transform: none;
+  width: 48px;
+  min-height: 44px;
+  overflow: visible;
+}
+.panel-collapse-toggle, .panel-collapse-toggle:hover {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 37px;
+  height: 37px;
+  border: 1px solid var(--map-line);
+  border-radius: 6px;
+  background: #223f42;
+  color: var(--map-muted);
+  box-shadow: none;
+}
+.toggle-v-text, .micro-rail-content { display: none; }
+.panel-content-wrap { padding: 14px; gap: 11px; }
+.title-meta-row { padding-right: 30px; }
+.chapter-seal-tag { background: transparent; color: var(--map-gold); border-color: #7e765d; }
+.panel-header-block .main-title { color: var(--map-text); font-size: clamp(20px, 1.9vw, 26px); }
+.panel-header-block .sub-title, .sentence-stream { color: var(--map-muted); }
+.segmented-nav { gap: 2px; border-color: var(--map-line); background: #142d32; }
+.seg-tab { min-height: 36px; padding-inline: 4px; font-size: 11px; color: var(--map-muted); }
+.seg-tab.active { color: var(--map-gold); background: #2b494a; border-color: #6b796c; }
+.desc-content { background: none; border: 0; padding: 0; box-shadow: none; }
+.read-chapter { margin-top: 5px; cursor: pointer; color: var(--map-gold); background: none; border: 0; padding: 8px 0; font: inherit; }
+.fixed-action-footer {
+  position: static;
+  flex-shrink: 0;
+  background: #142d32;
+  border-color: var(--map-line);
+  padding: 7px 12px;
+  backdrop-filter: none;
+}
+.footer-btn { min-height: 44px; color: var(--map-text); background: #263f43; border-color: #526e6c; }
+.footer-btn.focus-btn { background: var(--map-gold); color: #253132; }
+.photo-source { display: grid; gap: 4px; margin-top: 8px; color: var(--map-muted); line-height: 1.5; font-size: 12px; }
+.photo-source a { color: var(--map-water); }
+.poi-row-card { text-align: left; }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .left-info-panel.mobile-sheet {
+    height: var(--sheet-size);
+    max-height: var(--sheet-size);
+    padding-bottom: var(--safe-bottom);
+  }
+  .mobile-drag-handle-bar, .mobile-peek-info { background: none; border: 0; color: inherit; }
+  .mobile-drag-handle-bar { padding: 0; }
+  .mobile-peek-info { text-align: left; }
+  .mobile-peek-bar { min-height: 53px; }
+  .mobile-peek-controls .m-ctrl-btn { min-width: 44px; min-height: 44px; }
+  .panel-content-wrap { gap: 8px; }
 }
 </style>

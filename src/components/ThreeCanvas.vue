@@ -1,81 +1,25 @@
 <template>
   <div class="canvas-container" ref="containerRef">
-    <!-- 电影级全景镜头暗角与大气天光辉光覆盖层 -->
-    <div class="cinematic-vignette-overlay" :style="{ pointerEvents: 'none' }"></div>
-
-    <!-- 测绘模式实时步骤交互提示栏 -->
-    <div v-if="isProfilingActive" class="interactive-step-hud">
-      <div class="hud-pill-box">
-        <span class="hud-step-badge">{{ profilingStep === 1 ? '步骤 1 / 2' : '步骤 2 / 2' }}</span>
-        <span class="hud-step-text">{{ profilingStep === 1 ? '请在 3D 地形表面点击起点 A' : '请点击终点 B 生成高程剖面曲线' }}</span>
-        <button class="hud-step-cancel" @click="$emit('cancel-profiling')">退出测绘</button>
-      </div>
+    <div v-if="isSpinning360" class="map-status spin-notice">
+      <button type="button" class="map-button" @click="stop360Spin">停止环绕</button>
     </div>
 
-    <!-- 🔄 360° 全景环视自转浮动交互胶囊 -->
-    <transition name="fade">
-      <div v-if="isSpinning360" class="spin-360-pill">
-        <span class="spin-icon">🔄</span>
-        <span class="spin-text">全景 360° 环绕自转中</span>
-        <span class="spin-tip">（单击中键或拖拽鼠标退出）</span>
-        <button class="spin-close-btn" @click.stop="stop360Spin" title="退出 360° 旋转">✕</button>
-      </div>
-    </transition>
-
-    <!-- 3D 浮动 POI 标签覆盖层 (全息折线引线 + 海拔标牌 + 视距分级 LOD) -->
-    <div
-      v-if="currentMode === 'macro'"
-      class="poi-overlay"
-      :style="{ pointerEvents: 'none' }"
-    >
-      <!-- 全息折线引线 SVG 图层 (Leader Lines Overlay) -->
-      <svg class="leader-lines-svg">
-        <g v-for="poi in visibleScreenPois" :key="'lead-' + poi.id">
-          <!-- 地表光标锚点 -->
-          <circle :cx="poi.anchorX" :cy="poi.anchorY" r="2.5" fill="#f59e0b" opacity="0.9" />
-          <circle :cx="poi.anchorX" :cy="poi.anchorY" r="6" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.35" />
-          <!-- 优雅折线引线 -->
-          <polyline
-            :points="`${poi.anchorX},${poi.anchorY} ${poi.elbowX},${poi.elbowY} ${poi.labelAnchorX},${poi.labelAnchorY}`"
-            fill="none"
-            :stroke="poi.id === selectedPoiId ? '#f59e0b' : 'rgba(56, 189, 248, 0.45)'"
-            :stroke-width="poi.id === selectedPoiId ? 1.6 : 1.0"
-            stroke-dasharray="3 2"
-          />
-        </g>
-      </svg>
-
-      <div
-        v-for="poi in visibleScreenPois"
+    <div v-if="currentMode === 'macro'" class="poi-overlay" :class="{ selecting: isSelecting }">
+      <span v-for="label in sceneLabels" :key="label.id" :class="['scene-label', label.role]" :style="label.style">
+        {{ label.text }}
+      </span>
+      <button
+        v-for="poi in screenPois"
         :key="poi.id"
-        class="poi-badge has-corner-bracket"
-        :class="{
-          active: selectedPoiId === poi.id,
-          expanded: hoveredPoiId === poi.id || selectedPoiId === poi.id,
-          major: poi.isMajor
-        }"
-        :style="{
-          transform: `translate(${poi.x}px, ${poi.y}px)`,
-          pointerEvents: 'auto'
-        }"
-        @mouseenter="hoveredPoiId = poi.id"
-        @mouseleave="hoveredPoiId = null"
+        type="button"
+        class="map-place"
+        :class="{ current: poi.id === selectedPoiId }"
+        :aria-pressed="poi.id === selectedPoiId"
+        :aria-label="poi.name"
+        :style="poi.style"
+        :tabindex="isSelecting ? -1 : 0"
         @click="onPoiClick(poi)"
-      >
-        <div class="poi-dot" :class="poi.type"></div>
-        <div class="poi-title">{{ poi.name }}</div>
-        <span class="poi-elev-tag" v-if="poi.elevation">{{ poi.elevation }}</span>
-        <div class="poi-sub" v-if="hoveredPoiId === poi.id || selectedPoiId === poi.id">{{ poi.badge }}</div>
-
-        <!-- 悬停即时实景微缩图卡 (150x85 Hover Quick Card) -->
-        <div v-if="hoveredPoiId === poi.id && poi.photoUrl" class="poi-hover-preview glass-panel">
-          <img :src="poi.photoUrl" :alt="poi.name" class="poi-preview-img" />
-          <div class="poi-preview-bar">
-            <span class="preview-name">{{ poi.name }}</span>
-            <span class="preview-badge">{{ poi.type === 'mountain' ? '名山天险' : (poi.type === 'capital' ? '古都源头' : '胜景地标') }}</span>
-          </div>
-        </div>
-      </div>
+      >{{ poi.label }}</button>
     </div>
 
     <!-- 历史战役军事战术标牌 (战役模式) -->
@@ -102,11 +46,6 @@
       </div>
     </div>
 
-    <!-- 加载中指示器 -->
-    <div v-if="isLoadingData" class="loading-overlay">
-      <div class="loading-spinner"></div>
-      <div class="loading-text">正在加载高精卫星遥感影像与 DEM 浮雕地形...</div>
-    </div>
   </div>
 </template>
 
@@ -116,13 +55,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import gsap from 'gsap';
 import { POI_LIST, CULTURAL_ITEMS, POETRY_SPOTS } from '../data/shaanxiData.js';
-import { CITY_BOUNDARIES, REAL_RIVERS, REAL_POIS, REAL_REGIONS, REAL_CAMPAIGN_ROUTES, REAL_SHU_ROADS, REAL_QIN_ZHIDAO } from '../data/shaanxiGeoVectors.js';
+import { CITY_BOUNDARIES, REAL_RIVERS, REAL_POIS, REAL_CAMPAIGN_ROUTES, REAL_SHU_ROADS, REAL_QIN_ZHIDAO } from '../data/shaanxiGeoVectors.js';
 import { soundscape } from '../utils/soundscape.js';
+import { findShaanxiCity, makeElevationProfile, sampleElevation, TERRAIN_EXTENT, unprojectWorld } from '../utils/geography.js';
+import { loadTerrainTexture, loadTerrainDem, clearSceneGroup } from '../utils/terrainResources.js';
+import { createTerrainSurface, updateTerrainSurface, updateTerrainAnalysis, surfaceHeightAt } from '../utils/terrainSurface.js';
+import { bonsaiTileWidthKm } from '../utils/bonsaiTerrain.js';
 
 const props = defineProps({
   currentMode: { type: String, default: 'macro' }, // 'macro' | 'bonsai' | 'model' | 'campaign'
   activeBonsaiId: { type: String, default: 'bonsai_huashan' },
-  bonsaiExaggeration: { type: Number, default: 1.5 },
+  bonsaiExaggeration: { type: Number, default: 5 },
   activeModelStage: { type: Number, default: 1 },
   activeCampaign: { type: Object, default: null },
   activeCampaignStageIndex: { type: Number, default: 0 },
@@ -135,12 +78,19 @@ const props = defineProps({
   },
   activeLabId: { type: String, default: 'loess' },
   currentTectonicStage: { type: Number, default: 0 },
-  activeChapterId: { type: String, default: 'geo_01' },
+  cameraRequest: { type: Object, default: null },
+  safeFrame: { type: Object, default: null },
+  history: Boolean,
+  guideStep: { type: Number, default: -1 },
+  guideLabels: { type: Array, default: null },
+  isGuidePicking: Boolean,
+  isProbing: Boolean,
+  isProfileVisible: Boolean,
+  reducedMotion: Boolean,
   isProfilingActive: { type: Boolean, default: false },
   isRoadbookActive: { type: Boolean, default: false },
   isChallengeActive: { type: Boolean, default: false },
-  isPortalActive: { type: Boolean, default: true },
-  isPanelOpen: { type: Boolean, default: false }
+  isPortalActive: Boolean
 });
 
 const emit = defineEmits([
@@ -150,54 +100,60 @@ const emit = defineEmits([
   'challenge-click',
   'select-culture',
   'select-poetry',
-  'cancel-profiling',
+  'profile-step',
+  'terrain-status',
+  'guide-point',
+  'map-gesture',
   'roadbook-point-added',
   'spin-360-status',
   'geo-telemetry'
 ]);
 
 const containerRef = ref(null);
-const selectedPoiId = ref('xian');
-const hoveredPoiId = ref(null);
+const selectedPoiId = ref(null);
+const sceneLabels = ref([]);
 const screenPois = ref([]);
 const screenCheckpoints = ref([]);
-const isLoadingData = ref(true);
-const profilingStep = ref(1);
+const isSelecting = computed(() => props.isGuidePicking || props.isProbing || props.isProfilingActive
+  || props.isChallengeActive || props.isRoadbookActive);
+const shortNames = {
+  xian: '西安', yanan: '延安', yulin: '榆林', hanzhong: '汉中', ankang: '安康',
+  baoji: '宝鸡', taibai: '太白山', huashan: '华山', hukou: '壶口瀑布', bingmayong: '兵马俑'
+};
+const corePlaces = new Set(['xian', 'yulin', 'yanan', 'hanzhong', 'taibai']);
+const renderedLayers = new Set();
+let viewportObserver;
+let terrainSurface;
+let demRaster = null;
+let boundaries = null;
+let destroyed = false;
+let mobile = false;
+let status = 'loading';
+let cameraTween = null;
+let lastCameraReadout = null;
+let guideMarker;
+let cursorMarker;
+let terrainReticleMesh = null;
 const isSpinning360 = ref(false);
 let spinTween = null;
 let middleDownPos = { x: 0, y: 0, time: 0 };
-let terrainReticleMesh = null;
-
 let scene, camera, renderer, controls;
 let macroGroup, bonsaiGroup, modelGroup, campaignGroup;
-let borderSubGroup, riversSubGroup, qinlingSubGroup, silkRoadSubGroup, poisSubGroup, culturalSubGroup, profilingMeasureGroup, citiesSubGroup;
+let borderSubGroup, riversSubGroup, qinlingSubGroup, silkRoadSubGroup, culturalSubGroup, profilingMeasureGroup, citiesSubGroup;
 let shuRoadsSubGroup, qinZhiDaoSubGroup, poetrySubGroup, valleyMistGroup;
 let terrainMesh, sunLight, skyFillLight, starfieldMesh;
-let silkRoadLine = null;
-let qinlingLineMesh = null;
 let animFrameId = null;
-let flowOffset = 0;
-let demCanvas = null;
+let lastFrameTime = 0;
 
 // 动态信标与高阶渲染动画追踪
-let animatedCrystals = [];
-let animatedSonarRings = [];
-let silkRoadParticles = null;
-let riverMeshes = [];
 let animatedValleyMist = [];
-let caravanParticles = null;
 let animatedPoetryBeacons = [];
 
-// 四季片元着色器 Uniforms
-let seasonUniforms = {
-  uSeason: { value: 0.0 },
-  uPrevSeason: { value: 0.0 },
-  uSeasonBlend: { value: 1.0 }
-};
-
-// GIS 分析着色器 Uniforms
-let gisUniforms = {
-  uGisMode: { value: 0.0 }
+const terrainUniforms = {
+  seasons: { value: 0 },
+  mapStyle: { value: 0 },
+  historyMix: { value: 0 },
+  provinceView: { value: 0 }
 };
 
 const seasonCodeMap = {
@@ -212,6 +168,7 @@ const seasonCodeMap = {
 let roadbookGroup = null;
 let currentRoadbookRoute = null;
 let fpvActive = false;
+let fpvPaused = false;
 let fpvCurve = null;
 let fpvProgress = 0;
 let fpvSpeed = 0.00065;
@@ -224,14 +181,10 @@ let loessWaterParticles = null;
 let climateNorthParticles = null;
 let climateSouthParticles = null;
 let winterSnowParticles = null;
+let bonsaiBuild = 0;
 let globeMesh = null;
 let tectonicQinlingMesh = null;
 let tectonicGrabenMesh = null;
-
-const visibleScreenPois = computed(() => {
-  return screenPois.value.filter(p => p.visible);
-});
-
 
 function applyResponsiveCameraFov(width, height) {
   if (!camera) return;
@@ -244,34 +197,42 @@ function applyResponsiveCameraFov(width, height) {
 const initThree = () => {
   const width = containerRef.value.clientWidth;
   const height = containerRef.value.clientHeight;
-  const isMobileViewport = width <= 768 || navigator.maxTouchPoints > 0;
+  mobile = width <= 760 || navigator.maxTouchPoints > 0;
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x06090e);
-  scene.fog = new THREE.FogExp2(0x06090e, 0.0032);
+  scene.background = new THREE.Color(0x112b30);
+  scene.fog = new THREE.FogExp2(0x112b30, 0.0014);
 
   camera = new THREE.PerspectiveCamera(40, width / Math.max(1, height), 0.1, 1500);
   applyResponsiveCameraFov(width, height);
   camera.updateProjectionMatrix();
   camera.position.set(0, 95, 125);
 
-  renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: false,
-    powerPreference: 'high-performance',
-    preserveDrawingBuffer: true
-  });
+  try {
+    renderer = new THREE.WebGLRenderer({
+      antialias: !mobile,
+      alpha: false,
+      powerPreference: 'high-performance'
+    });
+  } catch {
+    setTerrainStatus('static');
+    return;
+  }
+  renderer.domElement.addEventListener('webglcontextlost', onContextLost);
+  renderer.domElement.tabIndex = 0;
+  renderer.domElement.setAttribute('aria-label', '三维地形。拖动旋转，滚轮缩放。选点时按回车标记地图中心。');
+  renderer.domElement.addEventListener('keydown', onMapKeydown);
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileViewport ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.75));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.18;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMappingExposure = 1.12;
   containerRef.value.appendChild(renderer.domElement);
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.05;
+  controls.dampingFactor = 0.17;
+  controls.target.set(0, 4, 0);
+  controls.addEventListener('change', requestRender);
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.minDistance = 8;
   controls.maxDistance = 420;
@@ -287,25 +248,14 @@ const initThree = () => {
   };
 
   // 电影级分层多光源光照系统
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+  const ambientLight = new THREE.AmbientLight(0xf5f1e4, 1.12);
   scene.add(ambientLight);
 
   sunLight = new THREE.DirectionalLight(0xffedd5, 2.2);
   sunLight.position.set(70, 110, 50);
-  sunLight.castShadow = true;
-  const shadowRes = isMobileViewport ? 1024 : 4096;
-  sunLight.shadow.mapSize.width = shadowRes;
-  sunLight.shadow.mapSize.height = shadowRes;
-  sunLight.shadow.bias = -0.00008;
-  sunLight.shadow.camera.near = 10;
-  sunLight.shadow.camera.far = 400;
-  sunLight.shadow.camera.left = -90;
-  sunLight.shadow.camera.right = 90;
-  sunLight.shadow.camera.top = 90;
-  sunLight.shadow.camera.bottom = -90;
   scene.add(sunLight);
 
-  skyFillLight = new THREE.DirectionalLight(0x38bdf8, 0.65);
+  skyFillLight = new THREE.DirectionalLight(0xc5dfd9, 0.62);
   skyFillLight.position.set(-60, 45, -60);
   scene.add(skyFillLight);
 
@@ -323,7 +273,6 @@ const initThree = () => {
   qinZhiDaoSubGroup = new THREE.Group();
   poetrySubGroup = new THREE.Group();
   valleyMistGroup = new THREE.Group();
-  poisSubGroup = new THREE.Group();
   culturalSubGroup = new THREE.Group();
   profilingMeasureGroup = new THREE.Group();
   citiesSubGroup = new THREE.Group();
@@ -336,15 +285,13 @@ const initThree = () => {
   macroGroup.add(qinZhiDaoSubGroup);
   macroGroup.add(poetrySubGroup);
   macroGroup.add(valleyMistGroup);
-  macroGroup.add(poisSubGroup);
   macroGroup.add(culturalSubGroup);
   macroGroup.add(profilingMeasureGroup);
   macroGroup.add(citiesSubGroup);
 
-  buildStarfield();
 
   renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown);
-  renderer.domElement.addEventListener('pointermove', onCanvasPointerMove);
+  renderer.domElement.addEventListener('pointercancel', resetPointerGesture);
   renderer.domElement.addEventListener('pointerup', onCanvasPointerUp);
   renderer.domElement.addEventListener('auxclick', onAuxClick);
   renderer.domElement.addEventListener('wheel', onCanvasWheel, { passive: true });
@@ -360,7 +307,7 @@ const initThree = () => {
   });
   terrainReticleMesh = new THREE.Mesh(reticleRingGeo, reticleMat);
   terrainReticleMesh.visible = false;
-  scene.add(terrainReticleMesh);
+  macroGroup.add(terrainReticleMesh);
 
   const crossGeo = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-1.8, 0, 0), new THREE.Vector3(1.8, 0, 0),
@@ -378,833 +325,154 @@ const initThree = () => {
   modelGroup.visible = false;
   campaignGroup.visible = false;
 
+  viewportObserver = new ResizeObserver(onWindowResize);
+  viewportObserver.observe(containerRef.value);
+  if (props.safeFrame) viewportObserver.observe(props.safeFrame);
+  document.addEventListener('visibilitychange', onVisibility);
+  onWindowResize();
+  setLighting(props.lightingMode);
+  setSeason(props.seasonMode);
+  setGisMode(props.gisMode);
+  terrainUniforms.historyMix.value = Number(props.history);
+  applyMode(props.currentMode);
+  if (props.currentMode === 'macro' && props.cameraRequest) applyCameraRequest(props.cameraRequest, true);
   loadRealTerrainAssets();
-
-  window.addEventListener('resize', onWindowResize);
-  animate();
 };
 
-// 异步加载高精影像、Sobel法线贴图与 DEM 高程
-function loadRealTerrainAssets() {
-  const textureLoader = new THREE.TextureLoader();
-  const baseUrl = import.meta.env.BASE_URL || './';
-  const prefix = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
-
-  const satUrl = prefix + 'textures/shaanxi_satellite_spotlight.jpg';
-  const normalUrl = prefix + 'textures/shaanxi_normal.png';
-  const demUrl = prefix + 'textures/shaanxi_dem.png';
-
-  // 8秒兜底安全计时器，防止在极端弱网或离线环境下遮罩死锁
-  setTimeout(() => {
-    if (isLoadingData.value) {
-      console.warn('Terrain assets load timeout fallback activated.');
-      isLoadingData.value = false;
-    }
-  }, 8000);
-
-  textureLoader.load(
-    satUrl,
-    (satTexture) => {
-      satTexture.colorSpace = THREE.SRGBColorSpace;
-      satTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      satTexture.generateMipmaps = true;
-
-      textureLoader.load(
-        normalUrl,
-        (normalTexture) => {
-          normalTexture.generateMipmaps = true;
-
-          const demImg = new Image();
-          demImg.crossOrigin = 'anonymous';
-          demImg.src = demUrl;
-          demImg.onload = () => {
-            try {
-              demCanvas = document.createElement('canvas');
-              demCanvas.width = demImg.width;
-              demCanvas.height = demImg.height;
-              const ctx = demCanvas.getContext('2d');
-              ctx.drawImage(demImg, 0, 0);
-
-              buildRealMacroTerrain(satTexture, normalTexture, ctx, demCanvas.width, demCanvas.height);
-              buildShaanxiBorder();
-              buildRivers();
-              buildQinlingLine();
-              buildSilkRoad();
-              buildProceduralCities();
-              buildHistoricalRoads();
-              buildPoetrySpots();
-              buildValleyMist();
-              buildSpatialPins();
-              buildCulturalHotspots();
-              buildBonsaiBlock();
-              buildEvolutionModel();
-              buildCampaignVisuals();
-            } catch (err) {
-              console.error('Error initializing 3D terrain assets:', err);
-            } finally {
-              isLoadingData.value = false;
-            }
-          };
-          demImg.onerror = () => {
-            try {
-              buildRealMacroTerrain(satTexture, normalTexture, null, 0, 0);
-              buildShaanxiBorder();
-              buildRivers();
-              buildQinlingLine();
-              buildSilkRoad();
-              buildProceduralCities();
-              buildHistoricalRoads();
-              buildPoetrySpots();
-              buildValleyMist();
-              buildSpatialPins();
-              buildBonsaiBlock();
-              buildEvolutionModel();
-              buildCampaignVisuals();
-            } catch (e) {
-              console.error(e);
-            } finally {
-              isLoadingData.value = false;
-            }
-          };
-        },
-        undefined,
-        () => {
-          buildRealMacroTerrain(satTexture, null, null, 0, 0);
-          isLoadingData.value = false;
-        }
-      );
-    },
-    undefined,
-    () => {
-      buildRealMacroTerrain(null, null, null, 0, 0);
-      isLoadingData.value = false;
-    }
-  );
+function setTerrainStatus(value) {
+  status = value;
+  emit('terrain-status', value);
 }
 
-// 构建带实心垂直岩层封边 (Terrain Skirt) 的宏观三维地貌沙盘
-function buildRealMacroTerrain(satTexture, normalTexture, demCtx, demW, demH) {
-  const width = 80;
-  const depth = 140;
-  const segX = 220;
-  const segZ = 300;
-
-  const geo = new THREE.PlaneGeometry(width, depth, segX, segZ);
-  geo.rotateX(-Math.PI / 2);
-
-  const pos = geo.attributes.position;
-  let demData = null;
-  if (demCtx) {
-    try {
-      demData = demCtx.getImageData(0, 0, demW, demH).data;
-    } catch (e) {
-      console.warn('DEM getImageData failed, falling back to analytic formula:', e);
-    }
-  }
-
-  // 1. 根据 DEM 置换网格顶部高程 (双线性插值消除锯齿阶梯伪影)
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-
-    const u = (x / width) + 0.5;
-    const v = (z / depth) + 0.5;
-
-    let h = 0;
-    if (demData && u >= 0 && u <= 1 && v >= 0 && v <= 1) {
-      const fx = u * (demW - 1);
-      const fy = v * (demH - 1);
-      const x0 = Math.floor(fx);
-      const y0 = Math.floor(fy);
-      const x1 = Math.min(x0 + 1, demW - 1);
-      const y1 = Math.min(y0 + 1, demH - 1);
-      const rx = fx - x0;
-      const ry = fy - y0;
-
-      const p00 = demData[(y0 * demW + x0) * 4];
-      const p10 = demData[(y0 * demW + x1) * 4];
-      const p01 = demData[(y1 * demW + x0) * 4];
-      const p11 = demData[(y1 * demW + x1) * 4];
-
-      const val = (p00 * (1 - rx) + p10 * rx) * (1 - ry) + (p01 * (1 - rx) + p11 * rx) * ry;
-      h = Math.pow(val / 255.0, 1.08) * 18.5;
-    } else {
-      h = (z > 12) ? Math.max(0, 1 - Math.abs(z - 18) / 14) * 14 : 1.5;
-    }
-    pos.setY(i, h);
-  }
-  geo.computeVertexNormals();
-
-  const mat = new THREE.MeshStandardMaterial({
-    map: satTexture || null,
-    normalMap: normalTexture || null,
-    normalScale: normalTexture ? new THREE.Vector2(1.85, 1.85) : new THREE.Vector2(1, 1),
-    color: satTexture ? 0xffffff : 0x78716c,
-    roughness: 0.82,
-    metalness: 0.08,
-    flatShading: false
-  });
-
-  // 注入四季地貌与电影级天光散射片元着色器 (GLSL Atmospheric Shader)
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uSeason = seasonUniforms.uSeason;
-    shader.uniforms.uPrevSeason = seasonUniforms.uPrevSeason;
-    shader.uniforms.uSeasonBlend = seasonUniforms.uSeasonBlend;
-    shader.uniforms.uGisMode = gisUniforms.uGisMode;
-    mat.userData.uGisMode = gisUniforms.uGisMode;
-
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <common>',
-      `#include <common>
-       varying vec3 vTerrainWorldPos;`
-    );
-
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-       vTerrainWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;`
-    );
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <common>',
-      `#include <common>
-       uniform float uSeason;
-       uniform float uPrevSeason;
-       uniform float uSeasonBlend;
-       uniform float uGisMode;
-       varying vec3 vTerrainWorldPos;
-
-       vec3 calcSeasonCol(float s, vec3 orig, vec3 pos) {
-         if (s < 0.5) return orig;
-         float h = pos.y;
-         float z = pos.z;
-         
-         if (s < 1.5) {
-           // 春·秦巴花海与关中新绿
-           float flowerMask = smoothstep(18.0, 32.0, z) * (1.0 - smoothstep(4.0, 9.0, h));
-           vec3 rapeseedGold = vec3(0.96, 0.82, 0.16);
-           vec3 springGreen = vec3(0.38, 0.68, 0.28);
-           vec3 col = mix(orig, springGreen, 0.35);
-           col = mix(col, rapeseedGold, flowerMask * 0.72);
-           if (h > 13.5) col = mix(col, vec3(0.92, 0.96, 1.0), 0.4);
-           return col;
-         } else if (s < 2.5) {
-           // 夏·翠峦云海
-           vec3 lushEmerald = vec3(0.16, 0.52, 0.20);
-           vec3 deepForest = vec3(0.10, 0.40, 0.16);
-           float mountainMask = smoothstep(2.5, 9.0, h);
-           vec3 forest = mix(lushEmerald, deepForest, mountainMask);
-           return mix(orig, forest, 0.48);
-         } else if (s < 3.5) {
-           // 秋·太白金枫与高原暖阳
-           vec3 loessWarm = vec3(0.86, 0.64, 0.28);
-           float loessMask = 1.0 - smoothstep(-8.0, 16.0, z);
-           float mapleMask = smoothstep(0.0, 16.0, z) * smoothstep(4.2, 7.8, h) * (1.0 - smoothstep(12.5, 15.0, h));
-           vec3 mapleRed = vec3(0.86, 0.28, 0.16);
-           vec3 larchGold = vec3(0.92, 0.70, 0.18);
-           vec3 foliage = mix(larchGold, mapleRed, 0.62);
-           vec3 col = mix(orig, loessWarm, loessMask * 0.42);
-           col = mix(col, foliage, mapleMask * 0.70);
-           return col;
-         } else {
-           // 冬·北国雪原与秦岭冰封 (动量雪线覆盖)
-           float northSnow = 1.0 - smoothstep(-25.0, 10.0, z);
-           float altitudeSnow = smoothstep(5.0, 9.8, h);
-           float snowMask = clamp(northSnow * 0.88 + altitudeSnow * 0.95, 0.0, 1.0);
-           float shannanProtect = smoothstep(24.0, 42.0, z) * (1.0 - smoothstep(3.5, 7.5, h));
-           snowMask *= (1.0 - shannanProtect * 0.85);
-           vec3 snowCol = vec3(0.95, 0.97, 1.02);
-           return mix(orig * vec3(0.82, 0.88, 0.96), snowCol, snowMask * 0.86);
-         }
-       }`
-    );
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <map_fragment>',
-      `#include <map_fragment>
-       // 1. 四季色彩过渡
-       vec3 colPrev = calcSeasonCol(uPrevSeason, diffuseColor.rgb, vTerrainWorldPos);
-       vec3 colCurr = calcSeasonCol(uSeason, diffuseColor.rgb, vTerrainWorldPos);
-       vec3 baseCol = mix(colPrev, colCurr, uSeasonBlend);
-
-       // 2. 电影级大气天光 Fresnel 散射边缘微光 (Atmospheric Rim Glow)
-       vec3 viewDir = normalize(cameraPosition - vTerrainWorldPos);
-       float vDotN = max(dot(viewDir, normalize(vNormal)), 0.0);
-       float rimFactor = pow(1.0 - vDotN, 3.2);
-       vec3 rimScattering = vec3(0.22, 0.45, 0.72) * rimFactor * 0.38;
-
-       // 3. 高海拔太白/华山花岗岩雪峰极顶高光 (Alpine Hypsometric Crest Highlight)
-       float alpineMask = smoothstep(13.8, 18.5, vTerrainWorldPos.y);
-       vec3 peakSnowTint = vec3(0.96, 0.98, 1.05);
-       baseCol = mix(baseCol, peakSnowTint, alpineMask * 0.28);
-
-       // 4. 陕北暖黄土高原台地微光漫射
-       float loessWarmth = (1.0 - smoothstep(-6.0, 12.0, vTerrainWorldPos.z)) * smoothstep(2.5, 8.0, vTerrainWorldPos.y);
-       baseCol = mix(baseCol, baseCol * vec3(1.08, 1.02, 0.90), loessWarmth * 0.22);
-       baseCol += rimScattering;
-
-       // 5. GIS 专业专题分析着色器 (GIS Shader Modes)
-       if (uGisMode > 0.5 && uGisMode < 1.5) {
-         // [1.0] 高程分层设色模式 (Hypsometric Tinting)
-         float th = vTerrainWorldPos.y;
-         vec3 cLow = vec3(0.12, 0.54, 0.28);    // 渭河/汉江低平原 (<450m)
-         vec3 cLoess = vec3(0.88, 0.64, 0.22);  // 黄土塬梁 (600-1300m)
-         vec3 cMtn = vec3(0.45, 0.25, 0.12);    // 秦巴中山带 (1300-2600m)
-         vec3 cSnow = vec3(0.96, 0.98, 1.02);   // 太白冰川极顶 (>2800m)
-         vec3 hypCol = cLow;
-         if (th < 3.2) {
-           hypCol = mix(cLow, cLoess, smoothstep(1.0, 3.2, th));
-         } else if (th < 10.5) {
-           hypCol = mix(cLoess, cMtn, smoothstep(3.2, 10.5, th));
-         } else {
-           hypCol = mix(cMtn, cSnow, smoothstep(10.5, 17.5, th));
-         }
-         // 叠加微弱等高线条带
-         float iso = abs(fract(th * 0.6) - 0.5);
-         if (iso < 0.04) hypCol *= 1.18;
-         diffuseColor.rgb = hypCol;
-       } else if (uGisMode > 1.5 && uGisMode < 2.5) {
-         // [2.0] 地形坡度陡缓分析 (Slope Steepness: 法线法)
-         float slope = 1.0 - abs(vNormal.y);
-         vec3 cFlat = vec3(0.12, 0.68, 0.45);   // 平原沃野 (<10°)
-         vec3 cMed = vec3(0.95, 0.75, 0.18);    // 缓坡梯田 (10-35°)
-         vec3 cSteep = vec3(0.92, 0.18, 0.15);  // 绝壁险峰 (>35° 华山断崖)
-         vec3 slopeCol = mix(cFlat, cMed, smoothstep(0.12, 0.38, slope));
-         slopeCol = mix(slopeCol, cSteep, smoothstep(0.38, 0.72, slope));
-         diffuseColor.rgb = slopeCol;
-       } else if (uGisMode > 2.5) {
-         // [3.0] 秦汉青绿山水水墨古卷 (Ancient Ink & Gold)
-         vec3 paper = vec3(0.92, 0.86, 0.74);   // 宣纸陈黄底色
-         float ridge = 1.0 - abs(dot(vNormal, vec3(0.0, 1.0, 0.0)));
-         vec3 malachite = vec3(0.06, 0.42, 0.32);// 矿物石青
-         vec3 inkDark = vec3(0.12, 0.10, 0.09); // 焦墨皴法
-         vec3 inkCol = mix(paper, malachite, smoothstep(0.18, 0.62, ridge));
-         if (vTerrainWorldPos.y > 11.5) inkCol = mix(inkCol, inkDark, 0.55);
-         diffuseColor.rgb = inkCol;
-       } else {
-         diffuseColor.rgb = baseCol;
-       }`
-    );
-  };
-
-  terrainMesh = new THREE.Mesh(geo, mat);
-  terrainMesh.receiveShadow = true;
-  terrainMesh.castShadow = true;
-  macroGroup.add(terrainMesh);
-
-  // 2. 严丝合缝的实心垂直地质岩壁 (Terrain Skirt - 根除四周悬空)
-  const skirtPositions = [];
-  const skirtNormals = [];
-  const baseDepth = -2.0;
-
-  const addSkirtSegment = (x1, y1, z1, x2, y2, z2, nx, nz) => {
-    skirtPositions.push(x1, y1, z1, x1, baseDepth, z1, x2, y1, z2);
-    skirtPositions.push(x2, y1, z2, x1, baseDepth, z1, x2, baseDepth, z2);
-    for (let k = 0; k < 6; k++) skirtNormals.push(nx, 0, nz);
-  };
-
-  const getIdx = (ix, iz) => iz * (segX + 1) + ix;
-
-  for (let ix = 0; ix < segX; ix++) {
-    const idx1 = getIdx(ix, 0), idx2 = getIdx(ix + 1, 0);
-    addSkirtSegment(pos.getX(idx1), pos.getY(idx1), pos.getZ(idx1), pos.getX(idx2), pos.getY(idx2), pos.getZ(idx2), 0, -1);
-  }
-  for (let iz = 0; iz < segZ; iz++) {
-    const idx1 = getIdx(segX, iz), idx2 = getIdx(segX, iz + 1);
-    addSkirtSegment(pos.getX(idx1), pos.getY(idx1), pos.getZ(idx1), pos.getX(idx2), pos.getY(idx2), pos.getZ(idx2), 1, 0);
-  }
-  for (let ix = segX; ix > 0; ix--) {
-    const idx1 = getIdx(ix, segZ), idx2 = getIdx(ix - 1, segZ);
-    addSkirtSegment(pos.getX(idx1), pos.getY(idx1), pos.getZ(idx1), pos.getX(idx2), pos.getY(idx2), pos.getZ(idx2), 0, 1);
-  }
-  for (let iz = segZ; iz > 0; iz--) {
-    const idx1 = getIdx(0, iz), idx2 = getIdx(0, iz - 1);
-    addSkirtSegment(pos.getX(idx1), pos.getY(idx1), pos.getZ(idx1), pos.getX(idx2), pos.getY(idx2), pos.getZ(idx2), -1, 0);
-  }
-
-  const skirtGeo = new THREE.BufferGeometry();
-  skirtGeo.setAttribute('position', new THREE.Float32BufferAttribute(skirtPositions, 3));
-  skirtGeo.setAttribute('normal', new THREE.Float32BufferAttribute(skirtNormals, 3));
-
-  const skirtMat = new THREE.MeshStandardMaterial({
-    color: 0x0f172a,
-    roughness: 0.88,
-    metalness: 0.18
-  });
-
-  // 沉积岩层地质水平层理纹理 (Geological Strata Shading)
-  skirtMat.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <common>',
-      `#include <common>
-       varying vec3 vSkirtWorldPos;`
-    );
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-       vSkirtWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;`
-    );
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <common>',
-      `#include <common>
-       varying vec3 vSkirtWorldPos;`
-    );
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <dithering_fragment>',
-      `#include <dithering_fragment>
-       float strataBand = sin(vSkirtWorldPos.y * 3.5) * 0.4 + sin(vSkirtWorldPos.y * 10.0) * 0.2;
-       vec3 strataRock = mix(vec3(0.06, 0.10, 0.16), vec3(0.14, 0.20, 0.28), strataBand * 0.5 + 0.5);
-       gl_FragColor.rgb = mix(gl_FragColor.rgb, strataRock, 0.65);`
-    );
-  };
-  const skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
-  skirtMesh.castShadow = true;
-  skirtMesh.receiveShadow = true;
-  macroGroup.add(skirtMesh);
-
-  // 3. 黑曜石双层重阶典藏底座 (Tiered Museum Pedestal)
-  // 上阶：黑曜石托盘 + 蔚蓝高光边线
-  const upperPedestalGeo = new THREE.BoxGeometry(84.4, 2.2, 144.4);
-  const upperPedestalMat = new THREE.MeshStandardMaterial({
-    color: 0x070c16,
-    roughness: 0.35,
-    metalness: 0.88
-  });
-  const upperPedestal = new THREE.Mesh(upperPedestalGeo, upperPedestalMat);
-  upperPedestal.position.set(0, -3.1, 0);
-  macroGroup.add(upperPedestal);
-
-  const upperRimGeo = new THREE.EdgesGeometry(upperPedestalGeo);
-  const upperRimMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.55 });
-  upperPedestal.add(new THREE.LineSegments(upperRimGeo, upperRimMat));
-
-  // 下阶：秦汉错金重阶台座 + 典雅朱金倒角边线
-  const lowerPedestalGeo = new THREE.BoxGeometry(88.8, 1.8, 148.8);
-  const lowerPedestalMat = new THREE.MeshStandardMaterial({
-    color: 0x03060b,
-    roughness: 0.5,
-    metalness: 0.8
-  });
-  const lowerPedestal = new THREE.Mesh(lowerPedestalGeo, lowerPedestalMat);
-  lowerPedestal.position.set(0, -5.0, 0);
-  macroGroup.add(lowerPedestal);
-
-  const lowerRimGeo = new THREE.EdgesGeometry(lowerPedestalGeo);
-  const lowerRimMat = new THREE.LineBasicMaterial({ color: 0xd97706, transparent: true, opacity: 0.65 });
-  lowerPedestal.add(new THREE.LineSegments(lowerRimGeo, lowerRimMat));
-
-  // 4. 错金经纬刻度与四神兽罗盘环 (Celestial Graticule & Four Guardians Compass)
-  const compassGeo = new THREE.PlaneGeometry(260, 260);
-  compassGeo.rotateX(-Math.PI / 2);
-
-  const compassCanvas = document.createElement('canvas');
-  compassCanvas.width = 2048;
-  compassCanvas.height = 2048;
-  const cCtx = compassCanvas.getContext('2d');
-
-  // 外同心罗盘金环与刻度线
-  const center = 1024;
-  cCtx.lineWidth = 2.5;
-  cCtx.strokeStyle = 'rgba(217, 119, 6, 0.32)';
-  [380, 560, 760, 920, 990].forEach(r => {
-    cCtx.beginPath();
-    cCtx.arc(center, center, r, 0, Math.PI * 2);
-    cCtx.stroke();
-  });
-
-  cCtx.lineWidth = 1.2;
-  cCtx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
-  [470, 660, 840].forEach(r => {
-    cCtx.beginPath();
-    cCtx.arc(center, center, r, 0, Math.PI * 2);
-    cCtx.stroke();
-  });
-
-  // 360 度细密刻度辐射短线
-  for (let deg = 0; deg < 360; deg += 3) {
-    const rad = (deg * Math.PI) / 180;
-    const isMajor = deg % 30 === 0;
-    const isMid = deg % 10 === 0;
-    const rStart = 920;
-    const rEnd = isMajor ? 990 : (isMid ? 965 : 942);
-    cCtx.strokeStyle = isMajor ? 'rgba(245, 158, 11, 0.6)' : (isMid ? 'rgba(56, 189, 248, 0.35)' : 'rgba(148, 163, 184, 0.18)');
-    cCtx.lineWidth = isMajor ? 2.5 : 1.2;
-    cCtx.beginPath();
-    cCtx.moveTo(center + Math.cos(rad) * rStart, center + Math.sin(rad) * rStart);
-    cCtx.lineTo(center + Math.cos(rad) * rEnd, center + Math.sin(rad) * rEnd);
-    cCtx.stroke();
-  }
-
-  // 经纬十字正交标尺线
-  cCtx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
-  cCtx.lineWidth = 1.5;
-  cCtx.beginPath(); cCtx.moveTo(0, center); cCtx.lineTo(2048, center); cCtx.stroke();
-  cCtx.beginPath(); cCtx.moveTo(center, 0); cCtx.lineTo(center, 2048); cCtx.stroke();
-
-  // 四神兽与主罗盘方位印记
-  cCtx.textAlign = 'center';
-  cCtx.textBaseline = 'middle';
-
-  // 北 · 玄武
-  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
-  cCtx.fillStyle = '#f59e0b';
-  cCtx.fillText('玄武 · 北极 000° N', center, 65);
-  cCtx.font = '18px monospace';
-  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
-  cCtx.fillText('39°00\'00"N | 陕北神木极北之界', center, 102);
-
-  // 南 · 朱雀
-  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
-  cCtx.fillStyle = '#f59e0b';
-  cCtx.fillText('朱雀 · 南极 180° S', center, 1980);
-  cCtx.font = '18px monospace';
-  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
-  cCtx.fillText('31°42\'00"N | 大巴山镇巴南陲之境', center, 1945);
-
-  // 东 · 青龙
-  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
-  cCtx.fillStyle = '#f59e0b';
-  cCtx.fillText('青龙 · 东极 090° E', 1940, center - 20);
-  cCtx.font = '18px monospace';
-  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
-  cCtx.fillText('111°15\'E', 1940, center + 18);
-
-  // 西 · 白虎
-  cCtx.font = 'bold 28px "Cinzel", "Songti SC", serif';
-  cCtx.fillStyle = '#f59e0b';
-  cCtx.fillText('白虎 · 西极 270° W', 110, center - 20);
-  cCtx.font = '18px monospace';
-  cCtx.fillStyle = 'rgba(56, 189, 248, 0.65)';
-  cCtx.fillText('105°29\'E', 110, center + 18);
-
-  // 经纬格网标尺注记
-  cCtx.font = 'bold 19px monospace';
-  cCtx.fillStyle = 'rgba(217, 119, 6, 0.55)';
-  cCtx.fillText('106°E', center - 460, center - 14);
-  cCtx.fillText('108°E', center - 160, center - 14);
-  cCtx.fillText('110°E', center + 260, center - 14);
-  cCtx.fillText('34°N (秦岭主脊)', center + 18, center - 240);
-  cCtx.fillText('36°N (延安黄土)', center + 18, center - 540);
-  cCtx.fillText('38°N (长城榆林)', center + 18, center - 780);
-
-  const compassTex = new THREE.CanvasTexture(compassCanvas);
-  const compassMat = new THREE.MeshBasicMaterial({
-    map: compassTex,
-    transparent: true,
-    opacity: 0.85,
-    depthWrite: false
-  });
-  const compassMesh = new THREE.Mesh(compassGeo, compassMat);
-  compassMesh.position.set(0, -5.85, 0);
-  macroGroup.add(compassMesh);
-
-  // 5. 南侧典藏级错金青铜铭牌 (Museum Collection Plaque)
-  const plaqueCanvas = document.createElement('canvas');
-  plaqueCanvas.width = 1024;
-  plaqueCanvas.height = 256;
-  const pCtx = plaqueCanvas.getContext('2d');
-
-  pCtx.fillStyle = '#0a0f1d';
-  pCtx.fillRect(0, 0, 1024, 256);
-
-  // 双道错金回纹边框
-  pCtx.strokeStyle = '#d97706';
-  pCtx.lineWidth = 4;
-  pCtx.strokeRect(12, 12, 1000, 232);
-  pCtx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-  pCtx.lineWidth = 1.5;
-  pCtx.strokeRect(20, 20, 984, 216);
-
-  // 四角金石折角
-  const drawCorner = (x, y, dx, dy) => {
-    pCtx.strokeStyle = '#f59e0b';
-    pCtx.lineWidth = 3;
-    pCtx.beginPath();
-    pCtx.moveTo(x, y + dy * 16);
-    pCtx.lineTo(x, y);
-    pCtx.lineTo(x + dx * 16, y);
-    pCtx.stroke();
-  };
-  drawCorner(26, 26, 1, 1);
-  drawCorner(998, 26, -1, 1);
-  drawCorner(26, 230, 1, -1);
-  drawCorner(998, 230, -1, -1);
-
-  // 标题与副标题
-  pCtx.textAlign = 'center';
-  pCtx.textBaseline = 'middle';
-  pCtx.fillStyle = '#fef08a';
-  pCtx.font = 'bold 42px "Songti SC", "SimSun", serif';
-  pCtx.fillText('三秦大地 · 三维数字地貌与文明孪生沙盘', 512, 78);
-
-  pCtx.fillStyle = '#38bdf8';
-  pCtx.font = '600 20px monospace';
-  pCtx.fillText('SHAANXI 3D TERRAIN TWIN | DEM 30M · QIN-HAN SHU ROADS', 512, 134);
-
-  pCtx.fillStyle = 'rgba(203, 213, 225, 0.75)';
-  pCtx.font = '16px monospace';
-  pCtx.fillText('NORTH LAT 31°42′ ~ 39°35′ · EAST LNG 105°29′ ~ 111°15′ · ELEV 180M ~ 3771M', 512, 182);
-
-  const plaqueTex = new THREE.CanvasTexture(plaqueCanvas);
-  const plaqueGeo = new THREE.PlaneGeometry(36, 9);
-  const plaqueMat = new THREE.MeshBasicMaterial({
-    map: plaqueTex,
-    side: THREE.DoubleSide
-  });
-  const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat);
-  // 南侧朝外倾斜22度让镜头完美俯视
-  plaqueMesh.position.set(0, -3.8, 75.2);
-  plaqueMesh.rotation.x = -0.38;
-  macroGroup.add(plaqueMesh);
+function onContextLost(event) {
+  event.preventDefault();
+  setTerrainStatus('static');
+  cancelMotion();
 }
 
-// 绘制全省十地市真实矢量境界 (低噪点细虚线，杜绝粗暴切割)
+function committedTexture(texture) {
+  if (!texture) return null;
+  if (destroyed) {
+    texture.dispose();
+    return null;
+  }
+  texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  return texture;
+}
+
+async function loadRealTerrainAssets() {
+  const safe = promise => promise.catch(() => null);
+  const lowDem = safe(loadTerrainDem('shaanxi_dem_preview.png'));
+  const lowPhoto = safe(loadTerrainTexture('shaanxi_satellite_preview.webp', true));
+  const maskData = safe(loadTerrainTexture('shaanxi_mask.png'));
+  fetch(import.meta.env.BASE_URL + 'data/shaanxi_full.json')
+    .then(response => response.ok ? response.json() : null)
+    .then(collection => { if (!destroyed) boundaries = collection?.features || null; })
+    .catch(() => {});
+
+  const [preview, initialTexture, provinceMask] = await Promise.all([lowDem, lowPhoto, maskData]);
+  const photo = committedTexture(initialTexture);
+  const mask = committedTexture(provinceMask);
+  if (destroyed) return;
+  const fullDem = safe(loadTerrainDem('shaanxi_dem.png'));
+  const initialDem = preview || await fullDem;
+  if (destroyed || status === 'static') {
+    photo?.dispose();
+    mask?.dispose();
+    return;
+  }
+  if (!initialDem) {
+    photo?.dispose();
+    mask?.dispose();
+    if (props.currentMode === 'macro' || props.currentMode === 'campaign') setTerrainStatus('static');
+    return;
+  }
+
+  terrainSurface = createTerrainSurface({ map: photo, mask, uniforms: terrainUniforms });
+  terrainMesh = terrainSurface.mesh;
+  macroGroup.add(terrainMesh, terrainSurface.skirt, terrainSurface.base);
+  updateTerrainSurface(terrainSurface, initialDem, mobile ? 110 : 166, mobile ? 166 : 242);
+  syncProvinceView();
+  syncLayers();
+  if (props.currentMode === 'macro' && props.cameraRequest) applyCameraRequest(props.cameraRequest, true);
+  setTerrainStatus('preview');
+  requestRender();
+
+  void safe(loadTerrainTexture('shaanxi_satellite_relief.webp', true)).then(candidate => {
+    const texture = committedTexture(candidate);
+    if (!texture || !terrainSurface) return;
+    terrainMesh.material.map?.dispose();
+    terrainMesh.material.map = texture;
+    terrainMesh.material.color.setHex(0xffffff);
+    terrainMesh.material.needsUpdate = true;
+    requestRender();
+  });
+
+  if (!mobile) {
+    void safe(loadTerrainTexture('shaanxi_normal_detail.webp')).then(candidate => {
+      const texture = committedTexture(candidate);
+      if (!texture || !terrainSurface) return;
+      terrainMesh.material.normalMap = texture;
+      terrainMesh.material.needsUpdate = true;
+      requestRender();
+    });
+  }
+  demRaster = await fullDem;
+  if (!destroyed && status !== 'static') {
+    if (demRaster && demRaster !== initialDem) updateTerrainAnalysis(terrainSurface, demRaster);
+    setTerrainStatus(demRaster ? 'ready' : 'limited');
+    requestRender();
+  }
+}
+
+function terrainLine(points, offset = 0.2) {
+  const planar = points.map(([x, , z]) => new THREE.Vector3(x, 0, z));
+  const curve = new THREE.CatmullRomCurve3(planar);
+  const steps = Math.max(24, Math.ceil(curve.getLength() * 3));
+  return curve.getSpacedPoints(steps).map(p => p.setY(getTerrainHeightAt(p.x, p.z) + offset));
+}
+
+function addDashedLine(group, points, color, dashSize = 0.58, gapSize = 0.39) {
+  const material = new THREE.LineDashedMaterial({ color, dashSize, gapSize });
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
+  line.computeLineDistances();
+  group.add(line);
+}
+
 function buildShaanxiBorder() {
-  while (borderSubGroup.children.length > 0) {
-    borderSubGroup.remove(borderSubGroup.children[0]);
-  }
-
-  // 1. 市级边界采用低视觉噪点的精致微虚线
-  const cityLineMat = new THREE.LineDashedMaterial({
-    color: 0x38bdf8,
-    transparent: true,
-    opacity: 0.28,
-    dashSize: 1.2,
-    gapSize: 0.8,
-    scale: 1
-  });
-
-  CITY_BOUNDARIES.forEach((city) => {
-    city.rings.forEach((ring) => {
-      const pts = ring.map(p => new THREE.Vector3(p[0], p[1] + 0.14, p[2]));
-      if (pts.length > 2) {
-        const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        const line = new THREE.Line(geo, cityLineMat);
-        line.computeLineDistances();
-        borderSubGroup.add(line);
-      }
-    });
-  });
-
-  // 2. 西安大都市特区金色辉光边界
-  const xianCity = CITY_BOUNDARIES.find(c => c.name && c.name.includes("西安"));
-  if (xianCity) {
-    const xianMat = new THREE.LineBasicMaterial({
-      color: 0xf59e0b,
-      transparent: true,
-      opacity: 0.65,
-      linewidth: 1.5
-    });
-    xianCity.rings.forEach((ring) => {
-      const pts = ring.map(p => new THREE.Vector3(p[0], p[1] + 0.18, p[2]));
-      if (pts.length > 2) {
-        const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        const line = new THREE.LineLoop(geo, xianMat);
-        borderSubGroup.add(line);
-      }
-    });
-  }
-}
-
-
-// 构建精细流光河流 (拟真水色：黄河泥金、渭河蔚蓝、汉江碧玉)
-function buildRivers() {
-  while (riversSubGroup.children.length > 0) {
-    riversSubGroup.remove(riversSubGroup.children[0]);
-  }
-  riverMeshes = [];
-
-  const riverConfigs = {
-    yellow_river: {
-      color: 0xd97706,
-      emissive: 0xb45309,
-      emissiveIntensity: 0.85,
-      radius: 0.26,
-      opacity: 0.94
-    },
-    wei_river: {
-      color: 0x0284c7,
-      emissive: 0x0369a1,
-      emissiveIntensity: 0.75,
-      radius: 0.22,
-      opacity: 0.88
-    },
-    han_river: {
-      color: 0x0ea5e9,
-      emissive: 0x0284c7,
-      emissiveIntensity: 0.82,
-      radius: 0.20,
-      opacity: 0.90
-    },
-    jing_river: {
-      color: 0xca8a04,
-      emissive: 0xa16207,
-      emissiveIntensity: 0.78,
-      radius: 0.16,
-      opacity: 0.92
+  const material = new THREE.LineBasicMaterial({ color: 0xe2d8ba, transparent: true, opacity: 0.48 });
+  for (const city of CITY_BOUNDARIES) {
+    for (const ring of city.rings) {
+      const points = ring.map(([x, , z]) => new THREE.Vector3(x, getTerrainHeightAt(x, z) + 0.14, z));
+      if (points.length > 2) borderSubGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), material));
     }
-  };
-
-  Object.entries(REAL_RIVERS).forEach(([key, ptsArray]) => {
-    if (!ptsArray || ptsArray.length < 2) return;
-
-    const conf = riverConfigs[key] || {
-      color: 0x0284c7,
-      emissive: 0x0369a1,
-      emissiveIntensity: 0.7,
-      radius: 0.16,
-      opacity: 0.85
-    };
-
-    // 平滑曲线与低剖面微贴地 (仅离地 +0.06，紧致嵌合谷底)
-    const curvePoints = ptsArray.map(p => new THREE.Vector3(p[0], p[1] + 0.06, p[2]));
-    const curve = new THREE.CatmullRomCurve3(curvePoints);
-    const tubeGeo = new THREE.TubeGeometry(curve, 180, conf.radius, 8, false);
-
-    const rMat = new THREE.MeshStandardMaterial({
-      color: conf.color,
-      emissive: conf.emissive,
-      emissiveIntensity: conf.emissiveIntensity,
-      roughness: 0.12,
-      metalness: 0.85,
-      transparent: true,
-      opacity: conf.opacity
-    });
-
-    const mesh = new THREE.Mesh(tubeGeo, rMat);
-    mesh.name = key;
-    mesh.castShadow = false;
-    mesh.receiveShadow = true;
-    riversSubGroup.add(mesh);
-    riverMeshes.push(mesh);
-  });
+  }
 }
 
-// 绘制秦岭 800mm 气候分界线 (碧玉山脊气象光脉与峰脊全息信标)
+function buildRivers() {
+  const widths = { yellow_river: 0.18, wei_river: 0.14, han_river: 0.14, jing_river: 0.08 };
+  const main = new THREE.MeshBasicMaterial({ color: 0x69c3cb });
+  const branch = new THREE.MeshBasicMaterial({ color: 0x508c94 });
+  for (const [id, values] of Object.entries(REAL_RIVERS)) {
+    if (values.length < 2) continue;
+    const points = terrainLine(values, 0.40);
+    const curve = new THREE.CatmullRomCurve3(points);
+    const geometry = new THREE.TubeGeometry(curve, points.length, widths[id] || 0.1, 5, false);
+    riversSubGroup.add(new THREE.Mesh(geometry, id === 'jing_river' ? branch : main));
+  }
+}
+
 function buildQinlingLine() {
-  while (qinlingSubGroup.children.length > 0) {
-    qinlingSubGroup.remove(qinlingSubGroup.children[0]);
-  }
-
-  // 契合陕西境内秦岭真实主脊走向
-  const pts = [
-    new THREE.Vector3(-18.5, 12.0, 19.5),  // 凤县秦岭梁西界
-    new THREE.Vector3(-12.0, 14.2, 18.2),  // 宝鸡嘉陵江源
-    new THREE.Vector3(-4.84, 17.5, 22.75), // 太白山拔仙台巅 (3771.2m)
-    new THREE.Vector3(2.5, 15.6, 20.8),    // 终南山翠华山段
-    new THREE.Vector3(10.5, 14.5, 18.2),   // 蓝田牛背梁段
-    new THREE.Vector3(17.1, 10.8, 15.2),   // 华山南峰东延
-    new THREE.Vector3(21.5, 8.5, 16.8)     // 商洛丹凤东界归隐
-  ];
-  const curve = new THREE.CatmullRomCurve3(pts);
-  const qinlingTubeGeo = new THREE.TubeGeometry(curve, 150, 0.14, 8, false);
-
-  const qinlingMat = new THREE.MeshStandardMaterial({
-    color: 0x10b981,
-    emissive: 0x059669,
-    emissiveIntensity: 0.95,
-    roughness: 0.15,
-    metalness: 0.7
-  });
-
-  qinlingLineMesh = new THREE.Mesh(qinlingTubeGeo, qinlingMat);
-  qinlingSubGroup.add(qinlingLineMesh);
-
-  // 太白峰顶全息八面体气候界标 (取代粗糙实心圆柱)
-  const beaconGroup = new THREE.Group();
-  beaconGroup.position.set(-4.84, 17.8, 22.75);
-
-  const crystalGeo = new THREE.OctahedronGeometry(0.42, 0);
-  const crystalMat = new THREE.MeshStandardMaterial({
-    color: 0x34d399,
-    emissive: 0x10b981,
-    emissiveIntensity: 1.2,
-    roughness: 0.1,
-    metalness: 0.9
-  });
-  const summitCrystal = new THREE.Mesh(crystalGeo, crystalMat);
-  summitCrystal.position.y = 1.0;
-  beaconGroup.add(summitCrystal);
-  animatedCrystals.push({ mesh: summitCrystal, baseY: 1.0, rotSpeed: 0.025, phase: 0 });
-
-  // 垂直天际柔光柱
-  const beamGeo = new THREE.CylinderGeometry(0.015, 0.12, 6.0, 16, 1, true);
-  const beamMat = new THREE.MeshBasicMaterial({
-    color: 0x34d399,
-    transparent: true,
-    opacity: 0.42,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  });
-  const beamMesh = new THREE.Mesh(beamGeo, beamMat);
-  beamMesh.position.y = 3.0;
-  beaconGroup.add(beamMesh);
-
-  // 地面脉冲光环
-  const ringGeo = new THREE.RingGeometry(0.2, 0.55, 32);
-  ringGeo.rotateX(-Math.PI / 2);
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
-  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-  ringMesh.position.y = 0.05;
-  beaconGroup.add(ringMesh);
-
-  qinlingSubGroup.add(beaconGroup);
+  // Generalised crest for classroom discussion. It is not a basin polygon.
+  const points = [[-18.5, 0, 19.5], [-12, 0, 21.2], [-4.84, 0, 22.75],
+    [2.5, 0, 22], [10.5, 0, 21.8], [17.1, 0, 17], [21.5, 0, 17.8]];
+  addDashedLine(qinlingSubGroup, terrainLine(points, 0.35), 0xf5dc9e, 0.30, 0.25);
 }
 
-// 绘制丝绸之路开拓主干线 (流金丝带与漫移星尘粒子)
 function buildSilkRoad() {
-  while (silkRoadSubGroup.children.length > 0) {
-    silkRoadSubGroup.remove(silkRoadSubGroup.children[0]);
-  }
-
-  const pts = [
-    new THREE.Vector3(6.24, 2.5, 16.98),   // 西安 (汉唐长安丝路起点)
-    new THREE.Vector3(1.5, 2.7, 15.2),    // 咸阳渭水古渡
-    new THREE.Vector3(-4.5, 2.9, 14.0),   // 兴平马嵬
-    new THREE.Vector3(-10.78, 3.2, 16.67), // 宝鸡陈仓大散关
-    new THREE.Vector3(-18.5, 4.8, 12.0),  // 陇关古道西出
-    new THREE.Vector3(-28.0, 5.2, 5.0),   // 天水陇右屏障
-    new THREE.Vector3(-38.0, 5.0, -4.0)   // 远向河西走廊
-  ];
-  const curve = new THREE.CatmullRomCurve3(pts);
-  const silkGeo = new THREE.TubeGeometry(curve, 160, 0.18, 8, false);
-
-  const silkMat = new THREE.MeshStandardMaterial({
-    color: 0xfbbf24,
-    emissive: 0xd97706,
-    emissiveIntensity: 0.95,
-    roughness: 0.15,
-    metalness: 0.85
-  });
-
-  silkRoadLine = new THREE.Mesh(silkGeo, silkMat);
-  silkRoadSubGroup.add(silkRoadLine);
-
-  // 丝路流金星尘粒子系统 (Drifting Stardust along Silk Road)
-  const particleCount = 70;
-  const pGeo = new THREE.BufferGeometry();
-  const pPos = new Float32Array(particleCount * 3);
-  const pProgress = new Float32Array(particleCount);
-
-  for (let i = 0; i < particleCount; i++) {
-    pProgress[i] = i / particleCount;
-    const pt = curve.getPoint(pProgress[i]);
-    pPos[i * 3] = pt.x + (Math.random() - 0.5) * 0.3;
-    pPos[i * 3 + 1] = pt.y + 0.25 + Math.random() * 0.3;
-    pPos[i * 3 + 2] = pt.z + (Math.random() - 0.5) * 0.3;
-  }
-
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-  const pMat = new THREE.PointsMaterial({
-    color: 0xfbbf24,
-    size: 0.52,
-    transparent: true,
-    opacity: 0.85,
-    depthWrite: false
-  });
-  silkRoadParticles = new THREE.Points(pGeo, pMat);
-  silkRoadParticles.userData = { curve, progress: pProgress };
-  silkRoadSubGroup.add(silkRoadParticles);
+  const points = [[6.24, 0, 16.98], [1.5, 0, 15.2], [-4.5, 0, 14], [-10.78, 0, 16.67],
+    [-18.5, 0, 12], [-28, 0, 5], [-38, 0, -4]];
+  addDashedLine(silkRoadSubGroup, terrainLine(points), 0xe4ad71);
 }
 
 // 构建三秦重点城市三维聚落集群 (古今交融：长安城墙/大雁塔/钟楼与现代夜景天际线)
@@ -1698,160 +966,11 @@ function buildValleyMist() {
   valleyMistGroup.visible = !!props.layers?.valleyMist;
 }
 
-// 🛤️ 构建陕南四大古蜀道与陕北大秦直道三维管线与商队粒子系统
 function buildHistoricalRoads() {
-  while (shuRoadsSubGroup.children.length > 0) {
-    shuRoadsSubGroup.remove(shuRoadsSubGroup.children[0]);
+  for (const { pts } of Object.values(REAL_SHU_ROADS)) {
+    if (pts.length >= 2) addDashedLine(shuRoadsSubGroup, terrainLine(pts), 0xe2ae72);
   }
-  while (qinZhiDaoSubGroup.children.length > 0) {
-    qinZhiDaoSubGroup.remove(qinZhiDaoSubGroup.children[0]);
-  }
-
-  const ROAD_STYLES = {
-    'chencang': { color: 0x10b981, radius: 0.16, opacity: 0.95 },
-    'baoxie': { color: 0xf59e0b, radius: 0.17, opacity: 0.95 },
-    'tangluo': { color: 0x06b6d4, radius: 0.15, opacity: 0.92 },
-    'ziwu': { color: 0xec4899, radius: 0.16, opacity: 0.95 }
-  };
-
-  const roadCurves = [];
-
-  // A. 四大古蜀道立体管道
-  Object.keys(REAL_SHU_ROADS).forEach(roadKey => {
-    const rawCoords = REAL_SHU_ROADS[roadKey];
-    if (!rawCoords || rawCoords.length < 2) return;
-
-    const style = ROAD_STYLES[roadKey] || { color: 0x10b981, radius: 0.15, opacity: 0.9 };
-    const points = rawCoords.map(coord => {
-      const terrainY = getTerrainHeightAt(coord[0], coord[2]);
-      const safeY = Math.max(coord[1], terrainY + 0.35);
-      return new THREE.Vector3(coord[0], safeY, coord[2]);
-    });
-
-    const curve = new THREE.CatmullRomCurve3(points);
-    curve.curveType = 'catmullrom';
-    curve.tension = 0.5;
-    roadCurves.push(curve);
-
-    const tubeGeo = new THREE.TubeGeometry(curve, points.length * 8, style.radius, 8, false);
-    const tubeMat = new THREE.MeshStandardMaterial({
-      color: style.color,
-      emissive: style.color,
-      emissiveIntensity: 0.75,
-      roughness: 0.35,
-      metalness: 0.7,
-      transparent: true,
-      opacity: style.opacity
-    });
-
-    const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
-    tubeMesh.castShadow = true;
-    shuRoadsSubGroup.add(tubeMesh);
-
-    // 沿线关隘微型驿站
-    for (let i = 0; i < points.length; i += 2) {
-      const pt = points[i];
-      const stationGeo = new THREE.BoxGeometry(0.32, 0.28, 0.32);
-      const stationMat = new THREE.MeshStandardMaterial({
-        color: 0x78350f,
-        emissive: style.color,
-        emissiveIntensity: 0.4
-      });
-      const st = new THREE.Mesh(stationGeo, stationMat);
-      st.position.set(pt.x, pt.y + 0.14, pt.z);
-      shuRoadsSubGroup.add(st);
-    }
-  });
-
-  // B. 大秦直道 (古代帝国超级公路)
-  if (REAL_QIN_ZHIDAO && REAL_QIN_ZHIDAO.length >= 2) {
-    const qinPts = REAL_QIN_ZHIDAO.map(coord => {
-      const terrainY = getTerrainHeightAt(coord[0], coord[2]);
-      const safeY = Math.max(coord[1], terrainY + 0.35);
-      return new THREE.Vector3(coord[0], safeY, coord[2]);
-    });
-
-    const qinCurve = new THREE.CatmullRomCurve3(qinPts);
-    qinCurve.curveType = 'catmullrom';
-    qinCurve.tension = 0.5;
-    roadCurves.push(qinCurve);
-
-    const qinTubeGeo = new THREE.TubeGeometry(qinCurve, qinPts.length * 8, 0.26, 8, false);
-    const qinTubeMat = new THREE.MeshStandardMaterial({
-      color: 0xea580c,
-      emissive: 0xd97706,
-      emissiveIntensity: 0.85,
-      roughness: 0.4,
-      metalness: 0.6
-    });
-    const qinMesh = new THREE.Mesh(qinTubeGeo, qinTubeMat);
-    qinMesh.castShadow = true;
-    qinZhiDaoSubGroup.add(qinMesh);
-
-    qinPts.forEach((pt, pIdx) => {
-      if (pIdx % 2 === 0) {
-        const beaconGeo = new THREE.CylinderGeometry(0.2, 0.3, 0.5, 6);
-        const beaconMat = new THREE.MeshStandardMaterial({
-          color: 0x9a3412,
-          emissive: 0xf59e0b,
-          emissiveIntensity: 0.6
-        });
-        const beacon = new THREE.Mesh(beaconGeo, beaconMat);
-        beacon.position.set(pt.x, pt.y + 0.25, pt.z);
-        qinZhiDaoSubGroup.add(beacon);
-      }
-    });
-  }
-
-  // C. 商队流光粒子系统
-  if (roadCurves.length > 0) {
-    const totalCaravanCount = 90;
-    const caravanGeo = new THREE.BufferGeometry();
-    const posArr = new Float32Array(totalCaravanCount * 3);
-    const colArr = new Float32Array(totalCaravanCount * 3);
-    const caravanData = [];
-
-    for (let c = 0; c < totalCaravanCount; c++) {
-      const curveIdx = c % roadCurves.length;
-      const targetCurve = roadCurves[curveIdx];
-      const progress = Math.random();
-      const pt = targetCurve.getPoint(progress);
-
-      posArr[c * 3] = pt.x;
-      posArr[c * 3 + 1] = pt.y + 0.2;
-      posArr[c * 3 + 2] = pt.z;
-
-      const isQin = curveIdx === roadCurves.length - 1;
-      const pColor = isQin ? new THREE.Color(0xfbbf24) : new THREE.Color(0x34d399);
-      colArr[c * 3] = pColor.r;
-      colArr[c * 3 + 1] = pColor.g;
-      colArr[c * 3 + 2] = pColor.b;
-
-      caravanData.push({
-        curve: targetCurve,
-        progress: progress,
-        speed: 0.0006 + Math.random() * 0.0008
-      });
-    }
-
-    caravanGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-    caravanGeo.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
-
-    const cMat = new THREE.PointsMaterial({
-      size: 1.8,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.95,
-      blending: THREE.AdditiveBlending
-    });
-
-    caravanParticles = new THREE.Points(caravanGeo, cMat);
-    caravanParticles.userData = { caravanData };
-    shuRoadsSubGroup.add(caravanParticles);
-  }
-
-  shuRoadsSubGroup.visible = !!props.layers?.shuRoads;
-  qinZhiDaoSubGroup.visible = !!props.layers?.qinZhiDao;
+  addDashedLine(qinZhiDaoSubGroup, terrainLine(REAL_QIN_ZHIDAO.pts), 0xdab08a, 0.82, 0.42);
 }
 
 // 🏮 构建唐诗宋词地理空间信标 (朱砂古印微雕 + 通天金星光柱)
@@ -1933,277 +1052,128 @@ function buildPoetrySpots() {
   poetrySubGroup.visible = !!props.layers?.poetrySpots;
 }
 
-// 构建全息多面体晶棱 POI 空间信标 (高科技钻石微雕 + 天际渐变光柱 + 地面同心声呐脉冲)
-function buildSpatialPins() {
-  while (poisSubGroup.children.length > 0) {
-    poisSubGroup.remove(poisSubGroup.children[0]);
+// 构建高精度微观盆景切块 (带四壁实心垂直地质切面与三维物理海拔标尺)
+const bonsaiRasters = new Map();
+
+function getBonsaiRaster(key) {
+  if (!bonsaiRasters.has(key)) {
+    const base = import.meta.env.BASE_URL + 'textures/bonsai/' + key;
+    const data = Promise.all([
+      loadTerrainDem('bonsai/' + key + '_dem.png'),
+      fetch(base + '_meta.json').then(response => {
+        if (!response.ok) throw new Error('Missing terrain metadata');
+        return response.json();
+      })
+    ]).then(([dem, meta]) => ({ dem, meta })).catch(() => {
+      bonsaiRasters.delete(key);
+      return null;
+    });
+    bonsaiRasters.set(key, data);
   }
-  animatedCrystals = [];
-  animatedSonarRings = [];
-
-  POI_LIST.forEach((poi, idx) => {
-    const pinGroup = new THREE.Group();
-    pinGroup.position.set(poi.pos[0], poi.pos[1], poi.pos[2]);
-
-    const isCity = poi.type === "city" || poi.type === "capital";
-    const isPeak = poi.type === "mountain";
-    const baseColor = isCity ? 0xf59e0b : (isPeak ? 0x10b981 : 0x38bdf8);
-
-    // 1. 纤细钛金属针立柱
-    const stemGeo = new THREE.CylinderGeometry(0.025, 0.025, 1.2, 8);
-    const stemMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
-      metalness: 0.95,
-      roughness: 0.15
-    });
-    const stem = new THREE.Mesh(stemGeo, stemMat);
-    stem.position.y = 0.6;
-    pinGroup.add(stem);
-
-    // 2. 浮空全息多面体晶棱信标 (Faceted Holographic Diamond Crystal)
-    const crystalGeo = poi.isMajor ? new THREE.OctahedronGeometry(0.36, 0) : new THREE.OctahedronGeometry(0.26, 0);
-    const crystalMat = new THREE.MeshStandardMaterial({
-      color: baseColor,
-      emissive: baseColor,
-      emissiveIntensity: 0.9,
-      metalness: 0.85,
-      roughness: 0.12
-    });
-    const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-    crystal.position.y = 1.35;
-    pinGroup.add(crystal);
-    animatedCrystals.push({ mesh: crystal, baseY: 1.35, rotSpeed: 0.018 + (idx % 3) * 0.005, phase: idx * 0.45 });
-
-    // 3. 向上延伸的天际光柱束 (Sky Light Pillar)
-    const beamH = poi.isMajor ? 5.5 : 3.8;
-    const beamGeo = new THREE.CylinderGeometry(0.012, 0.10, beamH, 12, 1, true);
-    const beamMat = new THREE.MeshBasicMaterial({
-      color: baseColor,
-      transparent: true,
-      opacity: poi.isMajor ? 0.38 : 0.22,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    });
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.position.y = 1.35 + beamH / 2;
-    pinGroup.add(beam);
-
-    // 4. 地表双重同心动态脉冲声呐环 (Pulsing Sonar Rings)
-    const r1Geo = new THREE.RingGeometry(0.12, 0.22, 24);
-    r1Geo.rotateX(-Math.PI / 2);
-    const r1Mat = new THREE.MeshBasicMaterial({ color: baseColor, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
-    const ring1 = new THREE.Mesh(r1Geo, r1Mat);
-    ring1.position.y = 0.04;
-    pinGroup.add(ring1);
-
-    const r2Geo = new THREE.RingGeometry(0.28, 0.38, 24);
-    r2Geo.rotateX(-Math.PI / 2);
-    const r2Mat = new THREE.MeshBasicMaterial({ color: baseColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
-    const ring2 = new THREE.Mesh(r2Geo, r2Mat);
-    ring2.position.y = 0.04;
-    pinGroup.add(ring2);
-
-    animatedSonarRings.push({ ring1, ring2, phase: idx * 0.6 });
-
-    pinGroup.name = "pin_" + poi.id;
-    poisSubGroup.add(pinGroup);
-  });
+  return bonsaiRasters.get(key);
 }
 
-
-// 构建高精度微观盆景切块 (带四壁实心垂直地质切面与三维物理海拔标尺)
-function buildBonsaiBlock() {
-  while (bonsaiGroup.children.length > 0) {
-    bonsaiGroup.remove(bonsaiGroup.children[0]);
+async function buildBonsaiBlock() {
+  const build = ++bonsaiBuild;
+  const key = props.activeBonsaiId.replace('bonsai_', '');
+  const dataset = await getBonsaiRaster(key);
+  if (!dataset || destroyed || build !== bonsaiBuild) return;
+  const { dem, meta } = dataset;
+  const photo = await loadTerrainTexture('bonsai/' + key + '_sat.jpg', true).catch(() => null);
+  if (destroyed || build !== bonsaiBuild) {
+    photo?.dispose();
+    return;
   }
-
-  const baseUrl = import.meta.env.BASE_URL || "./";
-  const prefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-
-  let bonsaiKey = "huashan";
-  let marks = [
-    { label: "海拔 400m (山麓谷底)", yVal: 2 },
-    { label: "海拔 1000m (回心石)", yVal: 8 },
-    { label: "海拔 1614m (北峰云台)", yVal: 14 },
-    { label: "海拔 2154m (南峰极顶)", yVal: 22 }
-  ];
-
-  if (props.activeBonsaiId === "bonsai_taibai") {
-    bonsaiKey = "taibai";
-    marks = [
-      { label: "海拔 800m (黑河峡谷)", yVal: 3 },
-      { label: "海拔 1800m (温带针叶林)", yVal: 9 },
-      { label: "海拔 2800m (第四纪冰川界)", yVal: 15 },
-      { label: "海拔 3771m (拔仙台)", yVal: 24 }
-    ];
-  } else if (props.activeBonsaiId === "bonsai_hukou") {
-    bonsaiKey = "hukou";
-    marks = [
-      { label: "水深 390m (龙槽深潭)", yVal: 3 },
-      { label: "跌水 440m (黄河水面)", yVal: 8 },
-      { label: "阶地 520m (两岸崖壁)", yVal: 14 },
-      { label: "高台 800m (孟门山)", yVal: 20 }
-    ];
+  const span = 32;
+  const resolution = 90;
+  const scale = span * props.bonsaiExaggeration / (bonsaiTileWidthKm(key) * 1000);
+  const rise = meta.maxElev - meta.minElev;
+  const surface = new THREE.PlaneGeometry(span, span, resolution, resolution);
+  surface.rotateX(-Math.PI / 2);
+  const position = surface.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const column = Math.round((position.getX(i) / span + 0.5) * (dem.width - 1));
+    const row = Math.round((position.getZ(i) / span + 0.5) * (dem.height - 1));
+    position.setY(i, dem.gray[row * dem.width + column] / 255 * rise * scale);
   }
+  surface.computeVertexNormals();
+  clearSceneGroup(bonsaiGroup);
+  bonsaiGroup.add(new THREE.Mesh(surface, new THREE.MeshStandardMaterial({
+    map: photo, color: photo ? 0xffffff : 0xb6a17c, roughness: 1
+  })));
 
-  const textureLoader = new THREE.TextureLoader();
-  const satUrl = prefix + "textures/bonsai/" + bonsaiKey + "_sat.jpg";
-  const demUrl = prefix + "textures/bonsai/" + bonsaiKey + "_dem.png";
+  const floor = -1.2;
+  const perimeter = [];
+  for (let i = 0; i <= resolution; i++) perimeter.push(i);
+  for (let i = 1; i <= resolution; i++) perimeter.push(i * (resolution + 1) + resolution);
+  for (let i = resolution - 1; i >= 0; i--) perimeter.push(resolution * (resolution + 1) + i);
+  for (let i = resolution - 1; i >= 0; i--) perimeter.push(i * (resolution + 1));
+  const wall = [];
+  for (let i = 1; i < perimeter.length; i++) {
+    const a = perimeter[i - 1], b = perimeter[i];
+    const ax = position.getX(a), ay = position.getY(a), az = position.getZ(a);
+    const bx = position.getX(b), by = position.getY(b), bz = position.getZ(b);
+    wall.push(ax, ay, az, ax, floor, az, bx, by, bz, bx, by, bz, ax, floor, az, bx, floor, bz);
+  }
+  const walls = new THREE.BufferGeometry();
+  walls.setAttribute('position', new THREE.Float32BufferAttribute(wall, 3));
+  walls.computeVertexNormals();
+  const rock = new THREE.MeshStandardMaterial({ color: 0x4e5550, side: THREE.DoubleSide, roughness: 1 });
+  bonsaiGroup.add(new THREE.Mesh(walls, rock));
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(span + 0.7, 0.7, span + 0.7), rock);
+  slab.position.y = floor - 0.35;
+  bonsaiGroup.add(slab);
 
-  textureLoader.load(satUrl, (bSatTex) => {
-    bSatTex.colorSpace = THREE.SRGBColorSpace;
-    const demImg = new Image();
-    demImg.src = demUrl;
-    demImg.onload = () => {
-      const bCanvas = document.createElement("canvas");
-      bCanvas.width = demImg.width;
-      bCanvas.height = demImg.height;
-      const bCtx = bCanvas.getContext("2d");
-      bCtx.drawImage(demImg, 0, 0);
-      const bDemData = bCtx.getImageData(0, 0, bCanvas.width, bCanvas.height).data;
-
-      const size = 32;
-      const segs = 100;
-      const topGeo = new THREE.PlaneGeometry(size, size, segs, segs);
-      topGeo.rotateX(-Math.PI / 2);
-
-      const pos = topGeo.attributes.position;
-      const exag = props.bonsaiExaggeration || 1.5;
-
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const z = pos.getZ(i);
-
-        const u = (x / size) + 0.5;
-        const v = (z / size) + 0.5;
-
-        let h = 2.0;
-        if (u >= 0 && u <= 1 && v >= 0 && v <= 1) {
-          const px = Math.floor(u * (bCanvas.width - 1));
-          const py = Math.floor(v * (bCanvas.height - 1));
-          const pIdx = (py * bCanvas.width + px) * 4;
-          const grey = bDemData[pIdx];
-          h = Math.pow(grey / 255.0, 1.2) * 16.0 * exag;
-        }
-        pos.setY(i, h);
-      }
-      topGeo.computeVertexNormals();
-
-      const topMat = new THREE.MeshStandardMaterial({
-        map: bSatTex,
-        roughness: 0.82,
-        metalness: 0.1
-      });
-      const bonsaiMesh = new THREE.Mesh(topGeo, topMat);
-      bonsaiMesh.castShadow = true;
-      bonsaiMesh.receiveShadow = true;
-      bonsaiGroup.add(bonsaiMesh);
-
-      // 构建微观切块四壁实心垂直地质切面 (彻底杜绝边缘悬空)
-      const bSkirtPositions = [];
-      const bBaseDepth = -4.0;
-      const bGetIdx = (ix, iz) => iz * (segs + 1) + ix;
-
-      const addBSkirt = (idxA, idxB) => {
-        const x1 = pos.getX(idxA), y1 = pos.getY(idxA), z1 = pos.getZ(idxA);
-        const x2 = pos.getX(idxB), y2 = pos.getY(idxB), z2 = pos.getZ(idxB);
-        bSkirtPositions.push(x1, y1, z1, x1, bBaseDepth, z1, x2, y1, z2);
-        bSkirtPositions.push(x2, y1, z2, x1, bBaseDepth, z1, x2, bBaseDepth, z2);
-      };
-
-      for (let ix = 0; ix < segs; ix++) addBSkirt(bGetIdx(ix, 0), bGetIdx(ix + 1, 0));
-      for (let iz = 0; iz < segs; iz++) addBSkirt(bGetIdx(segs, iz), bGetIdx(segs, iz + 1));
-      for (let ix = segs; ix > 0; ix--) addBSkirt(bGetIdx(ix, segs), bGetIdx(ix - 1, segs));
-      for (let iz = segs; iz > 0; iz--) addBSkirt(bGetIdx(0, iz), bGetIdx(0, iz - 1));
-
-      const bSkirtGeo = new THREE.BufferGeometry();
-      bSkirtGeo.setAttribute("position", new THREE.Float32BufferAttribute(bSkirtPositions, 3));
-      bSkirtGeo.computeVertexNormals();
-
-      const bSkirtMat = new THREE.MeshStandardMaterial({
-        color: 0x18181b,
-        roughness: 0.9,
-        metalness: 0.1
-      });
-      bonsaiGroup.add(new THREE.Mesh(bSkirtGeo, bSkirtMat));
-
-      // 底座黑曜石托盘
-      const bPedestal = new THREE.Mesh(
-        new THREE.BoxGeometry(size + 1.6, 2, size + 1.6),
-        new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.5, metalness: 0.8 })
-      );
-      bPedestal.position.set(0, -5, 0);
-      bonsaiGroup.add(bPedestal);
-
-      // 三维物理立柱标尺与海拔标记
-      const rulerGroup = new THREE.Group();
-      const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.18, 30),
-        new THREE.MeshBasicMaterial({ color: 0x94a3b8 })
-      );
-      pole.position.set(-17.5, 11, -17.5);
-      rulerGroup.add(pole);
-
-      marks.forEach(({ label, yVal }) => {
-        const ring = new THREE.Mesh(
-          new THREE.TorusGeometry(0.7, 0.08, 8, 24),
-          new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-        );
-        ring.rotation.x = Math.PI / 2;
-        ring.position.set(-17.5, yVal, -17.5);
-        rulerGroup.add(ring);
-
-        const markCanvas = document.createElement("canvas");
-        markCanvas.width = 256;
-        markCanvas.height = 64;
-        const mCtx = markCanvas.getContext("2d");
-        mCtx.fillStyle = "rgba(10, 15, 24, 0.88)";
-        mCtx.strokeStyle = "#38bdf8";
-        mCtx.lineWidth = 2;
-        mCtx.beginPath();
-        mCtx.roundRect(4, 4, 248, 56, 10);
-        mCtx.fill();
-        mCtx.stroke();
-        mCtx.fillStyle = "#f0f9ff";
-        mCtx.font = 'bold 20px "Microsoft YaHei", sans-serif';
-        mCtx.textAlign = "center";
-        mCtx.textBaseline = "middle";
-        mCtx.fillText(label, 128, 32);
-
-        const mTex = new THREE.CanvasTexture(markCanvas);
-        const mSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: mTex }));
-        mSprite.position.set(-22.5, yVal, -17.5);
-        mSprite.scale.set(7.5, 2.0, 1);
-        rulerGroup.add(mSprite);
-      });
-
-      bonsaiGroup.add(rulerGroup);
-    };
-  });
+  const left = -span / 2 - 1.6;
+  const measureAxis = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(left, 0, 0), new THREE.Vector3(left, rise * scale, 0)
+  ]);
+  const axisMaterial = new THREE.LineBasicMaterial({ color: 0xe8c995 });
+  bonsaiGroup.add(new THREE.Line(measureAxis, axisMaterial));
+  for (const ratio of [0, 0.5, 1]) {
+    const y = rise * scale * ratio;
+    const elevation = Math.round(meta.minElev + rise * ratio);
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 150;
+    labelCanvas.height = 48;
+    const label = labelCanvas.getContext('2d');
+    label.fillStyle = '#1a3031';
+    label.fillRect(0, 0, 150, 48);
+    label.font = 'bold 23px system-ui';
+    label.textAlign = 'center';
+    label.textBaseline = 'middle';
+    label.fillStyle = '#fff0ce';
+    label.fillText(elevation + ' m', 75, 24);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(labelCanvas) }));
+    sprite.position.set(left - 2, y, 0);
+    sprite.scale.set(4.6, 1.45, 1);
+    bonsaiGroup.add(sprite);
+  }
+  requestRender();
 }
 
 // 盆景重提取缓动动画
 const reExtractBonsai = () => {
+  if (props.reducedMotion) { requestRender(); return; }
   if (!bonsaiGroup) return;
+  gsap.killTweensOf([bonsaiGroup.position, bonsaiGroup.scale]);
   bonsaiGroup.position.y = -15;
   bonsaiGroup.scale.set(0.7, 0.7, 0.7);
   gsap.to(bonsaiGroup.position, {
     y: 0,
     duration: 1.5,
-    ease: "power3.out"
+    ease: "power3.out", onUpdate: requestRender
   });
   gsap.to(bonsaiGroup.scale, {
     x: 1, y: 1, z: 1,
     duration: 1.5,
-    ease: "power3.out"
+    ease: "power3.out", onUpdate: requestRender
   });
 };
 
 // 四大科学实验台深度建模与动态仿真
 function buildEvolutionModel() {
-  while (modelGroup.children.length > 0) {
-    modelGroup.remove(modelGroup.children[0]);
-  }
+  clearSceneGroup(modelGroup);
   loessWaterParticles = null;
   climateNorthParticles = null;
   climateSouthParticles = null;
@@ -2411,9 +1381,7 @@ function updateEvolutionGeometry(geo, stage) {
 
 // 战役航线动态渲染
 function buildCampaignVisuals() {
-  while (campaignGroup.children.length > 0) {
-    campaignGroup.remove(campaignGroup.children[0]);
-  }
+  clearSceneGroup(campaignGroup);
 
   if (!props.activeCampaign) return;
 
@@ -2445,158 +1413,172 @@ function buildCampaignVisuals() {
 
 
 // 投影 POI 屏幕空间坐标并执行严密的空间碰撞避让与全息引线解算 (彻底告别文字重叠)
-function updatePoiScreenPositions() {
-  if (!camera || !containerRef.value) return;
-  const width = containerRef.value.clientWidth;
-  const height = containerRef.value.clientHeight;
+const coordVector = new THREE.Vector3();
+const cameraDirection = new THREE.Vector3();
+let screenBounds = null;
 
-  if (props.currentMode === "macro") {
-    const isMobileView = width <= 768;
-
-    // 1. 初步投影与屏幕裁剪计算
-    const projectedPois = POI_LIST.map((poi) => {
-      // 地表真实锚点屏幕投影
-      const anchorVec = new THREE.Vector3(poi.pos[0], poi.pos[1], poi.pos[2]);
-      anchorVec.project(camera);
-      const anchorX = Math.round((anchorVec.x * 0.5 + 0.5) * width);
-      const anchorY = Math.round((-anchorVec.y * 0.5 + 0.5) * height);
-
-      const margin = isMobileView ? 12 : 24;
-      const inFrustum = anchorVec.z < 1.0 && anchorX >= margin && anchorX <= width - margin && anchorY >= margin && anchorY <= height - margin;
-      const distToCam = camera.position.distanceTo(new THREE.Vector3(poi.pos[0], poi.pos[1], poi.pos[2]));
-
-      // 视距 LOD 与引线折角计算 (移动端紧凑折线 + 边缘自适应防裁切)
-      const isRightSide = anchorX > (isMobileView ? width * 0.56 : width - 160);
-      const dir = isRightSide ? -1 : 1;
-      const elbowX = anchorX + dir * (isMobileView ? 10 : 18);
-      const elbowY = anchorY - (isMobileView ? 16 : 22);
-      const labelAnchorX = anchorX + dir * (isMobileView ? 16 : 28);
-      const labelAnchorY = anchorY - (isMobileView ? 16 : 22);
-      const badgeX = isMobileView
-        ? Math.max(50, Math.min(width - 50, anchorX + dir * 42))
-        : anchorX + dir * 68;
-      const badgeY = anchorY - (isMobileView ? 16 : 22);
-
-      // 优先级计算：当前选中最高，鼠标悬停次之，省会及顶级枢纽优先
-      let priority = 10;
-      if (poi.id === selectedPoiId.value) priority = 100;
-      else if (poi.id === hoveredPoiId.value) priority = 90;
-      else if (["xian", "yanan", "hanzhong", "taibai", "bingmayong"].includes(poi.id)) priority = 50;
-
-      return {
-        ...poi,
-        anchorX,
-        anchorY,
-        elbowX,
-        elbowY,
-        labelAnchorX,
-        labelAnchorY,
-        x: badgeX,
-        y: badgeY,
-        distToCam,
-        inFrustum,
-        priority,
-        visible: false
-      };
-    });
-
-    // 2. 按优先级从高到低排序检测
-    const sortedPois = [...projectedPois].sort((a, b) => b.priority - a.priority);
-    const placedBoxes = [];
-
-    sortedPois.forEach((poi) => {
-      if (!poi.inFrustum) {
-        poi.visible = false;
-        return;
-      }
-
-      // 桌面端左侧图文面板展开时，隐藏被面板遮挡区域的低优先级 POI
-      if (!isMobileView && props.isPanelOpen && poi.x < 390 && poi.priority < 90) {
-        poi.visible = false;
-        return;
-      }
-
-      // 移动端避开顶部 HUD 与底部抽屉条遮挡区
-      if (isMobileView && (poi.anchorY < 62 || poi.anchorY > height - 100) && poi.priority < 90) {
-        poi.visible = false;
-        return;
-      }
-
-      // 如果是选中的或悬浮的，强制展示
-      if (poi.priority >= 90) {
-        poi.visible = true;
-        placedBoxes.push({
-          x: poi.x,
-          y: poi.y,
-          w: isMobileView ? 88 : 80,
-          h: 28
-        });
-        return;
-      }
-
-      // 其余点位与已排布的标签进行轴对齐矩形碰撞检测
-      let collided = false;
-      const checkW = isMobileView ? 78 : 68;
-      const checkH = isMobileView ? 30 : 26;
-
-      for (let i = 0; i < placedBoxes.length; i++) {
-        const b = placedBoxes[i];
-        if (Math.abs(poi.x - b.x) < (checkW + b.w) / 2 + 10 &&
-            Math.abs(poi.y - b.y) < (checkH + b.h) / 2 + 8) {
-          collided = true;
-          break;
-        }
-      }
-
-      if (!collided) {
-        poi.visible = true;
-        placedBoxes.push({
-          x: poi.x,
-          y: poi.y,
-          w: checkW,
-          h: checkH
-        });
-      } else {
-        poi.visible = false;
-      }
-    });
-
-    screenPois.value = sortedPois;
-
-  } else if (props.currentMode === "campaign" && props.activeCampaign) {
-    const stage = props.activeCampaign.stages[props.activeCampaignStageIndex] || props.activeCampaign.stages[0];
-    if (stage) {
-      screenCheckpoints.value = stage.checkpoints.map(cp => {
-        const vec = new THREE.Vector3(cp.pos[0], cp.pos[1] + 2.0, cp.pos[2]);
-        vec.project(camera);
-        const isVisible = vec.z < 1.0 && Math.abs(vec.x) <= 0.95 && Math.abs(vec.y) <= 0.95;
-        return {
-          ...cp,
-          x: Math.round((vec.x * 0.5 + 0.5) * width),
-          y: Math.round((-vec.y * 0.5 + 0.5) * height),
-          visible: isVisible
-        };
-      });
-    }
-  }
+function screenPosition(x, y, z) {
+  coordVector.set(x, y, z).project(camera);
+  return {
+    x: (coordVector.x * 0.5 + 0.5) * containerRef.value.clientWidth,
+    y: (0.5 - coordVector.y * 0.5) * containerRef.value.clientHeight,
+    visible: coordVector.z > -1 && coordVector.z < 1
+  };
 }
 
-// 运镜与控制
-const flyTo = (pos, target, duration = 2.0) => {
-  if (isSpinning360.value) stop360Spin();
+function insideMap(point, margin = 0) {
+  return point.visible && screenBounds && point.x > screenBounds.left + margin && point.x < screenBounds.right - margin
+    && point.y > screenBounds.top + margin && point.y < screenBounds.bottom - margin;
+}
+
+function updatePoiScreenPositions() {
+  const width = containerRef.value.clientWidth;
+  if (props.currentMode === 'campaign') {
+    const stage = props.activeCampaign?.stages[props.activeCampaignStageIndex];
+    screenCheckpoints.value = (stage?.checkpoints || []).map(cp => ({
+      ...cp, ...screenPosition(cp.pos[0], cp.pos[1] + 2, cp.pos[2])
+    }));
+    return;
+  }
+  if (props.currentMode !== 'macro') return;
+
+  const focusIds = props.guideLabels;
+  const distance = camera.position.distanceTo(controls.target);
+  const used = [];
+  const places = [];
+  const fontWidth = width <= 760 ? 11 : 13;
+  if (terrainSurface && props.layers.pois) {
+    const keep = poi => focusIds ? focusIds.includes(poi.id) : distance < 97 || corePlaces.has(poi.id) || poi.id === selectedPoiId.value;
+    const priority = poi => poi.id === selectedPoiId.value ? 0 : corePlaces.has(poi.id) ? 1 : 2;
+    const candidates = POI_LIST.filter(keep).sort((a, b) => priority(a) - priority(b));
+    for (const poi of candidates) {
+      const data = REAL_POIS.find(item => item.id === poi.id) || poi;
+      const [x, , z] = data.pos;
+      const y = getTerrainHeightAt(x, z) + 0.45;
+      const point = screenPosition(x, y, z);
+      if (!insideMap(point, 1)) continue;
+      const label = shortNames[poi.id] || poi.name;
+      const labelWidth = label.length * fontWidth + 34;
+      const left = point.x + 6 + labelWidth > screenBounds.right;
+      const labelX = left ? point.x - labelWidth - 6 : point.x + 5;
+      const labelY = point.y - 15;
+      if (used.some(other => labelX < other.right && labelX + labelWidth > other.left && Math.abs(labelY - other.top) < 26)) continue;
+      used.push({ left: labelX, right: labelX + labelWidth, top: labelY });
+      places.push({ ...poi, pos: [x, y, z], label, style: { left: labelX + 'px', top: labelY + 'px' } });
+    }
+  }
+  screenPois.value = places;
+
+  const labels = [];
+  if (props.guideStep === 3) {
+    for (const [id, points] of Object.entries(REAL_RIVERS)) {
+      const text = { wei_river: '渭河 →', han_river: '汉江 →', yellow_river: '黄河' }[id];
+      if (!text) continue;
+      const [x, , z] = points[id === 'wei_river' ? 2 : Math.floor(points.length / 2)];
+      const point = screenPosition(x, getTerrainHeightAt(x, z) + 0.65, z);
+      if (insideMap(point, 15)) {
+        const overlap = used.some(box => point.x + 49 > box.left && point.x < box.right && Math.abs(point.y - box.top) < 26);
+        labels.push({ id, role: 'water-label', text, style: { left: point.x + 'px', top: (point.y + (overlap ? 27 : 0)) + 'px' } });
+      }
+    }
+  } else if (props.layers.qinlingLine && focusIds) {
+    const x = -6.5, z = 22.4;
+    const point = screenPosition(x, getTerrainHeightAt(x, z) + 0.6, z);
+    if (insideMap(point, 32)) labels.push({ id: 'ridge', role: 'ridge-label', text: '秦岭主脊（示意）',
+      style: { left: point.x + 'px', top: point.y + 'px' } });
+  }
+  sceneLabels.value = labels;
+}
+
+function cancelMotion() {
+  cameraTween?.kill();
+  cameraTween = null;
+  stop360Spin();
+}
+
+function flyTo(pos, target, duration = 1.25) {
   if (!camera || !controls) return;
-  gsap.to(camera.position, {
-    x: pos[0], y: pos[1], z: pos[2], duration, ease: "power3.inOut"
+  cancelMotion();
+  if (props.reducedMotion || duration <= 0) {
+    camera.position.fromArray(pos);
+    controls.target.fromArray(target);
+    controls.update();
+    requestRender();
+    return;
+  }
+  const startPos = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const endPos = new THREE.Vector3().fromArray(pos);
+  const endTarget = new THREE.Vector3().fromArray(target);
+  const progress = { t: 0 };
+  cameraTween = gsap.to(progress, {
+    t: 1,
+    duration,
+    ease: 'power2.inOut',
+    onUpdate() {
+      camera.position.lerpVectors(startPos, endPos, progress.t);
+      controls.target.lerpVectors(startTarget, endTarget, progress.t);
+      requestRender();
+    },
+    onComplete() { cameraTween = null; }
   });
-  gsap.to(controls.target, {
-    x: target[0], y: target[1], z: target[2], duration, ease: "power3.inOut"
-  });
-};
+}
+
+function applyCameraRequest(request, immediate = false) {
+  if (!request || !controls) return;
+  updateCameraViewportOffset();
+  let target = request.target;
+  let position = request.pos;
+  if (request.ground && terrainSurface) {
+    const offset = getTerrainHeightAt(target[0], target[2]) + 0.6 - target[1];
+    position = [position[0], position[1] + offset, position[2]];
+    target = [target[0], target[1] + offset, target[2]];
+  }
+  if (request.fit && screenBounds) position = fitProvince(position, target);
+  flyTo(position, target, immediate ? 0 : request.duration);
+}
+
+function fitProvince(position, target) {
+  const trial = camera.clone();
+  const center = new THREE.Vector3().fromArray(target);
+  const direction = new THREE.Vector3().fromArray(position).sub(center);
+  const projected = new THREE.Vector3();
+  const { clientWidth: width, clientHeight: height } = containerRef.value;
+  const centerX = (screenBounds.left + screenBounds.right) / 2;
+  const centerY = (screenBounds.top + screenBounds.bottom) / 2;
+  const availableX = (screenBounds.right - screenBounds.left) / 2 - 9;
+  const availableY = (screenBounds.bottom - screenBounds.top) / 2 - 18;
+  const samples = CITY_BOUNDARIES.flatMap(city => city.rings.flatMap(ring => ring.filter((_, i) => i % 3 === 0)));
+  let scale = 1;
+  for (let pass = 0; pass < 4; pass++) {
+    trial.position.copy(center).addScaledVector(direction, scale);
+    trial.lookAt(center);
+    trial.updateMatrixWorld();
+    let ratio = 0;
+    for (const [x, , z] of samples) {
+      projected.set(x, getTerrainHeightAt(x, z), z).project(trial);
+      const px = (projected.x * 0.5 + 0.5) * width;
+      const py = (0.5 - projected.y * 0.5) * height;
+      ratio = Math.max(ratio, Math.abs(px - centerX) / Math.max(1, availableX),
+        Math.abs(py - centerY) / Math.max(1, availableY));
+    }
+    if (ratio > 0.87 && ratio < 0.99) break;
+    scale = THREE.MathUtils.clamp(scale * ratio * 1.06, 0.74, 1.85);
+  }
+  return center.clone().addScaledVector(direction, scale).toArray();
+}
+
+function getCameraState() {
+  if (controls && camera) return { pos: camera.position.toArray(), target: controls.target.toArray(), duration: 0.8 };
+  return null;
+}
 
 const onPoiClick = (poi) => {
+  if (isSelecting.value) return;
   selectedPoiId.value = poi.id;
-  emit("select-poi", poi);
-  flyTo([poi.pos[0] + 5, poi.pos[1] + 16, poi.pos[2] + 18], [poi.pos[0], poi.pos[1], poi.pos[2]], 1.8);
+  if (props.guideStep < 0) emit('select-poi', poi);
+  const [x, y, z] = poi.pos;
+  flyTo([x + 6, y + 19, z + 25], [x, y, z], 1.1);
 };
 
 const resetNorth = () => {
@@ -2612,8 +1594,8 @@ const start360Spin = (duration = 7.0) => {
     stop360Spin();
     return;
   }
-  if (!camera || !controls) return;
-
+  if (!camera || !controls || isSelecting.value || props.reducedMotion || props.guideStep >= 0) return;
+  cancelMotion();
   isSpinning360.value = true;
   if (soundscape && soundscape.playBeaconChime) soundscape.playBeaconChime();
   emit('spin-360-status', true);
@@ -2638,6 +1620,7 @@ const start360Spin = (duration = 7.0) => {
       camera.position.z = target.z + radius * Math.sin(phi) * Math.cos(curTheta);
       camera.lookAt(target);
       controls.target.copy(target);
+      requestRender();
     },
     onComplete: () => {
       stop360Spin();
@@ -2668,364 +1651,232 @@ const toggle360Spin = () => {
   }
 };
 
-const setLighting = (mode) => {
+function setLighting(mode) {
   if (!sunLight || !skyFillLight) return;
-  if (mode === "dawn") {
-    sunLight.position.set(70, 45, 60);
-    sunLight.color.setHex(0xfbbf24);
-    sunLight.intensity = 2.4;
-    skyFillLight.color.setHex(0x38bdf8);
-    if (starfieldMesh) starfieldMesh.visible = false;
-    if (scene) scene.background = new THREE.Color(0x060b14);
-  } else if (mode === "noon") {
-    sunLight.position.set(20, 130, 20);
-    sunLight.color.setHex(0xffffff);
-    sunLight.intensity = 2.0;
-    skyFillLight.color.setHex(0x93c5fd);
-    if (starfieldMesh) starfieldMesh.visible = false;
-    if (scene) scene.background = new THREE.Color(0x070d18);
-  } else if (mode === "sunset") {
-    sunLight.position.set(-80, 35, -40);
-    sunLight.color.setHex(0xf43f5e);
-    sunLight.intensity = 2.6;
-    skyFillLight.color.setHex(0x818cf8);
-    if (starfieldMesh) starfieldMesh.visible = false;
-    if (scene) scene.background = new THREE.Color(0x0a0f1d);
-  } else if (mode === "night") {
-    sunLight.position.set(-30, -50, -30);
-    sunLight.color.setHex(0x1e3a8a);
-    sunLight.intensity = 0.25;
-    skyFillLight.color.setHex(0x0f172a);
-    if (starfieldMesh) starfieldMesh.visible = true;
-    if (scene) scene.background = new THREE.Color(0x020617);
-  }
-};
+  const lighting = {
+    dawn: { at: [-76, 77, -32], tint: 0xffd7a0, strength: 2.0, sky: 0xbad6e6, backdrop: 0x15282e },
+    noon: { at: [-82, 108, -54], tint: 0xfff8e9, strength: 2.45, sky: 0xe2eee6, backdrop: 0x122d33 },
+    sunset: { at: [-85, 34, 16], tint: 0xffb582, strength: 2.18, sky: 0x8398bc, backdrop: 0x232831 },
+    night: { at: [26, 63, -52], tint: 0x8eb8ee, strength: 0.53, sky: 0x88a6be, backdrop: 0x081421 }
+  };
+  const choice = lighting[mode] || lighting.noon;
+  sunLight.position.fromArray(choice.at);
+  sunLight.color.setHex(choice.tint);
+  sunLight.intensity = choice.strength;
+  skyFillLight.color.setHex(choice.sky);
+  scene.background.setHex(choice.backdrop);
+  scene.fog.color.setHex(choice.backdrop);
+  if (mode === 'night' && !starfieldMesh) buildStarfield();
+  if (starfieldMesh) starfieldMesh.visible = mode === 'night';
+  requestRender();
+}
 
-const updateCameraViewportOffset = () => {
-  if (!camera || !containerRef.value) return;
-  const width = containerRef.value.clientWidth;
-  const height = containerRef.value.clientHeight;
-  if (props.isPanelOpen && props.currentMode === 'macro' && width > 900) {
-    // 380px 的左侧图文面板展开时，将视口投影向左偏移，使三秦沙盘的主体视觉中心落在右侧开阔区域
-    camera.setViewOffset(width, height, -130, 0, width, height);
-  } else {
-    camera.clearViewOffset();
-  }
+function updateCameraViewportOffset() {
+  const container = containerRef.value?.getBoundingClientRect();
+  if (!camera || !container?.width || !container.height) return;
+  const view = props.safeFrame?.getBoundingClientRect();
+  const { width, height } = container;
+  screenBounds = view?.width > 24 && view.height > 24 ? {
+    left: Math.max(0, view.left - container.left),
+    right: Math.min(width, view.right - container.left),
+    top: Math.max(0, view.top - container.top),
+    bottom: Math.min(height, view.bottom - container.top)
+  } : { left: 12, right: width - 12, top: 18, bottom: height - 18 };
+  const x = (screenBounds.left + screenBounds.right - width) / 2;
+  const y = (screenBounds.top + screenBounds.bottom - height) / 2;
+  camera.setViewOffset(width, height, -x, -y, width, height);
   camera.updateProjectionMatrix();
-};
+  requestRender();
+}
 
-const onWindowResize = () => {
+function onWindowResize() {
   if (!containerRef.value || !renderer || !camera) return;
-  const width = containerRef.value.clientWidth;
-  const height = containerRef.value.clientHeight;
+  const { clientWidth: width, clientHeight: height } = containerRef.value;
+  if (!width || !height) return;
   applyResponsiveCameraFov(width, height);
+  if (renderer.domElement.style.width !== width + 'px' || renderer.domElement.style.height !== height + 'px') {
+    renderer.setSize(width, height);
+  }
   updateCameraViewportOffset();
-  renderer.setSize(width, height);
-};
+}
 
-const animate = () => {
-  animFrameId = requestAnimationFrame(animate);
+function requestRender() {
+  if (!animFrameId && renderer && status !== 'static' && !document.hidden && !props.isPortalActive && !destroyed) {
+    animFrameId = requestAnimationFrame(animate);
+  }
+}
+
+function animate(now) {
+  animFrameId = null;
+  if (document.hidden || props.isPortalActive || status === 'static') return;
+  const delta = Math.max(0.25, Math.min(2, lastFrameTime ? (now - lastFrameTime) / (1000 / 60) : 1));
+  lastFrameTime = now;
   controls.update();
 
-  // 1. 全息八面体晶棱信标旋转与悬浮微动
-  if (animatedCrystals && animatedCrystals.length > 0) {
-    const time = performance.now() * 0.001;
-    animatedCrystals.forEach(c => {
-      c.mesh.rotation.y += c.rotSpeed;
-      c.mesh.position.y = c.baseY + Math.sin(time * 2.8 + c.phase) * 0.08;
-    });
+  const isMacro = props.currentMode === 'macro';
+  const moving = !props.reducedMotion;
+  if (isMacro && terrainSurface) {
+    const showCityModels = !props.guideLabels && props.layers.pois && camera.position.distanceTo(controls.target) < 66;
+    if (showCityModels && !renderedLayers.has('cities')) {
+      buildProceduralCities();
+      renderedLayers.add('cities');
+    }
+    citiesSubGroup.visible = showCityModels;
   }
-
-  // 2. 地表同心声呐脉冲波扩散动效
-  if (animatedSonarRings && animatedSonarRings.length > 0) {
-    const time = performance.now() * 0.0014;
-    animatedSonarRings.forEach(sr => {
-      const cycle1 = (time + sr.phase) % 1.5;
-      const s1 = 1.0 + cycle1 * 0.75;
-      sr.ring1.scale.set(s1, s1, s1);
-      sr.ring1.material.opacity = Math.max(0, 0.75 * (1.0 - cycle1 / 1.5));
-
-      const cycle2 = (time + sr.phase + 0.6) % 1.5;
-      const s2 = 1.0 + cycle2 * 0.75;
-      sr.ring2.scale.set(s2, s2, s2);
-      sr.ring2.material.opacity = Math.max(0, 0.45 * (1.0 - cycle2 / 1.5));
-    });
-  }
-
-  // 3. 丝绸之路流金星尘漫移
-  if (silkRoadParticles && silkRoadParticles.geometry) {
-    const pData = silkRoadParticles.userData;
-    if (pData && pData.curve && pData.progress) {
-      const posArr = silkRoadParticles.geometry.attributes.position.array;
-      for (let i = 0; i < pData.progress.length; i++) {
-        pData.progress[i] += 0.0018;
-        if (pData.progress[i] > 1.0) pData.progress[i] = 0.0;
-        const pt = pData.curve.getPoint(pData.progress[i]);
-        posArr[i * 3] = pt.x;
-        posArr[i * 3 + 1] = pt.y + 0.25;
-        posArr[i * 3 + 2] = pt.z;
+  if (isMacro && moving) {
+    if (valleyMistGroup.visible && animatedValleyMist.length) {
+      for (const mist of animatedValleyMist) {
+        const phase = now * 0.0008 + mist.phase;
+        mist.mesh.position.set(mist.baseX + Math.sin(phase) * 1.5, mist.baseY + Math.sin(phase * 1.5) * 0.25,
+          mist.baseZ + Math.cos(phase * 0.8) * 1.2);
       }
-      silkRoadParticles.geometry.attributes.position.needsUpdate = true;
+      requestRender();
     }
-  }
-
-  // 4. 水系微光呼吸律动
-  if (riverMeshes && riverMeshes.length > 0) {
-    const pulse = 0.75 + Math.sin(performance.now() * 0.003) * 0.18;
-    riverMeshes.forEach(rm => {
-      if (rm.material) rm.material.emissiveIntensity = pulse;
-    });
-  }
-
-  if (silkRoadLine && silkRoadLine.material) {
-    flowOffset += 0.03;
-    if (silkRoadLine.material.dashOffset !== undefined) {
-      silkRoadLine.material.dashOffset = -flowOffset;
-    }
-  }
-
-  // 黄土高原水流径流粒子动画
-  if (loessWaterParticles && loessWaterParticles.geometry) {
-    const pPos = loessWaterParticles.geometry.attributes.position.array;
-    for (let i = 0; i < pPos.length / 3; i++) {
-      pPos[i * 3 + 1] -= 0.05;
-      if (pPos[i * 3 + 1] < 1.0) {
-        pPos[i * 3 + 1] = 6.0;
+    if (winterSnowParticles?.visible) {
+      const { position, velocity } = winterSnowParticles.geometry.attributes;
+      for (let i = 0; i < velocity.count; i++) {
+        const y = position.getY(i) - velocity.getX(i) * delta;
+        position.setY(i, y < 1 ? 45 : y);
       }
+      position.needsUpdate = true;
+      requestRender();
     }
-    loessWaterParticles.geometry.attributes.position.needsUpdate = true;
   }
-
-  // 秦岭气候屏障动态冷暖气流粒子动画
-  if (climateNorthParticles && climateNorthParticles.geometry) {
-    const nPos = climateNorthParticles.geometry.attributes.position.array;
-    for (let i = 0; i < nPos.length / 3; i++) {
-      nPos[i * 3 + 2] += 0.08;
-      if (nPos[i * 3 + 2] > -2.2) {
-        nPos[i * 3 + 1] += 0.04;
-        if (nPos[i * 3 + 2] > 0.0 || nPos[i * 3 + 1] > 14) {
-          nPos[i * 3 + 2] = -14.0;
-          nPos[i * 3 + 1] = Math.random() * 10 + 2;
-        }
-      }
-    }
-    climateNorthParticles.geometry.attributes.position.needsUpdate = true;
+  if (props.currentMode === 'model' && moving) {
+    if (globeMesh) globeMesh.rotation.y += 0.003 * delta;
+    if (loessWaterParticles) moveModelParticles(loessWaterParticles, 1, -0.05 * delta, 1, 6);
+    if (climateNorthParticles) moveModelParticles(climateNorthParticles, 2, 0.08 * delta, 0, -14);
+    if (climateSouthParticles) moveModelParticles(climateSouthParticles, 2, -0.07 * delta, 2, 14);
+    if (globeMesh || loessWaterParticles || climateNorthParticles || climateSouthParticles) requestRender();
   }
-
-  if (climateSouthParticles && climateSouthParticles.geometry) {
-    const sPos = climateSouthParticles.geometry.attributes.position.array;
-    for (let i = 0; i < sPos.length / 3; i++) {
-      sPos[i * 3 + 2] -= 0.06;
-      sPos[i * 3 + 1] += 0.05;
-      if (sPos[i * 3 + 2] < 2.0 || sPos[i * 3 + 1] > 14) {
-        sPos[i * 3 + 2] = 14.0;
-        sPos[i * 3 + 1] = 2.0;
-      }
-    }
-    climateSouthParticles.geometry.attributes.position.needsUpdate = true;
-  }
-
-  // 冬季漫天飞雪氛围粒子飘拂模拟
-  if (winterSnowParticles && winterSnowParticles.visible && winterSnowParticles.geometry) {
-    const snPos = winterSnowParticles.geometry.attributes.position.array;
-    const snVel = winterSnowParticles.geometry.attributes.velocity.array;
-    for (let i = 0; i < snVel.length; i++) {
-      snPos[i * 3 + 1] -= snVel[i];
-      snPos[i * 3] += Math.sin(flowOffset + i) * 0.02;
-      if (snPos[i * 3 + 1] < 1.0) {
-        snPos[i * 3 + 1] = 45.0;
-      }
-    }
-    winterSnowParticles.geometry.attributes.position.needsUpdate = true;
-  }
-
-  // 5. 银河繁星穹顶微速运转 (Starfield Dome Rotation)
-  if (starfieldMesh && starfieldMesh.visible) {
-    starfieldMesh.rotation.y += 0.00015;
-  }
-
-  // 6. 秦岭云海漫涌浮动 (Valley Mist Drifting)
-  if (animatedValleyMist && animatedValleyMist.length > 0 && valleyMistGroup.visible) {
-    const mistTime = performance.now() * 0.0008;
-    animatedValleyMist.forEach(m => {
-      m.mesh.position.x = m.baseX + Math.sin(mistTime + m.phase) * 1.5;
-      m.mesh.position.z = m.baseZ + Math.cos(mistTime * 0.8 + m.phase) * 1.2;
-      m.mesh.position.y = m.baseY + Math.sin(mistTime * 1.5 + m.phase) * 0.25;
-      m.mesh.rotation.y += m.rotSpeed;
-    });
-  }
-
-  // 7. 古蜀道与秦直道商队粒子穿行 (Caravan Particles)
-  if (caravanParticles && caravanParticles.geometry && caravanParticles.userData?.caravanData && shuRoadsSubGroup.visible) {
-    const cData = caravanParticles.userData.caravanData;
-    const cPos = caravanParticles.geometry.attributes.position.array;
-    for (let c = 0; c < cData.length; c++) {
-      const item = cData[c];
-      item.progress += item.speed;
-      if (item.progress > 1.0) item.progress = 0.0;
-      const pt = item.curve.getPoint(item.progress);
-      cPos[c * 3] = pt.x;
-      cPos[c * 3 + 1] = pt.y + 0.18;
-      cPos[c * 3 + 2] = pt.z;
-    }
-    caravanParticles.geometry.attributes.position.needsUpdate = true;
-  }
-
-  // 8. 唐诗宋词朱砂古印信标律动 (Poetry Beacons Pulse)
-  if (animatedPoetryBeacons && animatedPoetryBeacons.length > 0 && poetrySubGroup.visible) {
-    const pTime = performance.now() * 0.0016;
-    animatedPoetryBeacons.forEach(pb => {
-      pb.seal.rotation.y += 0.012;
-      pb.finial.rotation.y += 0.012;
-      pb.seal.position.y = pb.baseY + Math.sin(pTime * 2.2 + pb.phase) * 0.1;
-      pb.finial.position.y = pb.baseY + 0.4 + Math.sin(pTime * 2.2 + pb.phase) * 0.1;
-    });
-  }
-
-  if (globeMesh) {
-    globeMesh.rotation.y += 0.003;
-  }
-
-  // 🚀 FPV 贴地低空飞行预演推演
-  if (fpvActive && fpvCurve) {
-    fpvProgress += fpvSpeed;
-    if (fpvProgress >= 1.0) {
-      fpvProgress = 1.0;
+  if (fpvActive && !fpvPaused && fpvCurve) {
+    fpvProgress = Math.min(1, fpvProgress + fpvSpeed * delta);
+    const pos = fpvCurve.getPointAt(fpvProgress);
+    const look = fpvCurve.getPointAt(Math.min(0.9999, fpvProgress + 0.04));
+    camera.position.set(pos.x, Math.max(pos.y, getTerrainHeightAt(pos.x, pos.z)) + 2.2, pos.z);
+    controls.target.set(look.x, Math.max(look.y, getTerrainHeightAt(look.x, look.z)) + 1.2, look.z);
+    camera.lookAt(controls.target);
+    const index = Math.min(fpvWaypoints.length - 1, Math.floor(fpvProgress * (fpvWaypoints.length - 1)));
+    fpvCallback?.onProgress?.(fpvProgress, sampleElevation(demRaster, pos.x, pos.z), fpvWaypoints[index]);
+    if (fpvProgress >= 1) {
       stopFPVFlight();
-      if (fpvCallback && fpvCallback.onComplete) {
-        fpvCallback.onComplete();
-      }
-    } else {
-      const pos = fpvCurve.getPointAt(fpvProgress);
-      const lookT = Math.min(1.0, fpvProgress + 0.045);
-      const lookPos = fpvCurve.getPointAt(lookT);
-
-      const currentGroundY = getTerrainHeightAt(pos.x, pos.z);
-      const camY = Math.max(pos.y, currentGroundY) + 2.2;
-      const targetY = Math.max(lookPos.y, getTerrainHeightAt(lookPos.x, lookPos.z)) + 2.0;
-
-      camera.position.set(pos.x, camY, pos.z);
-      controls.target.set(lookPos.x, targetY, lookPos.z);
-      camera.lookAt(lookPos.x, targetY, lookPos.z);
-
-      const altM = camY * 120 + 380;
-      let currentWp = null;
-      if (fpvWaypoints && fpvWaypoints.length > 0) {
-        const segIdx = Math.min(fpvWaypoints.length - 1, Math.floor(fpvProgress * (fpvWaypoints.length - 1)));
-        currentWp = fpvWaypoints[segIdx];
-      }
-
-      if (fpvCallback && fpvCallback.onProgress) {
-        fpvCallback.onProgress(fpvProgress, altM, currentWp);
-      }
-    }
+    } else requestRender();
   }
-
-  // 🎧 Web Audio 三维空间自然音景空间自适应调制
-  if (camera && controls) {
-    soundscape.updateCameraSpatial(camera.position, controls.target, fpvActive ? 2.5 : 0);
+  soundscape.updateCameraSpatial(camera.position, controls.target, fpvActive ? 2.5 : 0);
+  camera.updateMatrixWorld();
+  camera.getWorldDirection(cameraDirection);
+  const readout = {
+    pitch: Math.round(Math.abs(Math.asin(THREE.MathUtils.clamp(cameraDirection.y, -1, 1))) * 180 / Math.PI),
+    azimuth: (Math.round(Math.atan2(-cameraDirection.x, -cameraDirection.z) * 180 / Math.PI) + 360) % 360
+  };
+  if (readout.pitch !== lastCameraReadout?.pitch || readout.azimuth !== lastCameraReadout?.azimuth) {
+    lastCameraReadout = readout;
+    emit('camera-update', readout);
   }
-
-  if (camera && controls) {
-    const pitch = Math.round((camera.rotation.x * 180) / Math.PI);
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
-    const azimuth = Math.round(Math.atan2(-dir.x, -dir.z) * (180 / Math.PI));
-    emit("camera-update", { pitch: Math.abs(pitch), azimuth });
-  }
-
   updatePoiScreenPositions();
   renderer.render(scene, camera);
-};
+}
 
-// 模式与状态监听
-watch([() => props.isPanelOpen, () => props.currentMode], () => {
-  updateCameraViewportOffset();
-});
-
-watch(() => props.isPortalActive, (isPortal, oldVal) => {
-  if (controls) {
-    controls.autoRotate = !!isPortal;
-    controls.autoRotateSpeed = 0.5;
+function moveModelParticles(points, axis, delta, limit, restart) {
+  const positions = points.geometry.attributes.position;
+  for (let i = axis; i < positions.array.length; i += 3) {
+    const next = positions.array[i] + delta;
+    positions.array[i] = (delta < 0 ? next < limit : next > limit) ? restart : next;
   }
-  // 从门户页首次进入沙盘时，执行高空俯冲入景运镜 (Cinematic dive-in)
-  if (oldVal === true && !isPortal && camera && controls) {
-    camera.position.set(0, 160, 200);
-    controls.target.set(0, 5, 0);
-    gsap.to(camera.position, {
-      x: -3,
-      y: 42,
-      z: 48,
-      duration: 2.2,
-      ease: "power2.out"
-    });
-    gsap.to(controls.target, {
-      x: -3,
-      y: 14,
-      z: 18,
-      duration: 2.2,
-      ease: "power2.out"
-    });
+  positions.needsUpdate = true;
+}
+
+function onVisibility() {
+  if (document.hidden) {
+    cancelMotion();
+    if (fpvActive) stopFPVFlight(false);
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
+  } else {
+    lastFrameTime = 0;
+    requestRender();
   }
-}, { immediate: true });
+}
 
-watch(() => props.currentMode, (newMode) => {
-  if (!macroGroup || !bonsaiGroup || !modelGroup || !campaignGroup) return;
-
-  macroGroup.visible = newMode === "macro" || newMode === "campaign";
-  bonsaiGroup.visible = newMode === "bonsai";
-  modelGroup.visible = newMode === "model";
-  campaignGroup.visible = newMode === "campaign";
-
-  if (newMode === "macro") {
-    flyTo([0, 95, 125], [0, 5, 0], 1.5);
-  } else if (newMode === "bonsai") {
-    flyTo([0, 28, 42], [0, 6, 0], 1.5);
+function applyMode(mode) {
+  if (!macroGroup) return;
+  macroGroup.visible = mode === 'macro' || mode === 'campaign';
+  bonsaiGroup.visible = mode === 'bonsai';
+  modelGroup.visible = mode === 'model';
+  campaignGroup.visible = mode === 'campaign';
+  if (mode === 'bonsai') {
+    flyTo([21, 42, 54], [0, 9, 0], 1.2);
     buildBonsaiBlock();
-  } else if (newMode === "model") {
-    flyTo([0, 32, 45], [0, 4, 0], 1.5);
+  } else if (mode === 'model') {
+    flyTo([0, 32, 45], [0, 4, 0], 1.2);
     buildEvolutionModel();
-  } else if (newMode === "campaign" && props.activeCampaign) {
-    const cam = props.activeCampaign.camera;
-    flyTo(cam.pos, cam.target, 1.8);
+  } else if (mode === 'campaign' && props.activeCampaign) {
+    const { pos, target } = props.activeCampaign.camera;
+    flyTo(pos, target, 1.2);
     buildCampaignVisuals();
   }
-});
+  requestRender();
+}
 
-// 图层控制监听
-watch(() => props.layers, (newLayers) => {
-  if (!newLayers) return;
-  if (borderSubGroup) borderSubGroup.visible = !!newLayers.border;
-  if (riversSubGroup) riversSubGroup.visible = !!newLayers.rivers;
-  if (qinlingSubGroup) qinlingSubGroup.visible = !!newLayers.qinlingLine;
-  if (silkRoadSubGroup) silkRoadSubGroup.visible = !!newLayers.silkRoad;
-  if (shuRoadsSubGroup) shuRoadsSubGroup.visible = !!newLayers.shuRoads;
-  if (qinZhiDaoSubGroup) qinZhiDaoSubGroup.visible = !!newLayers.qinZhiDao;
-  if (poetrySubGroup) poetrySubGroup.visible = !!newLayers.poetrySpots;
-  if (valleyMistGroup) valleyMistGroup.visible = !!newLayers.valleyMist;
-  if (poisSubGroup) poisSubGroup.visible = !!newLayers.pois;
-  if (culturalSubGroup) culturalSubGroup.visible = !!newLayers.cultural;
-  if (citiesSubGroup) citiesSubGroup.visible = newLayers.pois !== false;
-}, { deep: true, immediate: true });
-
-// GIS 分析着色器模式监听
-const setGisMode = (mode) => {
-  const codeMap = {
-    natural: 0.0,
-    hypsometric: 1.0,
-    slope: 2.0,
-    ink: 3.0
-  };
-  const code = codeMap[mode] !== undefined ? codeMap[mode] : 0.0;
-  gisUniforms.uGisMode.value = code;
-  if (terrainMesh && terrainMesh.material && terrainMesh.material.userData?.uGisMode) {
-    terrainMesh.material.userData.uGisMode.value = code;
+function syncLayers() {
+  if (!terrainSurface) return;
+  const definitions = [
+    ['border', borderSubGroup, buildShaanxiBorder],
+    ['rivers', riversSubGroup, buildRivers],
+    ['qinlingLine', qinlingSubGroup, buildQinlingLine],
+    ['silkRoad', silkRoadSubGroup, buildSilkRoad],
+    ['shuRoads', shuRoadsSubGroup, buildHistoricalRoads],
+    ['qinZhiDao', qinZhiDaoSubGroup, buildHistoricalRoads],
+    ['poetrySpots', poetrySubGroup, buildPoetrySpots],
+    ['cultural', culturalSubGroup, buildCulturalHotspots],
+    ['valleyMist', valleyMistGroup, buildValleyMist]
+  ];
+  for (const [name, group, build] of definitions) {
+    group.visible = !!props.layers[name];
+    if (group.visible && !renderedLayers.has(name)) {
+      build();
+      renderedLayers.add(name);
+      if (name === 'shuRoads' || name === 'qinZhiDao') {
+        renderedLayers.add('shuRoads');
+        renderedLayers.add('qinZhiDao');
+      }
+    }
   }
-};
+  requestRender();
+}
 
-watch(() => props.gisMode, (mode) => {
-  setGisMode(mode);
-}, { immediate: true });
+function syncProvinceView() {
+  if (!terrainSurface) return;
+  const clipped = !!terrainSurface.mask && props.guideStep === 0;
+  terrainUniforms.provinceView.value = Number(clipped);
+  terrainSurface.base.visible = !clipped;
+  terrainSurface.skirt.visible = !clipped;
+  requestRender();
+}
+
+function setGisMode(mode) {
+  const styles = { natural: 0, hypsometric: 1, slope: 2, ink: 3 };
+  terrainUniforms.mapStyle.value = styles[mode] ?? 0;
+  requestRender();
+}
+
+watch(() => props.layers, syncLayers, { deep: true });
+watch(() => props.currentMode, applyMode);
+watch(() => props.cameraRequest, request => applyCameraRequest(request), { flush: 'post' });
+watch(() => props.safeFrame, (frame, previous) => {
+  if (previous) viewportObserver?.unobserve(previous);
+  if (frame) viewportObserver?.observe(frame);
+  updateCameraViewportOffset();
+});
+watch(() => props.isPortalActive, (portal) => {
+  if (portal) cancelMotion();
+  else { onWindowResize(); requestRender(); }
+});
+watch(() => props.gisMode, setGisMode);
+watch(() => props.history, (history) => { terrainUniforms.historyMix.value = Number(history); requestRender(); });
+watch(() => props.guideStep, syncProvinceView);
+watch(() => [props.guideLabels, props.isProfileVisible], requestRender);
+watch(() => props.reducedMotion, () => { cancelMotion(); requestRender(); });
 
 // 盆景参数监听
 watch([() => props.activeBonsaiId, () => props.bonsaiExaggeration], () => {
@@ -3038,6 +1889,7 @@ watch([() => props.activeBonsaiId, () => props.bonsaiExaggeration], () => {
 watch([() => props.activeLabId, () => props.currentTectonicStage, () => props.activeModelStage], () => {
   if (props.currentMode === "model") {
     buildEvolutionModel();
+    requestRender();
   }
 });
 
@@ -3045,6 +1897,7 @@ watch([() => props.activeLabId, () => props.currentTectonicStage, () => props.ac
 watch([() => props.activeCampaign, () => props.activeCampaignStageIndex], () => {
   if (props.currentMode === "campaign") {
     buildCampaignVisuals();
+    requestRender();
   }
 });
 
@@ -3053,54 +1906,29 @@ watch(() => props.lightingMode, (mode) => {
   setLighting(mode);
 });
 
-// 章节联动摄像机视角
-watch(() => props.activeChapterId, (chapId) => {
-  if (props.currentMode !== "macro") return;
-  const chapterCameraMap = {
-    geo_01: { pos: [-3, 35, 36], target: [-3, 16.8, 16.0] },    // 秦岭太白
-    geo_02: { pos: [3.2, 38, -2], target: [3.2, 5.0, -18.5] },   // 陕北黄土
-    geo_03: { pos: [12, 28, 28], target: [10, 4, 12] },          // 关中平原/华山
-    geo_04: { pos: [-14.5, 26, 48], target: [-14.5, 3.2, 33.2] },// 陕南汉中
-    geo_05: { pos: [26, 26, 4], target: [24.5, 2.8, -4.2] },    // 壶口黄河瀑布
-    geo_06: { pos: [0, 40, 32], target: [-1.2, 2.5, 11.2] },    // 大地原点
-    his_01: { pos: [3.6, 22, 26], target: [3.6, 2.7, 12.8] },    // 临潼兵马俑
-    his_02: { pos: [0.5, 24, 26], target: [0.5, 2.8, 13.2] },    // 汉长安城
-    his_03: { pos: [0.5, 24, 26], target: [0.5, 2.8, 13.2] },    // 唐大雁塔
-    his_04: { pos: [3.2, 24, -4], target: [3.2, 5.0, -18.5] },   // 延安宝塔山
-    silk_01: { pos: [-8, 30, 24], target: [-10, 3, 10] },        // 丝路起点长安
-    silk_02: { pos: [-18, 28, 20], target: [-20, 3.5, 8] }       // 丝绸之路陇关道
-  };
-
-  if (chapterCameraMap[chapId]) {
-    const c = chapterCameraMap[chapId];
-    flyTo(c.pos, c.target, 1.8);
-  }
-});
-
-onMounted(() => {
-  initThree();
-});
+onMounted(initThree);
 
 onBeforeUnmount(() => {
-  if (animFrameId) cancelAnimationFrame(animFrameId);
-  window.removeEventListener("resize", onWindowResize);
-  stop360Spin();
-  if (renderer && renderer.domElement) {
-    renderer.domElement.removeEventListener('pointerdown', onCanvasPointerDown);
-    renderer.domElement.removeEventListener('pointermove', onCanvasPointerMove);
-    renderer.domElement.removeEventListener('pointerup', onCanvasPointerUp);
-    renderer.domElement.removeEventListener('auxclick', onAuxClick);
-    renderer.domElement.removeEventListener('wheel', onCanvasWheel);
+  destroyed = true;
+  cancelAnimationFrame(animFrameId);
+  cancelMotion();
+  viewportObserver?.disconnect();
+  if (bonsaiGroup) gsap.killTweensOf([bonsaiGroup.position, bonsaiGroup.scale]);
+  document.removeEventListener('visibilitychange', onVisibility);
+  if (controls) {
+    controls.removeEventListener('change', requestRender);
+    controls.dispose();
+  }
+  if (renderer) {
+    clearSceneGroup(scene);
+    terrainSurface?.mask?.dispose();
     renderer.dispose();
   }
 });
 
-
 // 构建人文风物地标 (非遗/美食/戏曲 - 高阶三维流光灵境，根除粗糙 Sprite 灰色圆盘)
 function buildCulturalHotspots() {
-  while (culturalSubGroup.children.length > 0) {
-    culturalSubGroup.remove(culturalSubGroup.children[0]);
-  }
+  clearSceneGroup(culturalSubGroup);
 
   CULTURAL_ITEMS.forEach((item, idx) => {
     const cultGroup = new THREE.Group();
@@ -3143,7 +1971,6 @@ function buildCulturalHotspots() {
     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
     coreMesh.position.y = 1.4;
     cultGroup.add(coreMesh);
-    animatedCrystals.push({ mesh: coreMesh, baseY: 1.4, rotSpeed: 0.028, phase: idx * 0.7 });
 
     // 4. 地面微金光圈
     const gRingGeo = new THREE.RingGeometry(0.14, 0.32, 24);
@@ -3161,312 +1988,219 @@ function buildCulturalHotspots() {
 // 射线碰撞与空间交互逻辑 (剖面测绘、挑战答题、风物点击)
 const raycaster = new THREE.Raycaster();
 const pointerVec = new THREE.Vector2();
+const pointers = new Set();
 let profilingPoints = [];
-let primaryDownPos = null;
-profilingStep.value = 1;
+let primaryDown = null;
 
-const handlePrimaryCanvasTap = (e) => {
+function hitTerrain() {
+  return terrainMesh ? raycaster.intersectObject(terrainMesh)[0]?.point : null;
+}
+
+function dispatchMapPoint(point) {
+  if (props.isGuidePicking) emit('guide-point', { x: point.x, z: point.z });
+  else if (props.isProbing) readPoint(point);
+  else if (props.isChallengeActive) emit('challenge-click', point.toArray());
+  else if (props.isProfilingActive) handleProfilingHit(point);
+  else if (props.isRoadbookActive) emit('roadbook-point-added', {
+    x: point.x, y: point.y, z: point.z, elevationM: sampleElevation(demRaster, point.x, point.z),
+    ...unprojectWorld(point.x, point.z)
+  });
+}
+
+function handlePrimaryCanvasTap(event) {
+  if (props.currentMode !== 'macro') return;
   const rect = renderer.domElement.getBoundingClientRect();
-  pointerVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  pointerVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
+  pointerVec.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
   raycaster.setFromCamera(pointerVec, camera);
-
-  // 1. 探秘答题模式碰撞
-  if (props.isChallengeActive) {
-    if (terrainMesh) {
-      const hits = raycaster.intersectObject(terrainMesh);
-      if (hits.length > 0) {
-        const pt = hits[0].point;
-        emit('challenge-click', [pt.x, pt.y, pt.z]);
-      }
-    }
+  if (isSelecting.value) {
+    const point = hitTerrain();
+    if (point) dispatchMapPoint(point);
     return;
   }
-
-  // 2. 剖面测绘模式碰撞
-  if (props.isProfilingActive) {
-    if (terrainMesh) {
-      const hits = raycaster.intersectObject(terrainMesh);
-      if (hits.length > 0) {
-        handleProfilingHit(hits[0].point);
-      }
+  for (const [key, group, eventName] of [
+    ['culturalItem', culturalSubGroup, 'select-culture'],
+    ['poetrySpot', poetrySubGroup, 'select-poetry']
+  ]) {
+    if (!group.visible) continue;
+    const hit = raycaster.intersectObjects(group.children, true)[0];
+    if (!hit) continue;
+    let node = hit.object;
+    while (node.parent && !node.userData[key]) node = node.parent;
+    if (node.userData[key]) {
+      emit(eventName, node.userData[key]);
+      break;
     }
+  }
+}
+
+function onCanvasPointerDown(event) {
+  const hadSpin = isSpinning360.value;
+  cancelMotion();
+  if (event.button === 1) {
+    event.preventDefault();
+    middleDownPos = { x: event.clientX, y: event.clientY, time: performance.now(), hadSpin };
     return;
   }
+  pointers.add(event.pointerId);
+  if (pointers.size === 1 && (event.button === 0 || event.pointerType === 'touch')) {
+    primaryDown = { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() };
+  } else primaryDown = null;
+}
 
-  // 3. 人文风物图标点击
-  if (props.layers?.cultural && culturalSubGroup) {
-    const hits = raycaster.intersectObjects(culturalSubGroup.children, true);
-    if (hits.length > 0) {
-      let obj = hits[0].object;
-      while (obj.parent && !obj.userData?.culturalItem) obj = obj.parent;
-      if (obj.userData?.culturalItem) {
-        emit('select-culture', obj.userData.culturalItem);
-        return;
-      }
-    }
-  }
+function resetPointerGesture(event) {
+  pointers.delete(event.pointerId);
+  primaryDown = null;
+}
 
-  // 3.5 唐诗宋词地理空间信标点击
-  if (props.layers?.poetrySpots && poetrySubGroup) {
-    const hits = raycaster.intersectObjects(poetrySubGroup.children, true);
-    if (hits.length > 0) {
-      let obj = hits[0].object;
-      while (obj.parent && !obj.userData?.poetrySpot) obj = obj.parent;
-      if (obj.userData?.poetrySpot) {
-        soundscape.playBeaconChime();
-        emit('select-poetry', obj.userData.poetrySpot);
-        return;
-      }
-    }
-  }
-
-  // 4. 自定义 3D 路书打点交互
-  if (props.isRoadbookActive) {
-    if (terrainMesh) {
-      const hits = raycaster.intersectObject(terrainMesh);
-      if (hits.length > 0) {
-        const pt = hits[0].point;
-        emit('roadbook-point-added', { x: pt.x, y: pt.y, z: pt.z });
-      }
-    }
-  }
-};
-
-const onCanvasPointerDown = (e) => {
-  if (!renderer || !camera || e.target !== renderer.domElement) return;
-
-  // 1. 鼠标中键交互捕捉 (按键代码 1: 中键)
-  if (e.button === 1) {
-    e.preventDefault();
-    middleDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
-    if (isSpinning360.value) {
-      stop360Spin();
-      return;
-    }
+function onCanvasPointerUp(event) {
+  if (event.button === 1) {
+    event.preventDefault();
+    const distance = Math.hypot(event.clientX - middleDownPos.x, event.clientY - middleDownPos.y);
+    if (!middleDownPos.hadSpin && distance < 6 && performance.now() - middleDownPos.time < 500) start360Spin();
     return;
   }
+  pointers.delete(event.pointerId);
+  if (!primaryDown || primaryDown.id !== event.pointerId) return;
+  const distance = Math.hypot(event.clientX - primaryDown.x, event.clientY - primaryDown.y);
+  const elapsed = performance.now() - primaryDown.time;
+  primaryDown = null;
+  if (distance < 10 && elapsed < 500) handlePrimaryCanvasTap(event);
+  else emit('map-gesture');
+}
 
-  // 任意其它点击操作均平滑打断 360 度自动环视
-  if (isSpinning360.value) {
-    stop360Spin();
-  }
-
-  // 仅记录主指针按下起点，待 pointerup 确认短距离轻点后再触发业务点击，防止触屏单指旋转误触打点
-  if (e.button === 0 || e.pointerType === 'touch') {
-    primaryDownPos = {
-      x: e.clientX,
-      y: e.clientY,
-      time: performance.now(),
-      pointerType: e.pointerType
-    };
-  }
+const onAuxClick = (event) => {
+  if (event.button === 1) event.preventDefault();
 };
 
-const onCanvasPointerUp = (e) => {
-  if (e.button === 1) {
-    e.preventDefault();
-    const dist = Math.hypot(e.clientX - middleDownPos.x, e.clientY - middleDownPos.y);
-    const dt = performance.now() - middleDownPos.time;
-    // 如果位移小于 6px 且时间在 500ms 内，判定为中键单击：启动 360 度平滑全景环绕自转
-    if (dist < 6 && dt < 500) {
-      if (isSpinning360.value) {
-        stop360Spin();
-      } else {
-        start360Spin();
-      }
-    }
+function onCanvasWheel() {
+  cancelMotion();
+  emit('map-gesture');
+}
+
+function readPoint(point) {
+  const { lon, lat } = unprojectWorld(point.x, point.z);
+  const elevation = sampleElevation(demRaster, point.x, point.z);
+  terrainReticleMesh.position.copy(point);
+  terrainReticleMesh.position.y += 0.16;
+  terrainReticleMesh.visible = true;
+  emit('geo-telemetry', {
+    lng: lon.toFixed(4) + '°E',
+    lat: lat.toFixed(4) + '°N',
+    elevation: elevation === null ? null : Math.round(elevation / 10) * 10,
+    region: boundaries ? (findShaanxiCity(lon, lat, boundaries) || '省外范围') : '行政区数据未载入'
+  });
+  requestRender();
+}
+
+function pickMapCenter() {
+  if (!controls || !terrainSurface || !isSelecting.value) return;
+  const { x, z } = controls.target;
+  if (Math.abs(x) > TERRAIN_EXTENT.width / 2 || Math.abs(z) > TERRAIN_EXTENT.depth / 2) return;
+  dispatchMapPoint(new THREE.Vector3(x, getTerrainHeightAt(x, z), z));
+}
+
+function focusMap() {
+  renderer?.domElement.focus({ preventScroll: true });
+}
+
+function onMapKeydown(event) {
+  if (event.key === 'Enter') {
+    pickMapCenter();
     return;
   }
+  const change = { ArrowUp: [0, -2], ArrowDown: [0, 2], ArrowLeft: [-2, 0], ArrowRight: [2, 0] }[event.key];
+  if (!change) return;
+  event.preventDefault();
+  cancelMotion();
+  const offset = new THREE.Vector3(change[0], 0, change[1]);
+  camera.position.add(offset);
+  controls.target.add(offset);
+  emit('map-gesture');
+  requestRender();
+}
 
-  if (primaryDownPos && (e.button === 0 || e.pointerType === 'touch')) {
-    const dist = Math.hypot(e.clientX - primaryDownPos.x, e.clientY - primaryDownPos.y);
-    const dt = performance.now() - primaryDownPos.time;
-    primaryDownPos = null;
-    if (dist < 10 && dt < 450 && renderer && camera) {
-      handlePrimaryCanvasTap(e);
-    }
+function makeMarker(color, radius) {
+  const ring = new THREE.RingGeometry(radius * 0.75, radius, 25);
+  ring.rotateX(-Math.PI / 2);
+  const pin = new THREE.Mesh(ring, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }));
+  macroGroup.add(pin);
+  return pin;
+}
+
+function positionMarker(marker, point) {
+  marker.visible = !!point;
+  if (point) marker.position.set(point.x, getTerrainHeightAt(point.x, point.z) + 0.40, point.z);
+  requestRender();
+}
+
+function setGuidePoint(point) {
+  if (!macroGroup) return;
+  if (!guideMarker) guideMarker = makeMarker(0xffda8b, 1.05);
+  positionMarker(guideMarker, point);
+}
+
+function setProfileCursor(point) {
+  if (!macroGroup) return;
+  if (!cursorMarker) cursorMarker = makeMarker(0xffdf9e, 0.85);
+  positionMarker(cursorMarker, point);
+}
+
+function drawProfile(start, end) {
+  if (!profilingMeasureGroup || !demRaster) return null;
+  const result = makeElevationProfile(demRaster, start, end);
+  if (!result) return null;
+  clearSceneGroup(profilingMeasureGroup);
+  const points = result.points.map(({ x, z }) => new THREE.Vector3(x, getTerrainHeightAt(x, z) + 0.28, z));
+  const route = new THREE.CatmullRomCurve3(points);
+  const material = new THREE.MeshBasicMaterial({ color: 0xf0cd8b });
+  profilingMeasureGroup.add(new THREE.Mesh(new THREE.TubeGeometry(route, points.length, 0.10, 5, false), material));
+  for (const point of [points[0], points.at(-1)]) {
+    const endMarker = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 6), material);
+    endMarker.position.copy(point);
+    profilingMeasureGroup.add(endMarker);
   }
-};
+  requestRender();
+  return result;
+}
 
-const onAuxClick = (e) => {
-  if (e.button === 1) {
-    e.preventDefault();
-  }
-};
-
-const onCanvasWheel = () => {
-  if (isSpinning360.value) {
-    stop360Spin();
-  }
-};
-
-const onCanvasPointerMove = (e) => {
-  if (e.pointerType === 'touch') return;
-  if (!renderer || !camera) {
-    if (terrainReticleMesh) terrainReticleMesh.visible = false;
-    return;
-  }
-
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointerVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  pointerVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(pointerVec, camera);
-  if (terrainMesh) {
-    const hits = raycaster.intersectObject(terrainMesh);
-    if (hits.length > 0) {
-      const hit = hits[0].point;
-
-      // 实时三维遥感解算 (经度、纬度、高程与地域分区)
-      const lngVal = 108.8 + hit.x * 0.0725;
-      const latVal = 34.3 - hit.z * 0.062;
-      const elevM = Math.round(180 + Math.max(0, hit.y / 18.5) * 3591);
-
-      let regionName = "关中平原平畴";
-      if (hit.z > 14) regionName = "陕南秦巴山地";
-      else if (hit.z < -10) regionName = "陕北黄土高原";
-
-      emit('geo-telemetry', {
-        lng: lngVal.toFixed(3) + '°E',
-        lat: latVal.toFixed(3) + '°N',
-        elevation: `${elevM} m`,
-        region: regionName,
-        worldPos: [hit.x, hit.y, hit.z]
-      });
-
-      if (props.isProfilingActive || props.isChallengeActive || props.isRoadbookActive) {
-        if (terrainReticleMesh) {
-          terrainReticleMesh.position.set(hit.x, hit.y + 0.15, hit.z);
-          terrainReticleMesh.visible = true;
-        }
-      }
-      return;
-    }
-  }
-
-  emit('geo-telemetry', null);
-  if (terrainReticleMesh) terrainReticleMesh.visible = false;
-};
-
-const handleProfilingHit = (point) => {
-  if (profilingPoints.length >= 2) {
+function handleProfilingHit(point) {
+  if (!demRaster) return;
+  if (profilingPoints.length !== 1) {
     clearProfiling();
+    profilingPoints.push(point.clone());
+    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 6), new THREE.MeshBasicMaterial({ color: 0xf0cd8b }));
+    marker.position.copy(point);
+    marker.position.y += 0.28;
+    profilingMeasureGroup.add(marker);
+    emit('profile-step', 2);
+    requestRender();
+    return;
   }
-  if (profilingPoints.length >= 2) {
-    clearProfiling();
-  }
-
+  const result = drawProfile(profilingPoints[0], point);
+  if (!result) return;
   profilingPoints.push(point.clone());
-  profilingStep.value = profilingPoints.length === 1 ? 2 : 1;
+  emit('profile-calculated', result);
+}
 
-  // 创建标记针
-  const isStart = profilingPoints.length === 1;
-  const pinGeo = new THREE.CylinderGeometry(0.1, 0.1, 3.5, 12);
-  const pinMat = new THREE.MeshBasicMaterial({ color: isStart ? 0x10b981 : 0xef4444 });
-  const pin = new THREE.Mesh(pinGeo, pinMat);
-  pin.position.set(point.x, point.y + 1.75, point.z);
-  profilingMeasureGroup.add(pin);
-
-  if (profilingPoints.length === 2) {
-    const ptA = profilingPoints[0];
-    const ptB = profilingPoints[1];
-
-    const sampleCount = 60;
-    const sampledPoints = [];
-    const curvePts = [];
-    const width = 80;
-    const depth = 140;
-
-    let demData = null;
-    if (demCanvas) {
-      try {
-        demData = demCanvas.getContext("2d").getImageData(0, 0, demCanvas.width, demCanvas.height).data;
-      } catch (e) {}
-    }
-
-    let minH = 9999;
-    let maxH = -9999;
-    let totalAscent = 0;
-    let prevH = null;
-
-    for (let i = 0; i <= sampleCount; i++) {
-      const t = i / sampleCount;
-      const x = ptA.x + t * (ptB.x - ptA.x);
-      const z = ptA.z + t * (ptB.z - ptA.z);
-
-      const u = (x / width) + 0.5;
-      const v = (z / depth) + 0.5;
-
-      let elevationM = 400;
-      let y = 1.0;
-
-      if (demData && u >= 0 && u <= 1 && v >= 0 && v <= 1) {
-        const px = Math.floor(u * (demCanvas.width - 1));
-        const py = Math.floor(v * (demCanvas.height - 1));
-        const pIdx = (py * demCanvas.width + px) * 4;
-        const grey = demData[pIdx];
-        y = Math.pow(grey / 255.0, 1.1) * 18.5;
-        elevationM = Math.round(180 + Math.pow(grey / 255.0, 1.1) * 3591);
-      }
-
-      if (elevationM < minH) minH = elevationM;
-      if (elevationM > maxH) maxH = elevationM;
-
-      if (prevH !== null && elevationM > prevH) {
-        totalAscent += (elevationM - prevH);
-      }
-      prevH = elevationM;
-
-      curvePts.push(new THREE.Vector3(x, y + 0.25, z));
-
-      const distKm = ptA.distanceTo(new THREE.Vector3(x, y, z)) * 6.21;
-      sampledPoints.push({
-        distKm,
-        elevationM,
-        x, y, z
-      });
-    }
-
-    // 绘制发光测绘激光缎带
-    const laserCurve = new THREE.CatmullRomCurve3(curvePts);
-    const laserGeo = new THREE.TubeGeometry(laserCurve, 80, 0.22, 8, false);
-    const laserMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      emissive: 0x0284c7,
-      emissiveIntensity: 0.9,
-      roughness: 0.2
-    });
-    const laserMesh = new THREE.Mesh(laserGeo, laserMat);
-    profilingMeasureGroup.add(laserMesh);
-
-    const totalDistanceKm = ptA.distanceTo(ptB) * 6.21;
-    const avgSlope = (Math.abs(maxH - minH) / (totalDistanceKm * 1000)) * 100;
-
-    emit('profile-calculated', {
-      points: sampledPoints,
-      totalDistanceKm,
-      minElevation: minH,
-      maxElevation: maxH,
-      totalAscent,
-      averageSlope: avgSlope
-    });
-  }
-};
-
-const clearProfiling = () => {
+function clearProfiling() {
   profilingPoints = [];
-  while (profilingMeasureGroup.children.length > 0) {
-    profilingMeasureGroup.remove(profilingMeasureGroup.children[0]);
-  }
-};
+  clearSceneGroup(profilingMeasureGroup);
+  setProfileCursor(null);
+  emit('profile-step', 1);
+  requestRender();
+}
 
-// 截取当前沙盘超高清画面用于海报生成
+watch(() => props.isProbing, (probing) => {
+  if (!probing && terrainReticleMesh) {
+    terrainReticleMesh.visible = false;
+    requestRender();
+  }
+});
+
 const captureSnapshot = () => {
-  if (!renderer || !scene || !camera) return "";
+  if (!renderer || status === 'static') return '';
   renderer.render(scene, camera);
-  return renderer.domElement.toDataURL("image/png");
+  return renderer.domElement.toDataURL('image/png');
 };
 
 // 电影巡航平滑运镜
@@ -3477,23 +2211,9 @@ const flyToWaypoint = (wp) => {
 
 // 获取地形 (x, z) 处物理高度
 function getTerrainHeightAt(x, z) {
-  const width = 80;
-  const depth = 140;
-  const u = (x / width) + 0.5;
-  const v = (z / depth) + 0.5;
-  if (demCanvas && u >= 0 && u <= 1 && v >= 0 && v <= 1) {
-    try {
-      const ctx = demCanvas.getContext('2d');
-      const px = Math.floor(u * (demCanvas.width - 1));
-      const py = Math.floor(v * (demCanvas.height - 1));
-      const pData = ctx.getImageData(px, py, 1, 1).data;
-      return Math.pow(pData[0] / 255.0, 1.1) * 18.5;
-    } catch (_) {}
-  }
-  return (z > 12) ? Math.max(0, 1 - Math.abs(z - 18) / 14) * 14 : 1.5;
+  return surfaceHeightAt(terrainSurface, x, z);
 }
 
-// 构建冬季全域漫天飞雪氛围粒子系统
 function buildWinterSnowParticles() {
   if (winterSnowParticles || !macroGroup) return;
   const count = 1200;
@@ -3525,78 +2245,28 @@ function buildWinterSnowParticles() {
   macroGroup.add(winterSnowParticles);
 }
 
-// 四季模式平滑切换
 function setSeason(seasonId) {
-  const targetCode = seasonCodeMap[seasonId] ?? 0.0;
-  if (!seasonUniforms) return;
-  seasonUniforms.uPrevSeason.value = seasonUniforms.uSeason.value;
-  seasonUniforms.uSeason.value = targetCode;
-  seasonUniforms.uSeasonBlend.value = 0.0;
-
-  const start = performance.now();
-  const duration = 1200;
-  function updateBlend(now) {
-    const elapsed = now - start;
-    const t = Math.min(1.0, elapsed / duration);
-    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-    seasonUniforms.uSeasonBlend.value = ease;
-    if (t < 1.0) {
-      requestAnimationFrame(updateBlend);
-    }
-  }
-  requestAnimationFrame(updateBlend);
-
-  if (seasonId === 'winter') {
-    if (!winterSnowParticles) buildWinterSnowParticles();
-    if (winterSnowParticles) winterSnowParticles.visible = true;
-  } else {
-    if (winterSnowParticles) winterSnowParticles.visible = false;
-  }
-
-  if (sunLight) {
-    if (seasonId === 'winter') {
-      sunLight.color.setHex(0xe0f2fe);
-      sunLight.intensity = 1.15;
-    } else if (seasonId === 'autumn') {
-      sunLight.color.setHex(0xfef08a);
-      sunLight.intensity = 1.35;
-    } else if (seasonId === 'spring') {
-      sunLight.color.setHex(0xfef9c3);
-      sunLight.intensity = 1.4;
-    } else if (seasonId === 'summer') {
-      sunLight.color.setHex(0xffffff);
-      sunLight.intensity = 1.5;
-    } else {
-      sunLight.color.setHex(0xffffff);
-      sunLight.intensity = 1.35;
-    }
-  }
+  terrainUniforms.seasons.value = seasonCodeMap[seasonId] ?? 0;
+  if (seasonId === 'winter' && !winterSnowParticles && macroGroup) buildWinterSnowParticles();
+  if (winterSnowParticles) winterSnowParticles.visible = seasonId === 'winter' && !props.reducedMotion;
+  requestRender();
 }
 
-watch(() => props.seasonMode, (newVal) => {
-  setSeason(newVal);
-});
+watch(() => props.seasonMode, setSeason);
+watch(() => props.reducedMotion, () => setSeason(props.seasonMode));
 
 // 3D 路书绘制与清理
 function clearRoadbook() {
-  if (roadbookGroup) {
-    while (roadbookGroup.children.length > 0) {
-      const child = roadbookGroup.children[0];
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) {
-        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
-        else child.material.dispose();
-      }
-      roadbookGroup.remove(child);
-    }
-  }
+  clearSceneGroup(roadbookGroup);
   currentRoadbookRoute = null;
+  requestRender();
 }
 
 function drawRoadbookRoute(route) {
   clearRoadbook();
   if (!route || !route.waypoints || route.waypoints.length < 2) return;
   currentRoadbookRoute = route;
+  requestRender();
 
   if (!roadbookGroup) {
     roadbookGroup = new THREE.Group();
@@ -3652,6 +2322,7 @@ function drawRoadbookRoute(route) {
 
 // 🚀 FPV 低空贴地飞行控制
 function startFPVFlight(options) {
+  if (!controls || !terrainSurface || props.reducedMotion) return;
   const route = options.route || currentRoadbookRoute;
   if (!route || !route.waypoints || route.waypoints.length < 2) return;
 
@@ -3671,17 +2342,24 @@ function startFPVFlight(options) {
   fpvWaypoints = route.waypoints;
   fpvProgress = 0;
   fpvSpeed = 0.00065;
+  fpvPaused = false;
+  cancelMotion();
   fpvActive = true;
+  requestRender();
   fpvCallback = options;
 
   controls.enabled = false;
 }
 
-function stopFPVFlight() {
+function stopFPVFlight(restore = true) {
   if (!fpvActive) return;
   fpvActive = false;
+  fpvPaused = false;
+  fpvCallback?.onComplete?.();
+  fpvCallback = null;
+  requestRender();
   controls.enabled = true;
-  if (preFpvCameraState) {
+  if (restore && preFpvCameraState) {
     flyTo(
       [preFpvCameraState.pos.x, preFpvCameraState.pos.y, preFpvCameraState.pos.z],
       [preFpvCameraState.target.x, preFpvCameraState.target.y, preFpvCameraState.target.z],
@@ -3690,8 +2368,18 @@ function stopFPVFlight() {
   }
 }
 
+function setFPVPaused(paused) {
+  fpvPaused = paused;
+  lastFrameTime = 0;
+  requestRender();
+}
+
+function setFPVSpeed(multiplier) {
+  fpvSpeed = 0.00065 * multiplier;
+}
+
 defineExpose({
-  flyTo,
+  flyTo, getCameraState, cancelMotion, pickMapCenter, focusMap, setGuidePoint, drawProfile, setProfileCursor,
   resetNorth,
   setLighting,
   reExtractBonsai,
@@ -3702,6 +2390,8 @@ defineExpose({
   clearRoadbook,
   startFPVFlight,
   stopFPVFlight,
+  setFPVPaused,
+  setFPVSpeed,
   setSeason,
   setGisMode,
   start360Spin,
@@ -3711,170 +2401,47 @@ defineExpose({
 </script>
 
 <style scoped>
-.canvas-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  overflow: hidden;
-  touch-action: none;
-}
-
-/* 电影级全景镜头暗角与大气天光辉光覆盖层 */
-.cinematic-vignette-overlay {
+.canvas-container { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; touch-action: none; }
+.canvas-container :deep(canvas) { display: block; outline-offset: -3px; }
+.poi-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.map-place {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 50% 48%, transparent 56%, rgba(4, 8, 16, 0.40) 86%, rgba(2, 5, 11, 0.72) 100%);
-  mix-blend-mode: multiply;
-  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 3px 7px;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 640;
+  color: #f5eee0;
+  background: #132b2f;
+  border: 1px solid #6c8377;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: auto;
 }
-
-.poi-overlay {
+.map-place::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #e8ce90; }
+.map-place:hover, .map-place.current { background: #2b4140; border-color: #eed09a; }
+.map-place.current::before { box-shadow: 0 0 0 2px #b79760; }
+.selecting .map-place { pointer-events: none; opacity: .8; }
+.scene-label {
   position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
-/* 全息折线引线 SVG 图层 (Leader Lines Overlay) */
-.leader-lines-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 15;
-}
-
-.poi-elev-tag {
-  font-family: var(--font-mono, monospace);
-  font-size: 8.5px;
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 2px 5px;
   border-radius: 4px;
-  padding: 0 4px;
-  margin-left: 2px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-/* 紧凑高质感单行 POI 全息晶石标牌 (EUGENE FINANCE 国风朱金与深海蓝光) */
-.poi-badge {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: rgba(8, 20, 36, 0.90);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(56, 189, 248, 0.38);
-  border-radius: 20px;
-  padding: 4px 10px;
-  color: #f8fafc;
-  cursor: pointer;
-  transform: translate(-50%, -50%);
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  user-select: none;
-}
-
-.poi-badge:hover,
-.poi-badge.active {
-  border-color: #f59e0b;
-  background: rgba(14, 28, 48, 0.96);
-  transform: translate(-50%, -50%) scale(1.08);
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.45), 0 6px 20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  z-index: 25;
-}
-
-.poi-badge.major {
-  border-color: rgba(245, 158, 11, 0.45);
-}
-
-.poi-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
-  flex-shrink: 0;
-}
-
-.poi-dot.capital { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
-.poi-dot.mountain { background: #10b981; box-shadow: 0 0 10px #10b981; }
-.poi-dot.nature { background: #06b6d4; box-shadow: 0 0 10px #06b6d4; }
-.poi-dot.red { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
-
-.poi-title {
-  font-size: 11px;
-  font-weight: 700;
+  color: var(--map-water);
+  background: #152e31;
+  transform: translate(5px, -94%);
+  font-size: 12px;
+  font-weight: 650;
   white-space: nowrap;
-  letter-spacing: 0.03em;
-  color: #f1f5f9;
 }
-
-.poi-sub {
-  font-size: 9.5px;
-  color: #93c5fd;
-  white-space: nowrap;
-  padding: 1px 6px;
-  background: rgba(56, 189, 248, 0.14);
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 8px;
+.scene-label.ridge-label { color: var(--map-gold); transform: translate(-50%, -100%); }
+.spin-notice { top: var(--map-top); left: var(--content-left); z-index: 7; }
+@media (max-width: 760px) {
+  .map-place { min-height: 33px; font-size: 11px; }
+  .scene-label { font-size: 10px; }
 }
-
-.poi-hover-preview {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 154px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: rgba(11, 26, 43, 0.96);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.8), 0 0 16px rgba(2, 132, 199, 0.3);
-  pointer-events: none;
-  animation: popPreview 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 50;
-}
-
-@keyframes popPreview {
-  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-.poi-preview-img {
-  width: 100%;
-  height: 84px;
-  object-fit: cover;
-  display: block;
-}
-
-.poi-preview-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 7px;
-  background: rgba(6, 13, 23, 0.88);
-  font-size: 10.5px;
-}
-
-.preview-name {
-  font-weight: 700;
-  color: #fff;
-}
-
-.preview-badge {
-  font-size: 9px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
-}
-
 .campaign-badge {
   position: absolute;
   top: 0;
@@ -3912,196 +2479,5 @@ defineExpose({
   font-size: 9.5px;
   color: #cbd5e1;
   white-space: nowrap;
-}
-
-.loading-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(6, 9, 14, 0.9);
-  backdrop-filter: blur(10px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  z-index: 50;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(56, 189, 248, 0.18);
-  border-top-color: #38bdf8;
-  border-radius: 50%;
-  animation: spin 0.9s infinite linear;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.loading-text {
-  font-size: 13.5px;
-  color: #e2e8f0;
-  letter-spacing: 0.04em;
-}
-
-/* 🔄 360° 全景环绕自转浮动交互胶囊 */
-.spin-360-pill {
-  position: absolute;
-  top: 76px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 16px;
-  border-radius: 9999px;
-  background: rgba(10, 16, 28, 0.94);
-  border: 1px solid rgba(245, 185, 66, 0.65);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(245, 185, 66, 0.28);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  color: #fff;
-  pointer-events: auto;
-  user-select: none;
-}
-
-.spin-icon {
-  font-size: 15px;
-  display: inline-block;
-  animation: spinIconAnim 3s linear infinite;
-}
-
-@keyframes spinIconAnim {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.spin-text {
-  font-size: 13px;
-  font-weight: 700;
-  color: #fef08a;
-  letter-spacing: 0.02em;
-}
-
-.spin-tip {
-  font-size: 11.5px;
-  color: #94a3b8;
-}
-
-.spin-close-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border: none;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #cbd5e1;
-  font-size: 12px;
-  cursor: pointer;
-  margin-left: 4px;
-  transition: all 0.15s;
-}
-
-.spin-close-btn:hover {
-  background: rgba(239, 68, 68, 0.75);
-  color: #fff;
-}
-
-.interactive-step-hud {
-  position: absolute;
-  top: 74px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  pointer-events: auto;
-}
-
-.hud-pill-box {
-  background: rgba(10, 15, 25, 0.92);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.3);
-  padding: 6px 14px;
-  border-radius: 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.hud-step-badge {
-  background: #0284c7;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.hud-step-text {
-  font-size: 12.5px;
-  color: #f0f9ff;
-  font-weight: 500;
-}
-
-.hud-step-cancel {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.hud-step-cancel:hover {
-  background: #ef4444;
-  color: #fff;
-}
-
-@media (max-width: 768px) {
-  .poi-badge {
-    padding: 3px 7px;
-    gap: 4px;
-  }
-  .poi-title {
-    font-size: 10px;
-  }
-  .poi-elev-tag {
-    display: none;
-  }
-  .poi-badge.active .poi-elev-tag {
-    display: inline;
-  }
-  .poi-hover-preview {
-    display: none !important;
-  }
-  .spin-360-pill {
-    top: calc(60px + var(--safe-top));
-    padding: 5px 12px;
-    max-width: calc(100vw - 16px);
-  }
-  .spin-tip {
-    display: none;
-  }
-  .interactive-step-hud {
-    top: calc(60px + var(--safe-top));
-    width: calc(100vw - 16px);
-    max-width: 360px;
-  }
-  .hud-pill-box {
-    padding: 5px 10px;
-    gap: 6px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .hud-step-text {
-    font-size: 11px;
-  }
 }
 </style>

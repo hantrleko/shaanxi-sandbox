@@ -8,29 +8,33 @@
 import json
 import math
 import os
+from pathlib import Path
 from PIL import Image
 import numpy as np
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "public", "data")
-OUT_FILE = os.path.join(BASE_DIR, "src", "data", "shaanxiGeoVectors.js")
+OUT_FILE = Path(BASE_DIR) / "src/data/shaanxiGeoVectors.js"
+EXTENT = json.loads((OUT_FILE.parent / "terrainExtent.json").read_text(encoding="utf-8"))
 
 dem_img = Image.open(os.path.join(BASE_DIR, "public", "textures", "shaanxi_dem.png")).convert('L')
 dem = np.array(dem_img, dtype=np.float32)
 dem_h, dem_w = dem.shape
 
 def project(lon, lat, offset_y=0.45):
-    u = (lon - 104.0625) / (112.5 - 104.0625)
+    tiles = 2 ** EXTENT["zoom"]
+    tile_x = (lon + 180) / 360 * tiles
+    u = (tile_x - EXTENT["firstTileX"]) / EXTENT["tileColumns"]
     lat_rad = math.radians(lat)
-    tile_y = (1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * 256.0
-    v = (tile_y - 97.0) / (105.0 - 97.0)
+    tile_y = (1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * tiles
+    v = (tile_y - EXTENT["firstTileY"]) / EXTENT["tileRows"]
     
-    x = (u - 0.5) * 80.0
-    z = (v - 0.5) * 140.0
+    x = (u - 0.5) * EXTENT["width"]
+    z = (v - 0.5) * EXTENT["depth"]
     
     px = int(np.clip(u * (dem_w - 1), 0, dem_w - 1))
     py = int(np.clip(v * (dem_h - 1), 0, dem_h - 1))
-    # 物理高度映射
+    # 旧图层中保留原有显示高度。新图层在运行时按地形表面贴合。
     raw_h = (float(dem[py, px]) / 255.0) ** 1.1 * 18.5 + offset_y
     return [float(round(x, 2)), float(round(raw_h, 2)), float(round(z, 2))]
 
@@ -149,7 +153,13 @@ export const REAL_REGIONS = {json.dumps(REGIONS_3D, ensure_ascii=False, indent=2
 export const REAL_CAMPAIGN_ROUTES = {json.dumps(CAMPAIGN_ROUTES_3D, ensure_ascii=False, indent=2)};
 """
 
-with open(OUT_FILE, "w", encoding="utf-8") as f:
-    f.write(content)
+# Historical route annotations are curated in the vector module alongside generated features.
+if OUT_FILE.exists():
+    current = OUT_FILE.read_text(encoding="utf-8")
+    marker = "export const REAL_SHU_ROADS"
+    offset = current.find(marker)
+    if offset >= 0:
+        content += "\n" + current[offset:]
+OUT_FILE.write_text(content, encoding="utf-8")
 
 print(f"[OK] 成功导出真实地理矢量库: {OUT_FILE}")

@@ -87,7 +87,7 @@
         </div>
 
         <h2 class="stage-title">{{ currentStageTitle }}</h2>
-        <div class="stage-period">{{ currentStagePeriod }}</div>
+        <div class="stage-period">教学示意 · {{ currentStagePeriod }}</div>
 
         <div class="stage-desc-box">
           <p>{{ currentStageDesc }}</p>

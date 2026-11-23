@@ -1,0 +1,14 @@
+{
+  "geo_01": { "file": "images/chapters/geo_01_shaanxi.jpg", "caption": "华山石阶与岩壁。用于观察陕西山地之一。", "kind": "地貌照片" },
+  "geo_02": { "file": "images/chapters/geo_02_qinling.jpg", "caption": "秦岭高山湖泊及周边积雪。", "kind": "地貌照片", "alternate": { "file": "images/scenery/hua_shan.jpg", "caption": "华山岩壁与登山石阶。", "kind": "地貌照片" } },
+  "geo_03": { "file": "images/chapters/geo_03_guanzhong.jpg", "caption": "平坦河岸与远处城镇，用来对照山地与平原景观。", "kind": "对照配图" },
+  "geo_04": { "file": "images/chapters/geo_04_loess.jpg", "caption": "黄河乾坤湾一带的河曲与黄土地貌。", "kind": "地貌照片" },
+  "geo_05": { "file": "images/chapters/geo_05_hanjiang.jpg", "caption": "两岸山地之间的河谷水面与船只。", "kind": "河谷配图" },
+  "geo_06": { "file": "images/chapters/geo_06_rivers.jpg", "caption": "黄河壶口瀑布的跌水与河槽。", "kind": "水系照片" },
+  "his_01": { "file": "images/chapters/his_01_huangdi.jpg", "caption": "黄帝陵景区的碑亭。", "kind": "遗址现貌" },
+  "his_02": { "file": "images/chapters/his_02_zhouyuan.jpg", "caption": "展柜中的青铜方鼎外观。用于观察周代礼器形制。", "kind": "文物配图" },
+  "his_03": { "file": "images/chapters/his_03_bingmayong.jpg", "caption": "秦始皇帝陵兵马俑一号坑展出的陶俑阵列。", "kind": "遗址现貌", "alternate": { "file": "images/scenery/huaqing_pool.jpg", "caption": "临潼华清宫园林中的现代景区视角。", "kind": "关联地景" } },
+  "his_04": { "file": "images/chapters/his_04_changan.jpg", "caption": "西安大雁塔现貌。", "kind": "建筑现貌", "alternate": { "file": "images/scenery/xian_city_wall.jpg", "caption": "西安明城墙现貌。用于对照不同时代的西安城建遗存。", "kind": "对照配图" } },
+  "silk_01": { "file": "images/chapters/silk_01_zhangqian.jpg", "caption": "张骞出使西域主题的敦煌壁画局部。", "kind": "壁画图像", "alternate": { "file": "images/scenery/zhonglou.jpg", "caption": "西安钟楼及周边城市现貌。", "kind": "关联地景" } },
+  "silk_02": { "file": "images/chapters/silk_02_xishi.jpg", "caption": "以丝路人物为主题的现代雕塑。", "kind": "当代主题配图" }
+}

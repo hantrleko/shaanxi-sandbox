@@ -5,14 +5,11 @@ class VoiceNarrator {
     this.currentUtterance = null;
     this.isPlaying = false;
     this.isMuted = false;
-    this.onEndCallback = null;
   }
 
   speak(text, onEnd) {
-    if (!this.synth || this.isMuted) return;
-
     this.stop();
-    this.onEndCallback = onEnd;
+    if (!this.synth || this.isMuted || !window.SpeechSynthesisUtterance) return false;
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "zh-CN";
@@ -26,27 +23,31 @@ class VoiceNarrator {
       utterance.voice = zhVoice;
     }
 
-    utterance.onend = () => {
+    const finish = (success) => {
+      if (this.currentUtterance !== utterance) return;
+      this.currentUtterance = null;
       this.isPlaying = false;
-      if (this.onEndCallback) {
-        this.onEndCallback();
-      }
+      onEnd?.(success);
     };
-
-    utterance.onerror = (e) => {
-      console.warn("TTS narration error:", e);
-      this.isPlaying = false;
-    };
+    utterance.onend = () => finish(true);
+    utterance.onerror = () => finish(false);
 
     this.currentUtterance = utterance;
     this.isPlaying = true;
-    this.synth.speak(utterance);
+    try {
+      this.synth.resume();
+      this.synth.speak(utterance);
+      return true;
+    } catch {
+      this.currentUtterance = null;
+      this.isPlaying = false;
+      return false;
+    }
   }
 
   stop() {
-    if (this.synth) {
-      this.synth.cancel();
-    }
+    this.currentUtterance = null;
+    this.synth?.cancel();
     this.isPlaying = false;
   }
 

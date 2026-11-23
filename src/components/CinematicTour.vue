@@ -13,7 +13,7 @@
 
         <!-- 站点进度航标 -->
         <div class="waypoints-nav">
-          <div
+          <button type="button"
             v-for="(st, idx) in waypoints"
             :key="st.id"
             class="waypoint-pill"
@@ -22,7 +22,7 @@
           >
             <span class="pill-dot"></span>
             <span class="pill-name">{{ st.title.split('·')[1]?.trim() || st.title }}</span>
-          </div>
+          </button>
         </div>
 
         <button class="exit-btn" @click="$emit('close-tour')" title="退出电影巡航">
@@ -62,9 +62,9 @@
             下一站 ⏭
           </button>
 
-          <div class="audio-toggle" @click="toggleAudio">
+          <button type="button" class="audio-toggle" :aria-pressed="isAudioEnabled" @click="toggleAudio">
             <span class="audio-icon">{{ isAudioEnabled ? '🔊 语音解说' : '🔇 静音' }}</span>
-          </div>
+          </button>
         </div>
       </div>
     </div>
@@ -72,100 +72,76 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { CINEMATIC_WAYPOINTS, BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
+import { narrator } from '../utils/speech.js';
 
 const props = defineProps({
   active: { type: Boolean, default: false },
-  currentIndex: { type: Number, default: 0 }
+  currentIndex: { type: Number, default: 0 },
+  reducedMotion: Boolean
 });
 
 const emit = defineEmits(['close-tour', 'next-station', 'prev-station', 'select-station']);
 
 const waypoints = CINEMATIC_WAYPOINTS;
 const isPaused = ref(false);
-const isAudioEnabled = ref(true);
-let autoTimer = null;
-let speechUtterance = null;
+const isAudioEnabled = ref(false);
+let autoTimer;
 
 const currentStation = computed(() => waypoints[props.currentIndex] || waypoints[0]);
 
-const speakNarration = () => {
-  if (!isAudioEnabled.value || !('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
+function cancelPlayback() {
+  clearTimeout(autoTimer);
+  narrator.stop();
+}
 
-  if (!currentStation.value) return;
-  const text = `${currentStation.value.title}。${currentStation.value.narration}`;
-  speechUtterance = new SpeechSynthesisUtterance(text);
-  speechUtterance.lang = 'zh-CN';
-  speechUtterance.rate = 0.95;
-  speechUtterance.pitch = 1.0;
+function scheduleNext(delay) {
+  if (isPaused.value || props.reducedMotion || !props.active) return;
+  autoTimer = setTimeout(() => {
+    if (props.currentIndex < waypoints.length - 1) emit('next-station');
+    else pausePlayback();
+  }, delay);
+}
 
-  speechUtterance.onend = () => {
-    // 朗读完后稍作停留，自动下一站
-    if (!isPaused.value && props.active) {
-      autoTimer = setTimeout(() => {
-        if (props.currentIndex < waypoints.length - 1) {
-          emit('next-station');
-        } else {
-          // 循环回到第一站或提示完成
-          emit('select-station', 0);
-        }
-      }, 2500);
-    }
-  };
+function playStation() {
+  cancelPlayback();
+  if (!props.active || isPaused.value) return;
+  const station = currentStation.value;
+  const hasSpeech = isAudioEnabled.value && narrator.speak(station.title + '。' + station.narration, success => {
+    scheduleNext(success ? 1300 : 8500);
+  });
+  if (!hasSpeech) scheduleNext(10000);
+}
 
-  window.speechSynthesis.speak(speechUtterance);
-};
+function pausePlayback() {
+  isPaused.value = true;
+  cancelPlayback();
+}
 
-const togglePlay = () => {
-  isPaused.value = !isPaused.value;
-  if (isPaused.value) {
-    if (window.speechSynthesis) window.speechSynthesis.pause();
-    if (autoTimer) clearTimeout(autoTimer);
-  } else {
-    if (window.speechSynthesis) window.speechSynthesis.resume();
-    // 如果没有正在播放的语音，启动定时
-    if (!window.speechSynthesis || !window.speechSynthesis.speaking) {
-      speakNarration();
-    }
-  }
-};
+function togglePlay() {
+  if (!isPaused.value) pausePlayback();
+  else { isPaused.value = false; playStation(); }
+}
 
-const toggleAudio = () => {
+function toggleAudio() {
   isAudioEnabled.value = !isAudioEnabled.value;
-  if (!isAudioEnabled.value) {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-  } else {
-    speakNarration();
-  }
-};
+  if (isAudioEnabled.value && isPaused.value) {
+    const station = currentStation.value;
+    narrator.speak(station.title + '。' + station.narration);
+  } else playStation();
+}
 
-const onSelectStation = (idx) => {
-  emit('select-station', idx);
-};
+function onSelectStation(index) { emit('select-station', index); }
 
-watch(() => props.currentIndex, () => {
-  if (autoTimer) clearTimeout(autoTimer);
-  if (props.active && !isPaused.value) {
-    speakNarration();
-  }
-});
-
-watch(() => props.active, (newVal) => {
-  if (newVal) {
-    isPaused.value = false;
-    speakNarration();
-  } else {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    if (autoTimer) clearTimeout(autoTimer);
-  }
-});
-
-onBeforeUnmount(() => {
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  if (autoTimer) clearTimeout(autoTimer);
-});
+watch(() => props.currentIndex, playStation);
+watch(() => [props.active, props.reducedMotion], ([active, reduce]) => {
+  isPaused.value = reduce;
+  if (active) playStation();
+  else cancelPlayback();
+}, { immediate: true });
+onBeforeUnmount(cancelPlayback);
+defineExpose({ pausePlayback });
 </script>
 
 <style scoped>

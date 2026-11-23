@@ -1,796 +1,145 @@
 <template>
-  <div class="right-toolbar-root">
-    <!-- 垂直主微轨 (Glass 悬浮柱) -->
-    <aside class="right-rail glass-panel" aria-label="沙盒环境与图层控制轨">
-      <!-- 1. 图层控制展开按钮 -->
-      <button
-        class="rail-btn"
-        :class="{ active: activeFlyout === 'layers' }"
-        @click="toggleFlyout('layers')"
-        title="图层控制 (L) - 切换省界、水系、秦岭线与丝路"
-        aria-label="图层控制"
-      >
-        <Layers :size="17" />
-        <span class="rail-lbl">图层</span>
+  <aside class="map-tools" aria-label="地图工具" @keydown.esc.stop="closePanel(true)">
+    <div class="tool-rail map-surface">
+      <button ref="layersButton" class="tool" type="button" :aria-expanded="panelOpen" aria-controls="layer-panel" @click="panelOpen = !panelOpen" aria-label="图层与外观" title="图层与外观">
+        <Layers :size="18" /><span>图层</span>
       </button>
-
-      <!-- 2. 四季气候流转按钮 -->
-      <button
-        class="rail-btn season-btn"
-        :class="{ active: activeFlyout === 'season' }"
-        @click="toggleFlyout('season')"
-        title="四季气候 (S) - 春花、夏翠、秋枫、冬雪流转"
-        aria-label="四季气候"
-      >
-        <Sparkles :size="17" />
-        <span class="rail-lbl">四季</span>
-        <span class="season-dot" :class="seasonMode"></span>
+      <button v-if="!guideActive && macro" class="tool" type="button" :disabled="!canMeasure" :aria-pressed="isProfiling" @click="act('toggle-profiling')" aria-label="两点剖面测量" title="两点剖面测量">
+        <Ruler :size="18" /><span>测量</span>
       </button>
-
-      <!-- 3. 时段光照调节按钮 -->
-      <button
-        class="rail-btn"
-        :class="{ active: activeFlyout === 'lighting' }"
-        @click="toggleFlyout('lighting')"
-        title="光影时间 - 晨曦、正午、夕照、月夜切换"
-        aria-label="光影时间"
-      >
-        <SunMedium :size="17" />
-        <span class="rail-lbl">光照</span>
+      <button v-if="!guideActive && macro" class="tool" type="button" :disabled="!canPick" :aria-pressed="isProbing" @click="act('toggle-probe')" aria-label="查询此点" title="查询此点">
+        <Crosshair :size="18" /><span>查询</span>
       </button>
-
-      <!-- 4. GIS 科学分析着色器按钮 -->
-      <button
-        class="rail-btn gis-btn"
-        :class="{ active: activeFlyout === 'gis' }"
-        @click="toggleFlyout('gis')"
-        title="GIS 分析 (G) - 高程分层、坡度分析、青绿古卷"
-        aria-label="GIS 分析"
-      >
-        <Activity :size="17" />
-        <span class="rail-lbl">GIS</span>
-        <span class="gis-dot" v-if="gisMode !== 'natural'"></span>
+      <button class="tool compass-tool" type="button" :disabled="!canPick" @click="act('reset-north')" aria-label="重置正北" title="重置正北">
+        <Navigation :size="18" :style="{ transform: 'rotate(' + (azimuth - 45) + 'deg)' }" /><span>正北</span>
       </button>
+    </div>
 
-      <div class="rail-divider"></div>
-
-      <!-- 5. 三维罗盘与复位正北 -->
-      <button
-        class="rail-btn compass-btn"
-        @click="$emit('reset-north')"
-        :title="`航向 ${azimuth}° · 点击重置正北 (N)`"
-        aria-label="重置正北"
-      >
-        <div class="compass-dial" :style="{ transform: `rotate(${-azimuth}deg)` }">
-          <div class="pointer-north">N</div>
-          <div class="pointer-south"></div>
-        </div>
-        <span class="rail-lbl">{{ azimuth }}°</span>
-      </button>
-
-      <!-- 6. 360° 环视旋转按钮 (支持鼠标中键单击/拖拽) -->
-      <button
-        class="rail-btn spin-btn"
-        :class="{ active: isSpinning }"
-        @click="$emit('toggle-360-spin')"
-        title="360° 全景环绕旋转 (鼠标中键单击或拖拽)"
-        aria-label="360度旋转"
-      >
-        <RotateCw :size="16" :class="{ 'spinning-icon': isSpinning }" />
-        <span class="rail-lbl">360°</span>
-      </button>
-
-      <!-- 7. 遥测信息速览气泡 / 实时地表探针 -->
-      <div
-        class="rail-telemetry"
-        :class="{ 'has-telemetry': !!telemetry }"
-        :title="telemetry ? `当前指向: ${telemetry.region}\n经纬: ${telemetry.lng}, ${telemetry.lat}\n高程: ${telemetry.elevation}` : `遥感源: DEM 30m · 仰角: ${pitch}°`"
-      >
-        <span class="tele-tag">{{ telemetry ? '探针' : '3D' }}</span>
-        <span class="tele-pitch num-tabular">{{ telemetry ? telemetry.elevation : `${pitch}°` }}</span>
+    <section v-if="panelOpen" id="layer-panel" class="layer-panel map-surface" aria-label="图层与外观">
+      <div class="layer-head">
+        <button class="map-button" type="button" :aria-pressed="layersTab" @click="layersTab = true">图层</button>
+        <button class="map-button" type="button" :aria-pressed="!layersTab" @click="layersTab = false">外观</button>
+        <button class="map-icon" type="button" aria-label="关闭图层面板" @click="closePanel(true)"><X :size="17" /></button>
       </div>
-    </aside>
-
-    <!-- 飞出式详情交互抽屉 (Flyout Panels) -->
-    <transition name="flyout">
-      <div v-if="activeFlyout" class="flyout-card glass-panel">
-        <div class="flyout-header">
-          <div class="flyout-title">
-            <component :is="flyoutIcon" :size="15" class="flyout-icon" />
-            <span>{{ flyoutTitle }}</span>
-          </div>
-          <button class="flyout-close" @click="activeFlyout = null" title="关闭面板">
-            <X :size="14" />
-          </button>
-        </div>
-
-        <!-- 飞出内容 1: 图层控制 -->
-        <div v-if="activeFlyout === 'layers'" class="flyout-body">
-          <label
-            v-for="ly in LAYER_ITEMS"
-            :key="ly.key"
-            class="layer-toggle-row"
-            :class="{ active: layers[ly.key] }"
-          >
-            <div class="ly-left">
-              <span class="ly-color-dot" :style="{ background: ly.color }"></span>
-              <span class="ly-name">{{ ly.name }}</span>
-            </div>
-            <input
-              type="checkbox"
-              :checked="layers[ly.key]"
-              @change="toggleLayer(ly.key)"
-              class="ly-checkbox"
-            />
+      <div class="layer-options">
+        <template v-if="layersTab">
+          <p v-if="guideActive">地图图层随导览站点调整。</p>
+          <template v-else>
+            <label v-for="(label, key) in LAYER_LABELS" :key="key" class="layer-row">
+              <span>{{ label }}</span>
+              <input type="checkbox" :checked="layers[key]" :disabled="!macro || (analysis && key === 'valleyMist')" @change="$emit('update-layers', { [key]: $event.target.checked })" />
+            </label>
+          </template>
+        </template>
+        <template v-else>
+          <label class="layer-row">着色
+            <select :value="gisMode" :disabled="!canMeasure || !macro || guideActive" @change="$emit('change-gis', $event.target.value)">
+              <option value="natural">自然影像</option><option value="hypsometric">高程分层</option>
+              <option value="slope">地形坡度</option><option value="ink">青绿山水</option>
+            </select>
           </label>
-        </div>
-
-        <!-- 飞出内容 2: 四季气候 -->
-        <div v-if="activeFlyout === 'season'" class="flyout-body seasons-grid">
-          <button
-            v-for="s in SEASON_ITEMS"
-            :key="s.id"
-            class="season-tile"
-            :class="{ active: seasonMode === s.id }"
-            @click="$emit('change-season', s.id)"
-          >
-            <span class="s-icon">{{ s.icon }}</span>
-            <div class="s-info">
-              <span class="s-name">{{ s.name }}</span>
-              <span class="s-desc">{{ s.desc }}</span>
-            </div>
+          <label class="layer-row">时段
+            <select :value="lightingMode" :disabled="guideActive || analysis" @change="$emit('change-lighting', $event.target.value)">
+              <option value="noon">白昼</option><option value="dawn">晨曦</option>
+              <option value="sunset">夕照</option><option value="night">夜景</option>
+            </select>
+          </label>
+          <label class="layer-row">季节
+            <select :value="seasonMode" :disabled="guideActive || analysis" @change="$emit('change-season', $event.target.value)">
+              <option v-for="season in SEASONS_DATA" :key="season.id" :value="season.id">{{ season.name }}</option>
+            </select>
+          </label>
+          <button v-if="!guideActive" class="map-button spin-button" type="button" :aria-pressed="isSpinning" :disabled="!canPick" @click="act('toggle-360-spin')">
+            {{ isSpinning ? '停止环绕' : '环绕观赏' }}
           </button>
-        </div>
-
-        <!-- 飞出内容 3: 光照时段 -->
-        <div v-if="activeFlyout === 'lighting'" class="flyout-body lighting-grid">
-          <button
-            v-for="l in LIGHTING_ITEMS"
-            :key="l.id"
-            class="light-tile"
-            :class="{ active: lightingMode === l.id }"
-            @click="$emit('change-lighting', l.id)"
-          >
-            <component :is="l.icon" :size="18" class="light-icon" />
-            <div class="l-info">
-              <span class="l-name">{{ l.name }}</span>
-              <span class="l-desc">{{ l.desc }}</span>
-            </div>
-          </button>
-        </div>
-
-        <!-- 飞出内容 4: GIS 分析着色器 -->
-        <div v-if="activeFlyout === 'gis'" class="flyout-body gis-grid">
-          <button
-            v-for="g in GIS_ITEMS"
-            :key="g.id"
-            class="gis-tile"
-            :class="{ active: gisMode === g.id }"
-            @click="$emit('change-gis', g.id)"
-          >
-            <span class="gis-icon">{{ g.icon }}</span>
-            <div class="gis-info">
-              <span class="gis-name">{{ g.name }}</span>
-              <span class="gis-desc">{{ g.desc }}</span>
-            </div>
-          </button>
-        </div>
+        </template>
       </div>
-    </transition>
-  </div>
+    </section>
+  </aside>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import {
-  Layers,
-  Sparkles,
-  SunMedium,
-  Sun,
-  Sunset,
-  Sunrise,
-  Moon,
-  Activity,
-  RotateCw,
-  X
-} from 'lucide-vue-next';
+import { ref, watch } from 'vue';
+import { Crosshair, Layers, Navigation, Ruler, X } from 'lucide-vue-next';
+import { LAYER_LABELS } from '../data/mapThemes.js';
+import { SEASONS_DATA } from '../data/shaanxiData.js';
 
 const props = defineProps({
-  layers: {
-    type: Object,
-    default: () => ({ border: true, rivers: true, qinlingLine: true, silkRoad: true, pois: true, cultural: false, shuRoads: true, qinZhiDao: true, poetrySpots: true, valleyMist: true })
-  },
-  seasonMode: { type: String, default: 'natural' },
-  lightingMode: { type: String, default: 'dawn' },
-  gisMode: { type: String, default: 'natural' },
-  isSpinning: { type: Boolean, default: false },
-  azimuth: { type: Number, default: 0 },
-  pitch: { type: Number, default: 35 },
-  telemetry: { type: Object, default: null }
+  layers: { type: Object, required: true },
+  seasonMode: String,
+  lightingMode: String,
+  gisMode: String,
+  azimuth: Number,
+  macro: Boolean,
+  guideActive: Boolean,
+  analysis: Boolean,
+  canPick: Boolean,
+  canMeasure: Boolean,
+  isProfiling: Boolean,
+  isProbing: Boolean,
+  isSpinning: Boolean
 });
+const emit = defineEmits(['update-layers', 'change-gis', 'change-lighting', 'change-season',
+  'toggle-profiling', 'toggle-probe', 'reset-north', 'toggle-360-spin']);
+const panelOpen = ref(false);
+const layersTab = ref(true);
+const layersButton = ref(null);
 
-const emit = defineEmits([
-  'update-layers',
-  'change-season',
-  'change-lighting',
-  'change-gis',
-  'reset-north',
-  'toggle-360-spin'
-]);
+function closePanel(restoreFocus = false) {
+  if (!panelOpen.value) return;
+  panelOpen.value = false;
+  if (restoreFocus) layersButton.value?.focus();
+}
 
-const activeFlyout = ref(null);
+function act(event) {
+  closePanel();
+  emit(event);
+}
 
-const LAYER_ITEMS = [
-  { key: 'border', name: '三秦省界与政区轮廓', color: '#38bdf8' },
-  { key: 'rivers', name: '黄河/长江水系脉络', color: '#06b6d4' },
-  { key: 'qinlingLine', name: '秦岭 800mm 气候分界线', color: '#10b981' },
-  { key: 'silkRoad', name: '丝绸之路流金干线', color: '#f59e0b' },
-  { key: 'shuRoads', name: '陕南四大古蜀道 (陈仓/褒斜/傥骆/子午)', color: '#ec4899' },
-  { key: 'qinZhiDao', name: '陕北秦直道 (古代高速公路)', color: '#ef4444' },
-  { key: 'poetrySpots', name: '唐诗宋词地理信标 (诗意三秦)', color: '#a855f7' },
-  { key: 'valleyMist', name: '秦岭峡谷翻涌晨雾云海', color: '#94a3b8' },
-  { key: 'pois', name: '3D 空间地标信标 (POI)', color: '#38bdf8' }
-];
-
-const SEASON_ITEMS = [
-  { id: 'natural', name: '自然遥感', icon: '🛰️', desc: '真实高精卫星地貌' },
-  { id: 'spring', name: '春 · 秦巴花海', icon: '🌸', desc: '汉中金黄油菜花微光' },
-  { id: 'summer', name: '夏 · 翠峦云海', icon: '🌲', desc: '秦岭翡翠高饱和浓绿' },
-  { id: 'autumn', name: '秋 · 太白金枫', icon: '🍁', desc: '层林尽染与落叶松' },
-  { id: 'winter', name: '冬 · 北国雪原', icon: '❄️', desc: '太白覆雪与漫天飞雪' }
-];
-
-const LIGHTING_ITEMS = [
-  { id: 'dawn', name: '晨曦朝霞', icon: Sunrise, desc: '金光初照 · 温暖晨辉' },
-  { id: 'noon', name: '正午纯阳', icon: Sun, desc: '通透高亮 · 真实光影' },
-  { id: 'sunset', name: '夕照霞光', icon: Sunset, desc: '残阳如血 · 紫霞映山' },
-  { id: 'night', name: '长安月夜', icon: Moon, desc: '繁星穹顶 · 万家灯火' }
-];
-
-const GIS_ITEMS = [
-  { id: 'natural', name: '自然实景卫星', icon: '🛰️', desc: '高精遥感影像与四季流转' },
-  { id: 'hypsometric', name: '高程分层设色', icon: '📈', desc: '平原绿→黄土黄→山地棕→雪顶白' },
-  { id: 'slope', name: '地形坡度分析', icon: '📐', desc: '平原青绿→缓坡金黄→断崖赤红' },
-  { id: 'ink', name: '秦汉青绿古卷', icon: '🖌️', desc: '金碧山水古卷与水墨意境' }
-];
-
-const flyoutTitle = computed(() => {
-  if (activeFlyout.value === 'layers') return '沙盒地质与地理图层';
-  if (activeFlyout.value === 'season') return '四季气候流转着色器';
-  if (activeFlyout.value === 'lighting') return '太阳高度角与时序光照';
-  if (activeFlyout.value === 'gis') return 'GIS 科学专题分析滤镜';
-  return '';
-});
-
-const flyoutIcon = computed(() => {
-  if (activeFlyout.value === 'layers') return Layers;
-  if (activeFlyout.value === 'season') return Sparkles;
-  if (activeFlyout.value === 'lighting') return SunMedium;
-  if (activeFlyout.value === 'gis') return Activity;
-  return Layers;
-});
-
-const toggleFlyout = (key) => {
-  activeFlyout.value = activeFlyout.value === key ? null : key;
-};
-
-const toggleLayer = (key) => {
-  const updated = { ...props.layers, [key]: !props.layers[key] };
-  emit('update-layers', updated);
-};
+watch(() => [props.isProfiling, props.isProbing, props.guideActive, props.macro], () => closePanel());
 </script>
 
 <style scoped>
-.right-toolbar-root {
-  position: absolute;
-  top: 76px;
-  right: 18px;
-  z-index: 30;
-  display: flex;
-  flex-direction: row-reverse;
-  align-items: flex-start;
-  gap: 10px;
-  pointer-events: auto;
-}
-
-.right-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 6px;
-  background: rgba(11, 26, 43, 0.88);
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: var(--radius-md, 12px);
-  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.rail-btn {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-sm, 8px);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-muted, #94a3b8);
+.map-tools { position: absolute; z-index: 24; top: var(--map-top); right: var(--map-inline); }
+.tool-rail { display: grid; padding: 3px; gap: 2px; }
+.tool {
+  color: var(--map-muted);
+  min-width: 47px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  cursor: pointer;
-  transition: all var(--motion-fast, 0.15s);
+  border-radius: 6px;
 }
-
-.rail-btn:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: rgba(56, 189, 248, 0.4);
-  color: #fff;
-  transform: translateX(-1px);
-}
-
-.rail-btn.active {
-  background: rgba(56, 189, 248, 0.25);
-  border-color: var(--brand-cyan, #38bdf8);
-  color: var(--brand-cyan, #38bdf8);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
-}
-
-.rail-lbl {
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.season-dot {
+.tool span { font-size: 10px; }
+.tool:hover, .tool[aria-pressed="true"], .tool[aria-expanded="true"] { color: var(--map-gold); background: #29474a; }
+.compass-tool svg { color: var(--map-gold); }
+.layer-panel {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #38bdf8;
-}
-
-.season-dot.spring { background: #fbbf24; }
-.season-dot.summer { background: #22c55e; }
-.season-dot.autumn { background: #f97316; }
-.season-dot.winter { background: #e0f2fe; }
-
-.gis-dot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #f59e0b;
-  box-shadow: 0 0 6px #f59e0b;
-}
-
-.rail-divider {
-  width: 24px;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 3px 0;
-}
-
-/* 罗盘样式 */
-.compass-btn {
-  height: 48px;
-}
-
-.compass-dial {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease-out;
-}
-
-.pointer-north {
-  width: 0;
-  height: 0;
-  border-left: 3.5px solid transparent;
-  border-right: 3.5px solid transparent;
-  border-bottom: 7px solid #ef4444;
-  font-size: 7px;
-  font-weight: 800;
-  color: #ef4444;
-  line-height: 0;
-}
-
-.pointer-south {
-  width: 0;
-  height: 0;
-  border-left: 3.5px solid transparent;
-  border-right: 3.5px solid transparent;
-  border-top: 6px solid #cbd5e1;
-}
-
-/* 360° 环视按钮 */
-.spin-btn:hover {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.12);
-}
-
-.spin-btn.active {
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.22);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45);
-}
-
-.spinning-icon {
-  animation: spinCwAnim 2.5s linear infinite;
-  color: #f59e0b;
-}
-
-@keyframes spinCwAnim {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.rail-telemetry {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  gap: 1px;
-  font-family: var(--font-mono, monospace);
-  font-size: 9px;
-  color: var(--text-dim, #64748b);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  width: 100%;
-}
-
-.tele-tag {
-  color: var(--brand-cyan, #38bdf8);
-  font-weight: 700;
-}
-
-.rail-telemetry.has-telemetry {
-  border-top-color: rgba(245, 158, 11, 0.45);
-}
-
-.rail-telemetry.has-telemetry .tele-tag {
-  color: #f59e0b;
-}
-
-.rail-telemetry.has-telemetry .tele-pitch {
-  color: #fbbf24;
-  font-weight: 700;
-  white-space: nowrap;
-  font-size: 8.5px;
-}
-
-/* 飞出式抽屉面板 (Flyout) */
-.flyout-card {
-  width: 260px;
-  max-height: calc(100dvh - 120px);
-  display: flex;
-  flex-direction: column;
-  background: rgba(11, 26, 43, 0.95);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: var(--radius-md, 12px);
-  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.8), 0 0 24px rgba(2, 132, 199, 0.2);
-  overflow: hidden;
-  animation: slideLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slideLeft {
-  from { opacity: 0; transform: translateX(12px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.flyout-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(6, 13, 23, 0.4);
-}
-
-.flyout-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--text-base, 13px);
-  font-weight: 700;
-  color: #fff;
-}
-
-.flyout-icon {
-  color: var(--brand-cyan, #38bdf8);
-}
-
-.flyout-close {
-  background: transparent;
-  border: none;
-  color: var(--text-muted, #94a3b8);
-  cursor: pointer;
-  padding: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-
-.flyout-close:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.flyout-body {
+  right: 100%;
+  top: 0;
+  margin-right: 10px;
+  width: min(255px, calc(100vw - 84px));
+  max-height: calc(100dvh - var(--map-top) - 28px);
+  overflow: auto;
   padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-height: 0;
-  max-height: 380px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
-
-/* 图层选择行 */
-.layer-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm, 6px);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  cursor: pointer;
-  transition: all 0.15s;
+.layer-head { display: flex; gap: 4px; align-items: center; padding-bottom: 7px; border-bottom: 1px solid var(--map-line); }
+.layer-head .map-button, .layer-head .map-icon { min-height: 36px; }
+.layer-head .map-icon { margin-inline-start: auto; }
+.layer-options { padding: 7px 3px; }
+.layer-options p { color: var(--map-muted); padding: 8px 4px; line-height: 1.5; }
+.layer-row { display: flex; align-items: center; justify-content: space-between; min-height: 39px; gap: 10px; font-size: 13px; }
+.layer-row input { width: 18px; height: 18px; accent-color: var(--map-gold); }
+.layer-row select { background: #243d3f; border: 1px solid var(--map-line); padding: 5px 8px; color: inherit; border-radius: 5px; font: inherit; }
+.spin-button { margin-top: 8px; width: 100%; }
+@media (max-width: 760px) and (orientation: portrait) {
+  .tool-rail { padding: 2px; }
+  .tool span { display: none; }
+  .tool { min-width: 44px; }
 }
-
-.layer-toggle-row:hover {
-  background: rgba(56, 189, 248, 0.1);
-  border-color: rgba(56, 189, 248, 0.3);
-}
-
-.layer-toggle-row.active {
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
-.ly-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ly-color-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  box-shadow: 0 0 6px currentColor;
-}
-
-.ly-name {
-  font-size: var(--text-sm, 12px);
-  color: #f1f5f9;
-  font-weight: 500;
-}
-
-.ly-checkbox {
-  accent-color: var(--brand-cyan, #38bdf8);
-  cursor: pointer;
-}
-
-/* 四季网格卡片 */
-.seasons-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.season-tile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm, 6px);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-}
-
-.season-tile:hover {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.35);
-}
-
-.season-tile.active {
-  background: rgba(56, 189, 248, 0.22);
-  border-color: var(--brand-cyan, #38bdf8);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
-}
-
-.s-icon {
-  font-size: 18px;
-}
-
-.s-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.s-name {
-  font-size: var(--text-sm, 12px);
-  font-weight: 600;
-  color: #fff;
-}
-
-.s-desc {
-  font-size: var(--text-xs, 11px);
-  color: var(--text-muted, #94a3b8);
-}
-
-/* 光照网格卡片 */
-.lighting-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.light-tile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm, 6px);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-}
-
-.light-tile:hover {
-  background: rgba(245, 185, 66, 0.12);
-  border-color: rgba(245, 185, 66, 0.35);
-}
-
-.light-tile.active {
-  background: rgba(245, 185, 66, 0.2);
-  border-color: var(--accent-gold, #f5b942);
-  box-shadow: 0 0 12px var(--accent-gold-glow);
-}
-
-.light-icon {
-  color: var(--accent-gold, #f5b942);
-}
-
-.l-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.l-name {
-  font-size: var(--text-sm, 12px);
-  font-weight: 600;
-  color: #fff;
-}
-
-.l-desc {
-  font-size: var(--text-xs, 11px);
-  color: var(--text-muted, #94a3b8);
-}
-
-/* GIS 分析滤镜网格 */
-.gis-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.gis-tile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm, 6px);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-}
-
-.gis-tile:hover {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.35);
-}
-
-.gis-tile.active {
-  background: rgba(245, 158, 11, 0.22);
-  border-color: #f59e0b;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
-}
-
-.gis-icon {
-  font-size: 18px;
-}
-
-.gis-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.gis-name {
-  font-size: var(--text-sm, 12px);
-  font-weight: 700;
-  color: #f8fafc;
-}
-
-.gis-desc {
-  font-size: 10.5px;
-  color: var(--text-dim, #94a3b8);
-}
-
-@media (max-width: 768px) {
-  .right-toolbar-root {
-    top: calc(60px + var(--safe-top));
-    right: calc(8px + var(--safe-right));
-    gap: 6px;
-  }
-  .right-rail {
-    padding: 5px 4px;
-    gap: 4px;
-    border-radius: 10px;
-  }
-  .rail-btn {
-    width: 36px;
-    height: 34px;
-    gap: 1px;
-  }
-  .compass-btn {
-    height: 38px;
-  }
-  .rail-lbl {
-    font-size: 8.5px;
-  }
-  .rail-divider {
-    width: 18px;
-    margin: 1px 0;
-  }
-  .rail-telemetry {
-    padding: 2px;
-    font-size: 8px;
-  }
-  .flyout-card {
-    position: fixed;
-    top: calc(60px + var(--safe-top));
-    right: calc(52px + var(--safe-right));
-    width: min(250px, calc(100vw - 64px));
-    max-height: calc(100dvh - 175px - var(--safe-top) - var(--safe-bottom));
-  }
-  .flyout-body {
-    max-height: none;
-  }
-}
-
-@media (max-width: 768px) and (max-height: 700px) {
-  .rail-telemetry {
-    display: none;
-  }
+@media (orientation: landscape) and (max-height: 520px) {
+  .tool span { display: none; }
 }
 </style>

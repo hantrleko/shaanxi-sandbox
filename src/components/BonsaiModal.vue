@@ -3,8 +3,7 @@
     <!-- 左侧微观盆景专有卡片 (移动端可折叠抽屉) -->
     <aside class="bonsai-info-panel glass-panel" :class="{ 'mobile-open': isMobileDetailOpen }">
       <div class="panel-tag">
-        <span class="tag-icon">🏔️</span>
-        <span>BONSAI · 微观高精 3D 盆景切块</span>
+        <span>局部地形盆景</span>
       </div>
       <h2 class="bonsai-title">{{ currentBonsai.title }}</h2>
       <div class="bonsai-loc">{{ currentBonsai.location }}</div>
@@ -15,8 +14,8 @@
           <div class="lbl">主特征高程</div>
         </div>
         <div class="b-metric">
-          <div class="val">{{ currentBonsai.scaleRatio }}</div>
-          <div class="lbl">高程比例</div>
+          <div class="val">约 {{ widthKm }} × {{ widthKm }} km</div>
+          <div class="lbl">瓦片取样范围</div>
         </div>
       </div>
 
@@ -24,32 +23,28 @@
 
       <!-- 动作按钮：从沙盘上“再取出来一次” (原视频经典交互) -->
       <button class="extract-btn" @click="$emit('re-extract')">
-        <span>🔄 从沙盘上“再取出来一次”</span>
+        <span>重新取出盆景</span>
       </button>
 
       <!-- 立体海拔标尺图例 -->
       <div class="ruler-legend">
-        <div class="ruler-title">三维物理高程刻度标尺</div>
-        <div class="ruler-items">
-          <span v-for="mark in currentBonsai.elevationMarks" :key="mark" class="ruler-tag">
-            {{ mark }}
-          </span>
-        </div>
+        <div class="ruler-title">标尺以米显示栅格参考高程</div>
       </div>
 
       <!-- 高差夸大滑动调节器 -->
       <div class="slider-box">
         <div class="slider-header">
-          <span>垂直高差放大倍数 (当前真实地形)</span>
-          <span class="slider-val">{{ exaggeration.toFixed(1) }}x</span>
+          <span>垂直夸张倍数</span>
+          <span class="slider-val">{{ exaggeration.toFixed(1) }}×</span>
         </div>
         <input
           type="range"
-          min="1.0"
-          max="2.5"
-          step="0.1"
-          v-model.number="exaggeration"
-          @input="$emit('update-exaggeration', exaggeration)"
+          min="1"
+          max="10"
+          step="0.5"
+          aria-label="垂直夸张倍数"
+          :value="exaggeration"
+          @input="$emit('update-exaggeration', $event.target.valueAsNumber)"
           class="custom-slider"
         />
       </div>
@@ -81,18 +76,19 @@
         </div>
       </div>
 
-      <div class="bar-title">微观盆景选择：从沙盘上“切出”这块地，用 Zoom 12 更精细的高程和影像做成 3D 模型</div>
+      <div class="bar-title">选择局部模型 · Z12 瓦片</div>
       <div class="bonsai-cards-row">
-        <div
+        <button
           v-for="b in bonsais"
           :key="b.id"
+          type="button"
           class="b-card"
           :class="{ active: currentBonsaiId === b.id }"
           @click="$emit('select-bonsai', b.id)"
         >
           <div class="b-card-title">{{ b.title }}</div>
           <div class="b-card-sub">{{ b.elevation }}</div>
-        </div>
+        </button>
       </div>
     </div>
   </div>
@@ -100,21 +96,23 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { bonsaiTileWidthKm } from '../utils/bonsaiTerrain.js';
 
 const props = defineProps({
   currentMode: { type: String, required: true },
   bonsais: { type: Array, required: true },
-  currentBonsaiId: { type: String, required: true }
+  currentBonsaiId: { type: String, required: true },
+  exaggeration: { type: Number, required: true }
 });
 
 defineEmits(['select-bonsai', 'update-exaggeration', 'back-to-macro', 're-extract']);
 
-const exaggeration = ref(1.5);
 const isMobileDetailOpen = ref(false);
 
 const currentBonsai = computed(() => {
   return props.bonsais.find(b => b.id === props.currentBonsaiId) || props.bonsais[0];
 });
+const widthKm = computed(() => Math.round(bonsaiTileWidthKm(currentBonsai.value.id)));
 </script>
 
 <style scoped>

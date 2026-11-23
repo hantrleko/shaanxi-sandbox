@@ -7,8 +7,8 @@
         <div class="header-title-box">
           <span class="header-icon">🛣️</span>
           <div class="header-titles">
-            <div class="main-title">3D 多点研学/自驾路书工坊</div>
-            <div class="sub-title">GIS DEM ELEVATION PROFILER & 3D FPV FLYTHROUGH</div>
+            <div class="main-title">三维路书</div>
+            <div class="sub-title">{{ isCustomMode ? '地形途经点与连线距离' : '预设路线与模拟飞行' }}</div>
           </div>
         </div>
         <button class="close-btn" @click="$emit('close')" title="关闭路书工坊">✕</button>
@@ -51,16 +51,16 @@
       <!-- 核心指标网格 -->
       <div class="metrics-grid">
         <div class="metric-item">
-          <div class="m-lbl">路线全程距离</div>
+          <div class="m-lbl">{{ isCustomMode ? '途经点连线距离' : '预设路线距离' }}</div>
           <div class="m-val">{{ Math.round(activeRoute.totalDistKm || 0) }} <span class="unit">km</span></div>
         </div>
         <div class="metric-item">
-          <div class="m-lbl">全程累计爬升</div>
-          <div class="m-val peak">+{{ Math.round(activeRoute.climbM || 0) }} <span class="unit">m</span></div>
+          <div class="m-lbl">{{ isCustomMode ? '相邻站点累计爬升' : '预设累计爬升' }}</div>
+          <div class="m-val peak">{{ activeRoute.climbM === null ? '暂无' : '+' + Math.round(activeRoute.climbM) + ' m' }}</div>
         </div>
         <div class="metric-item">
           <div class="m-lbl">最高点海拔</div>
-          <div class="m-val peak">{{ Math.round(activeRoute.maxElevM || 0) }} <span class="unit">m</span></div>
+          <div class="m-val peak">{{ activeRoute.maxElevM === null ? '暂无' : Math.round(activeRoute.maxElevM) + ' m' }}</div>
         </div>
         <div class="metric-item">
           <div class="m-lbl">路书途经站点</div>
@@ -69,7 +69,7 @@
       </div>
 
       <!-- 动态高程剖面图 (SVG) -->
-      <div class="chart-wrapper" ref="chartRef" @mousemove="onChartMouseMove" @mouseleave="hoveredPoint = null">
+      <div v-if="waypointChartPositions.length" class="chart-wrapper" ref="chartRef" @mousemove="onChartMouseMove" @mouseleave="hoveredPoint = null">
         <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" class="profile-svg">
           <defs>
             <linearGradient id="routeGrad" x1="0" y1="0" x2="0" y2="1">
@@ -124,7 +124,7 @@
         >
           <span class="wp-idx">{{ idx + 1 }}</span>
           <span class="wp-name">{{ wp.name }}</span>
-          <span class="wp-alt">{{ wp.elevation }}m</span>
+          <span class="wp-alt">{{ wp.elevation === null ? '高程缺测' : wp.elevation + ' m' }}</span>
         </div>
       </div>
 
@@ -134,7 +134,7 @@
           <span class="f-tip">💡 提示：点击站点胶囊可聚焦观察地貌；点击右侧按钮开启第一人称贴地低空飞行。</span>
         </div>
         <div class="footer-right">
-          <button class="fly-start-btn" @click="startFPVFlight">
+          <button class="fly-start-btn" :disabled="!canFly || activeRoute.waypoints.length < 2" @click="startFPVFlight">
             <svg class="fly-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
@@ -156,12 +156,12 @@
 
         <div class="flight-gauges">
           <div class="gauge-box">
-            <span class="g-lbl">地表真高</span>
-            <span class="g-val">{{ currentAltitude }} <span class="g-u">m</span></span>
+            <span class="g-lbl">地表海拔（约）</span>
+            <span class="g-val">{{ currentAltitude === null ? '缺测' : currentAltitude + ' m' }}</span>
           </div>
           <div class="gauge-box">
-            <span class="g-lbl">巡航地速</span>
-            <span class="g-val">{{ Math.round(flightSpeed * 120 + 80) }} <span class="g-u">km/h</span></span>
+            <span class="g-lbl">播放倍速</span>
+            <span class="g-val">{{ flightSpeed }}×</span>
           </div>
           <div class="gauge-box">
             <span class="g-lbl">飞行进度</span>
@@ -209,10 +209,12 @@
 import { ref, computed, watch } from 'vue';
 import { ROADBOOK_PRESETS } from '../data/shaanxiData.js';
 import { soundscape } from '../utils/soundscape.js';
+import { horizontalDistanceKm } from '../utils/geography.js';
 
 const props = defineProps({
   active: { type: Boolean, default: false },
-  customPoints: { type: Array, default: () => [] }
+  customPoints: { type: Array, default: () => [] },
+  canFly: Boolean
 });
 
 const emit = defineEmits([
@@ -220,6 +222,9 @@ const emit = defineEmits([
   'select-route',
   'start-fpv',
   'stop-fpv',
+  'pause-fpv',
+  'change-fpv-speed',
+  'drawing',
   'focus-waypoint',
   'clear-custom'
 ]);
@@ -231,7 +236,7 @@ const isFlying = ref(false);
 const isFlightPaused = ref(false);
 const flightSpeed = ref(1);
 const flightProgress = ref(0);
-const currentAltitude = ref(840);
+const currentAltitude = ref(null);
 const currentApproachingWp = ref(null);
 
 const chartRef = ref(null);
@@ -245,19 +250,24 @@ const activeRoute = computed(() => {
     const pts = props.customPoints || [];
     const wps = pts.map((p, i) => ({
       name: `途经点 ${i + 1}`,
-      elevation: Math.round(p.y * 180 + 380),
+      elevation: p.elevationM === null ? null : Math.round(p.elevationM / 10) * 10,
       pos: [p.x, p.y, p.z],
       desc: `坐标: (${p.x.toFixed(1)}, ${p.z.toFixed(1)})`
     }));
+    const distance = pts.reduce((sum, point, index) => index ? sum + horizontalDistanceKm(pts[index - 1], point) : sum, 0);
+    const heights = wps.map(waypoint => waypoint.elevation);
+    const complete = heights.length > 0 && heights.every(Number.isFinite);
+    const climb = complete ? heights.reduce((sum, altitude, index) => index
+      ? sum + Math.max(0, altitude - heights[index - 1]) : sum, 0) : null;
     return {
       id: 'custom',
       title: '自由多点测绘路书',
       subtitle: `当前已在三维地形上标绘 ${pts.length} 个途经点。`,
       tag: '自定义测线',
       badge: '自定义',
-      totalDistKm: pts.length * 45,
-      climbM: pts.length * 320,
-      maxElevM: Math.max(...wps.map(w => w.elevation), 1800),
+      totalDistKm: distance,
+      climbM: climb,
+      maxElevM: complete ? Math.max(...heights) : null,
       waypoints: wps
     };
   }
@@ -269,7 +279,7 @@ const customPointsCount = computed(() => (props.customPoints || []).length);
 // 剖面 SVG 点阵计算
 const waypointChartPositions = computed(() => {
   const wps = activeRoute.value.waypoints || [];
-  if (wps.length < 2) return [];
+  if (wps.length < 2 || wps.some(wp => wp.elevation === null)) return [];
 
   const leftX = 45;
   const rightX = chartWidth - 25;
@@ -302,7 +312,6 @@ const selectPreset = (route) => {
   isCustomMode.value = false;
   currentRouteId.value = route.id;
   soundscape.playClick();
-  emit('select-route', route);
 };
 
 const enableCustomMode = () => {
@@ -343,16 +352,18 @@ const onChartMouseMove = (e) => {
 
 // 飞行预演控制
 const startFPVFlight = () => {
+  if (!props.canFly || activeRoute.value.waypoints.length < 2) return;
   isFlying.value = true;
   isFlightPaused.value = false;
   flightProgress.value = 0;
   flightSpeed.value = 1;
+  currentAltitude.value = null;
   soundscape.init();
   emit('start-fpv', {
     route: activeRoute.value,
     onProgress: (prog, alt, currentWp) => {
       flightProgress.value = prog;
-      currentAltitude.value = Math.round(alt);
+      currentAltitude.value = Number.isFinite(alt) ? Math.round(alt / 10) * 10 : null;
       currentApproachingWp.value = currentWp;
     },
     onComplete: () => {
@@ -368,20 +379,16 @@ const stopFPVFlight = () => {
 
 const toggleFlightPause = () => {
   isFlightPaused.value = !isFlightPaused.value;
-  // 通过事件通知 Canvas 暂停/继续
+  emit('pause-fpv', isFlightPaused.value);
 };
 
 const cycleSpeed = () => {
   flightSpeed.value = flightSpeed.value === 1 ? 2 : flightSpeed.value === 2 ? 4 : 1;
+  emit('change-fpv-speed', flightSpeed.value);
 };
 
-watch(() => props.active, (val) => {
-  if (val) {
-    emit('select-route', activeRoute.value);
-  } else {
-    isFlying.value = false;
-  }
-});
+watch(activeRoute, (route) => emit('select-route', route), { immediate: true });
+watch(() => isCustomMode.value && !isFlying.value, drawing => emit('drawing', drawing));
 </script>
 
 <style scoped>

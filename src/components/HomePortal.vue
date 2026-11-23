@@ -1,659 +1,145 @@
 <template>
-  <div class="portal-overlay">
-    <!-- 半透明电影暗角景深背景 (使后方缓缓自转的 3D 陕西沙盘清晰透出) -->
-    <div class="portal-backdrop"></div>
-
-    <div class="portal-content">
-      <!-- Eugene Finance 官方品牌微标与 V2.0 旗舰标识 -->
-      <div class="portal-brand-badge-row">
-        <div class="portal-brand-badge">
-          <img :src="BRAND_LOGO_BADGE" class="portal-brand-img" alt="Eugene Finance" />
-          <div class="portal-brand-titles">
-            <span class="corp-name">EUGENE FINANCE 呈现</span>
-            <span class="sys-name">三秦三维数字地貌与文明探源</span>
-          </div>
-        </div>
-
-        <button class="portal-ver-pill" @click="$emit('open-changelog')" title="点击查看 v5.0.0 PRO 架构演更与升级日志">
-          <span class="pv-dot"></span>
-          <span>v5.0 PRO 旗舰版 · 更新日志 ➔</span>
-        </button>
+  <main class="portal">
+    <header class="portal-header">
+      <div class="wordmark">
+        <span class="wordmark-icon"><Map :size="19" :stroke-width="1.5" /></span>
+        <span>陕西地理沙盘</span>
       </div>
+      <button type="button" class="about-button" @click="$emit('open-changelog')">关于项目</button>
+    </header>
 
-      <!-- 主标题区 (杂志级大标题排版) -->
-      <div class="title-group">
-        <h1 class="portal-title">陕西地理沙盘</h1>
-        <div class="portal-en-title">SHAANXI GEOGRAPHY & HUMANITIES 3D SANDBOX</div>
-        <p class="portal-desc">
-          三秦大地，华夏之根。集成真实遥感卫星影像与 30m 物理 DEM 高程，融汇自然地理大格局、四季气候着色流转、3D 贴地自驾路书与古丝绸之路。
-        </p>
-      </div>
-
-      <!-- 核心省情指标 (横向极简流线排布) -->
-      <div class="metrics-row">
-        <div class="metric-chip">
-          <span class="m-val">20.56<span class="m-unit">万km²</span></span>
-          <span class="m-lbl">全省总面积 · 纵贯两大流域</span>
-        </div>
-        <div class="metric-chip">
-          <span class="m-val">3954<span class="m-unit">万人</span></span>
-          <span class="m-lbl">常住人口 · 三秦儿女</span>
-        </div>
-        <div class="metric-chip highlight">
-          <span class="m-val">14<span class="m-unit">个朝代</span></span>
-          <span class="m-lbl">建都古长安 · 周秦汉唐之源</span>
-        </div>
-        <div class="metric-chip">
-          <span class="m-val">10<span class="m-unit">个地级市</span></span>
-          <span class="m-lbl">陕北 · 关中 · 陕南三大单元</span>
+    <div class="portal-main">
+      <div class="portal-intro">
+        <h1>秦岭南北</h1>
+        <p class="portal-question">从西安到汉中，<br />秦岭两侧的水流向哪里？</p>
+        <p class="portal-details">沿着山脊、河谷和高程剖面，在三维地形上找答案。</p>
+        <div class="portal-actions">
+          <button type="button" class="map-button primary" @click="$emit('start-guide')">
+            开始导览 <ArrowRight :size="17" />
+          </button>
+          <button type="button" class="map-button" @click="$emit('enter-sandbox')">
+            自由探索
+          </button>
         </div>
       </div>
-
-      <!-- 沉浸式特色探索捷径 (3大高阶体验) -->
-      <div class="hero-actions-row">
-        <button class="hero-action-btn tour-btn" @click="$emit('start-tour')">
-          <div class="btn-glow-bar"></div>
-          <div class="btn-icon-wrap">
-            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-          </div>
-          <div class="btn-text-wrap">
-            <span class="btn-main-label">开启《航拍三秦》电影级巡航导览</span>
-            <span class="btn-sub-label">自动运镜 · 空间音场 · 纪录片有声叙事 ➔</span>
-          </div>
-        </button>
-
-        <button class="hero-action-btn roadbook-btn" @click="$emit('start-roadbook')">
-          <div class="btn-glow-bar"></div>
-          <div class="btn-icon-wrap">
-            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="6" cy="19" r="3"></circle>
-              <path d="M9 19h8.5a4.5 4.5 0 0 0 4.5-4.5v0a4.5 4.5 0 0 0-4.5-4.5H6"></path>
-              <circle cx="6" cy="5" r="3"></circle>
-            </svg>
-          </div>
-          <div class="btn-text-wrap">
-            <span class="btn-main-label">3D 研学/自驾路书与 FPV 低空飞行</span>
-            <span class="btn-sub-label">翻越秦岭分水岭 · 贴地滑翔预演 ➔</span>
-          </div>
-        </button>
-
-        <button class="hero-action-btn detective-btn" @click="$emit('start-detective')">
-          <div class="btn-glow-bar"></div>
-          <div class="btn-icon-wrap">
-            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="22" y1="12" x2="18" y2="12"></line>
-              <line x1="6" y1="12" x2="2" y2="12"></line>
-              <line x1="12" y1="6" x2="12" y2="2"></line>
-              <line x1="12" y1="22" x2="12" y2="18"></line>
-            </svg>
-          </div>
-          <div class="btn-text-wrap">
-            <span class="btn-main-label">开启“寻迹三秦”空间探秘挑战</span>
-            <span class="btn-sub-label">5大地理历史空间谜题 · 赢取荣誉文牒 ➔</span>
-          </div>
-        </button>
-
-        <button class="hero-action-btn gallery-hero-btn" @click="$emit('open-gallery')">
-          <div class="btn-glow-bar"></div>
-          <div class="btn-icon-wrap">
-            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="8.5" cy="8.5" r="1.5"></circle>
-              <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-          </div>
-          <div class="btn-text-wrap">
-            <span class="btn-main-label">三秦 16 处地标实景画廊</span>
-            <span class="btn-sub-label">华山 · 太白 · 大雁塔 · 壶口实景大片 ➔</span>
-          </div>
-        </button>
-      </div>
-
-      <!-- 四大核心篇章晶格舱 (紧凑单行排布) -->
-      <div class="themes-grid-compact">
-        <div class="theme-card" @click="$emit('select-mode', 'macro', 'geo')">
-          <div class="card-num">01</div>
-          <div class="card-content">
-            <div class="card-title">自然地理</div>
-            <div class="card-sub">秦岭 · 秦川 · 黄土高原</div>
-          </div>
-        </div>
-
-        <div class="theme-card camp-card" @click="$emit('select-mode', 'campaign', 'camp_chencang')">
-          <div class="card-num">02</div>
-          <div class="card-content">
-            <div class="card-title">经典战役</div>
-            <div class="card-sub">暗度陈仓 · 五丈原 · 延安</div>
-          </div>
-        </div>
-
-        <div class="theme-card" @click="$emit('select-mode', 'macro', 'history')">
-          <div class="card-num">03</div>
-          <div class="card-content">
-            <div class="card-title">华夏史诗</div>
-            <div class="card-sub">周秦礼乐 · 兵马俑 · 盛唐</div>
-          </div>
-        </div>
-
-        <div class="theme-card" @click="$emit('select-mode', 'macro', 'silkroad')">
-          <div class="card-num">04</div>
-          <div class="card-content">
-            <div class="card-title">丝路起点</div>
-            <div class="card-sub">凿空西域 · 万国商都</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 快速进入 3D 核心沙盘主按钮 -->
-      <div class="portal-footer">
-        <button class="enter-btn animate-pulse-glow" @click="$emit('enter-sandbox')">
-          <span>进入三维遥感互动沙盘</span>
-          <svg class="enter-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-          </svg>
-        </button>
+      <div class="portal-figure">
+        <div class="north-mark" aria-hidden="true"><span>北</span><ArrowUp :size="18" :stroke-width="1.45" /></div>
+        <TerrainPoster />
       </div>
     </div>
-  </div>
+
+    <footer class="portal-footer">
+      <span>卫星影像与高程数据绘制</span>
+      <span>EUGENE FINANCE</span>
+    </footer>
+  </main>
 </template>
 
 <script setup>
-import { BRAND_LOGO_BADGE } from '../data/shaanxiData.js';
-defineEmits(['enter-sandbox', 'select-mode', 'start-tour', 'start-detective', 'start-roadbook', 'open-changelog', 'open-gallery']);
+import { ArrowRight, ArrowUp, Map } from 'lucide-vue-next';
+import TerrainPoster from './TerrainPoster.vue';
+
+defineEmits(['enter-sandbox', 'start-guide', 'open-changelog']);
 </script>
 
 <style scoped>
-.portal-overlay {
+.portal {
   position: absolute;
   inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 20px;
-}
-
-/* 半透明电影暗角景深背景 (使后方缓缓自转的 3D 陕西沙盘清晰透出) */
-.portal-backdrop {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at center, rgba(6, 12, 22, 0.28) 0%, rgba(6, 10, 18, 0.65) 55%, rgba(4, 7, 12, 0.92) 100%);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.portal-content {
-  position: relative;
-  z-index: 2;
-  max-width: 880px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 16px;
-  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.portal-brand-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.portal-brand-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  padding: 5px 16px 5px 6px;
-  border-radius: 30px;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-.portal-ver-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  padding: 6px 14px;
-  border-radius: 20px;
-  color: #38bdf8;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
-}
-
-.portal-ver-pill:hover {
-  background: rgba(56, 189, 248, 0.28);
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.45);
-  transform: translateY(-1px);
-}
-
-.pv-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
-  animation: pulse 1.6s infinite;
-}
-
-.hero-action-btn.roadbook-btn {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 23, 42, 0.8));
-  border-color: rgba(16, 185, 129, 0.35);
-}
-
-.hero-action-btn.roadbook-btn:hover {
-  border-color: #10b981;
-  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.3);
-}
-
-.hero-action-btn.roadbook-btn .btn-icon-wrap {
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.15);
-}
-
-.portal-brand-img {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid rgba(56, 189, 248, 0.5);
-}
-
-.portal-brand-titles {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-}
-
-.corp-name {
-  font-size: 11px;
-  font-weight: 800;
-  color: #38bdf8;
-  letter-spacing: 0.1em;
-  line-height: 1.1;
-}
-
-.sys-name {
-  font-size: 10.5px;
-  color: #cbd5e1;
-}
-
-.title-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.portal-title {
-  font-size: 38px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  background: linear-gradient(135deg, #ffffff 40%, #e0f2fe 70%, #38bdf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-family: "Noto Serif SC", "STSong", "SimSun", serif;
-  text-shadow: 0 4px 24px rgba(56, 189, 248, 0.25);
-}
-
-.portal-en-title {
-  font-size: 10.5px;
-  letter-spacing: 0.24em;
-  color: #64748b;
-  font-family: monospace;
-  margin-top: 2px;
-}
-
-.portal-desc {
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: #94a3b8;
-  max-width: 680px;
-  margin-top: 6px;
-}
-
-/* 核心省情指标 (极简横排流线) */
-.metrics-row {
+  z-index: 20;
+  overflow: auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  grid-template-rows: auto 1fr auto;
+  color: var(--map-text);
+  background: radial-gradient(ellipse at 69% 47%, #2e4847 0%, #193437 35%, #10272b 64%, #0c1c21 100%);
+  padding: max(16px, var(--safe-top)) clamp(20px, 5vw, 86px) max(14px, var(--safe-bottom));
+}
+
+.portal-header, .portal-footer {
+  max-width: 1320px;
   width: 100%;
-}
-
-.metric-chip {
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  transition: all 0.25s;
-}
-
-.metric-chip:hover {
-  border-color: rgba(56, 189, 248, 0.4);
-  background: rgba(15, 23, 42, 0.85);
-  transform: translateY(-2px);
-}
-
-.metric-chip.highlight {
-  border-color: rgba(245, 158, 11, 0.35);
-}
-
-.metric-chip.highlight .m-val {
-  color: #fbbf24;
-}
-
-.m-val {
-  font-size: 17px;
-  font-weight: 800;
-  font-family: monospace;
-  color: #38bdf8;
-}
-
-.m-unit {
-  font-size: 10px;
-  font-weight: normal;
-  color: #94a3b8;
-  margin-left: 2px;
-}
-
-.m-lbl {
-  font-size: 10.5px;
-  color: #94a3b8;
-}
-
-/* 沉浸式特色探索捷径 */
-.hero-actions-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  width: 100%;
-}
-
-.hero-action-btn {
-  position: relative;
+  margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  border-radius: 14px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.25s;
-  overflow: hidden;
+  justify-content: space-between;
+  gap: 14px;
 }
 
-.tour-btn {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(217, 119, 6, 0.22));
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fef08a;
-}
-
-.tour-btn:hover {
-  background: rgba(245, 158, 11, 0.28);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
-}
-
-.detective-btn {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.22));
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #a7f3d0;
-}
-
-.detective-btn:hover {
-  background: rgba(16, 185, 129, 0.28);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
-}
-
-.btn-icon-wrap {
+.portal-header { border-bottom: 1px solid var(--map-line); padding-bottom: 12px; }
+.portal-footer { border-top: 1px solid var(--map-line); padding-block: 14px 4px; }
+.portal-footer span { color: var(--map-muted); font-size: 11px; }
+.portal-footer span:last-child { letter-spacing: .13em; }
+.wordmark { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.wordmark-icon {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.svg-icon {
-  width: 18px;
-  height: 18px;
-}
-
-.btn-text-wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-.btn-main-label {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.btn-sub-label {
-  font-size: 10.5px;
-  opacity: 0.85;
-  margin-top: 2px;
-}
-
-/* 四大篇章紧凑排布 */
-.themes-grid-compact {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  width: 100%;
+  place-items: center;
+  border: 1px solid #a7885d;
+  border-radius: 8px;
+  color: var(--map-gold);
 }
 
-.theme-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 10px 12px;
-  display: flex;
+.about-button { color: var(--map-muted); padding: 0 6px; }
+.about-button:hover { color: var(--map-text); }
+.portal-main {
+  width: min(100%, 1280px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr);
+  gap: clamp(20px, 5vw, 70px);
   align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.25s;
+}
+.portal-intro { padding: 36px 0 38px clamp(0px, 2.8vw, 42px); }
+.portal-intro h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(58px, 6.5vw, 110px);
+  font-weight: 750;
+  line-height: 1.12;
+  letter-spacing: .04em;
+  color: #f4ead4;
+  margin-bottom: 25px;
+}
+.portal-question { font-size: clamp(21px, 2.2vw, 35px); line-height: 1.44; font-family: var(--font-serif); }
+.portal-details { margin-top: 22px; line-height: 1.65; font-size: 14px; color: var(--map-muted); }
+.portal-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 33px; }
+.portal-actions button { padding-inline: 18px; }
+.portal-figure {
+  width: min(100%, 73dvh, 680px);
+  justify-self: center;
+  position: relative;
+  padding: 14px 20px;
+}
+.north-mark {
+  position: absolute;
+  top: 8%;
+  right: 6%;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  z-index: 1;
+  color: var(--map-muted);
+  font-size: 11px;
+}
+.north-mark svg { transform: rotate(-10deg); }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .portal { padding-inline: 22px; background-position: 50% 70%; }
+  .portal-main { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+  .portal-intro { padding: 23px 0 2px; }
+  .portal-intro h1 { font-size: clamp(47px, 13vw, 68px); margin-bottom: 9px; }
+  .portal-question { font-size: clamp(17px, 5.5vw, 23px); }
+  .portal-details { font-size: 12px; margin-top: 9px; }
+  .portal-actions { margin-top: 15px; }
+  .portal-figure { align-self: center; width: min(100%, 41dvh, 420px); padding: 4px 18px 10px; }
+  .portal-footer { padding-top: 8px; }
 }
 
-.theme-card:hover {
-  border-color: rgba(56, 189, 248, 0.4);
-  background: rgba(15, 23, 42, 0.85);
-  transform: translateY(-2px);
-}
-
-.theme-card.camp-card:hover {
-  border-color: rgba(239, 68, 68, 0.5);
-}
-
-.card-num {
-  font-size: 14px;
-  font-family: monospace;
-  font-weight: 800;
-  color: #64748b;
-}
-
-.theme-card:hover .card-num {
-  color: #38bdf8;
-}
-
-.card-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #f8fafc;
-}
-
-.card-sub {
-  font-size: 10px;
-  color: #94a3b8;
-  margin-top: 1px;
-}
-
-.portal-footer {
-  margin-top: 4px;
-}
-
-.enter-btn {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  border: 1px solid #38bdf8;
-  color: #fff;
-  padding: 10px 32px;
-  border-radius: 24px;
-  font-size: 14.5px;
-  font-weight: 700;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
-  transition: all 0.25s;
-}
-
-.enter-btn:hover {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  transform: scale(1.04);
-  box-shadow: 0 0 30px rgba(56, 189, 248, 0.6);
-}
-
-.enter-arrow-svg {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.2s;
-}
-
-.enter-btn:hover .enter-arrow-svg {
-  transform: translateX(4px);
-}
-
-@media (max-width: 768px) {
-  .portal-overlay {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    align-items: flex-start;
-    padding: calc(14px + var(--safe-top)) 14px calc(24px + var(--safe-bottom));
-  }
-  .portal-content {
-    gap: 12px;
-    padding-bottom: 12px;
-  }
-  .portal-brand-badge-row {
-    width: 100%;
-    justify-content: space-between;
-    gap: 6px;
-  }
-  .portal-brand-badge {
-    padding: 4px 10px 4px 5px;
-    gap: 7px;
-  }
-  .portal-brand-img {
-    width: 24px;
-    height: 24px;
-  }
-  .sys-name {
-    display: none;
-  }
-  .portal-ver-pill {
-    padding: 5px 10px;
-    font-size: 10.5px;
-  }
-  .portal-title {
-    font-size: 26px;
-    letter-spacing: 0.08em;
-  }
-  .portal-en-title {
-    font-size: 9px;
-    letter-spacing: 0.12em;
-  }
-  .portal-desc {
-    font-size: 12px;
-    line-height: 1.5;
-    margin-top: 2px;
-  }
-  .metrics-row {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-  .metric-chip {
-    padding: 8px 6px;
-  }
-  .m-val {
-    font-size: 15px;
-  }
-  .m-lbl {
-    font-size: 9.5px;
-  }
-  .hero-actions-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-  .hero-action-btn {
-    padding: 10px 12px;
-    gap: 10px;
-  }
-  .btn-icon-wrap {
-    width: 32px;
-    height: 32px;
-  }
-  .btn-main-label {
-    font-size: 12.5px;
-  }
-  .btn-sub-label {
-    font-size: 10px;
-  }
-  .themes-grid-compact {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-  .theme-card {
-    padding: 8px 10px;
-    gap: 8px;
-  }
-  .card-num {
-    font-size: 12px;
-  }
-  .card-title {
-    font-size: 12px;
-  }
-  .card-sub {
-    font-size: 9.5px;
-  }
-  .portal-footer {
-    width: 100%;
-    margin-top: 4px;
-  }
-  .enter-btn {
-    width: 100%;
-    justify-content: center;
-    padding: 12px 20px;
-    font-size: 14px;
-  }
+@media (orientation: landscape) and (max-height: 520px) {
+  .portal-intro { padding-block: 10px; }
+  .portal-intro h1 { font-size: clamp(33px, 8vh, 54px); margin-bottom: 8px; }
+  .portal-question { font-size: 19px; }
+  .portal-details { margin-top: 8px; }
+  .portal-actions { margin-top: 12px; }
 }
 </style>

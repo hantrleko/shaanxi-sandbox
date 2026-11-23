@@ -1,0 +1,7 @@
+{
+  "zoom": 12,
+  "tileSpan": 3,
+  "huashan": { "lon": 110.08, "lat": 34.48 },
+  "taibai": { "lon": 107.77, "lat": 33.96 },
+  "hukou": { "lon": 110.45, "lat": 36.15 }
+}

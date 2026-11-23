@@ -218,7 +218,7 @@ def step4_fetch_micro_bonsais():
                 "minElev": float(min_e),
                 "maxElev": float(max_e),
                 "elevDiff": float(max_e - min_e),
-                "widthKm": 12.0
+                "widthKm": round(math.cos(math.radians(b["lat"])) * 40075.0167 * 3 / 2 ** b["zoom"], 2)
             }, f, indent=2, ensure_ascii=False)
 
         print(f"[OK] 微观盆景已就绪: {b['name']} ({min_e:.1f}m ~ {max_e:.1f}m, 高差 {max_e-min_e:.1f}m)")

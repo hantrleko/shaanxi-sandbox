@@ -1,326 +1,63 @@
 <template>
-  <nav class="bottom-timeline glass-panel" aria-label="三秦时空时间轴">
-    <div class="timeline-controls">
-      <button
-        class="play-all-btn"
-        :class="{ active: isAutoPlaying }"
-        @click="$emit('toggle-autoplay')"
-        :title="isAutoPlaying ? '暂停智能连播' : '一键智能巡航全省'"
-        aria-label="智能导览播放控制"
-      >
-        <span class="btn-symbol">
-          <Play v-if="!isAutoPlaying" :size="15" fill="currentColor" />
-          <Pause v-else :size="15" fill="currentColor" />
-        </span>
-        <div class="btn-text-group">
-          <span class="main-label">{{ isAutoPlaying ? '暂停连播' : '智能导览' }}</span>
-          <span class="sub-label">{{ chapters.length }}个时空节点</span>
-        </div>
-      </button>
-
-      <div class="nav-arrow-group">
-        <button
-          class="arrow-btn"
-          @click="$emit('prev-chapter')"
-          :disabled="currentIndex === 0"
-          title="上一章节 (←)"
-          aria-label="上一章节"
-        >
-          <ChevronLeft :size="16" />
+  <nav class="chapter-strip map-surface" aria-label="章节导航">
+    <button class="map-icon" type="button" title="上一章" aria-label="上一章" :disabled="currentIndex === 0" @click="$emit('prev-chapter')"><ChevronLeft :size="18" /></button>
+    <ol ref="list">
+      <li v-for="(chapter, index) in chapters" :key="chapter.id">
+        <button type="button" :aria-current="index === currentIndex ? 'step' : undefined" @click="$emit('select-chapter', index)">
+          <span>{{ chapter.title }}</span>
         </button>
-        <button
-          class="arrow-btn"
-          @click="$emit('next-chapter')"
-          :disabled="currentIndex === chapters.length - 1"
-          title="下一章节 (→)"
-          aria-label="下一章节"
-        >
-          <ChevronRight :size="16" />
-        </button>
-      </div>
-    </div>
-
-    <!-- 底部横向滚动的章节卡片流 (支持平滑触控滑动) -->
-    <div class="cards-scroll-container custom-scrollbar">
-      <div
-        v-for="(ch, idx) in chapters"
-        :key="ch.id"
-        class="chapter-card"
-        :class="{ active: currentIndex === idx }"
-        @click="$emit('select-chapter', idx)"
-        role="button"
-        :aria-selected="currentIndex === idx"
-      >
-        <div class="card-thumb">
-          <img :src="ch.photoUrl" :alt="ch.title" loading="lazy" />
-          <div class="card-idx">{{ ch.num }}</div>
-        </div>
-        <div class="card-body">
-          <div class="card-title">{{ ch.title }}</div>
-          <div class="card-subtitle">{{ ch.subTitle }}</div>
-        </div>
-        <!-- 自动播放进度条指示 -->
-        <div class="card-active-indicator" v-if="currentIndex === idx">
-          <div class="progress-fill" v-if="isAutoPlaying"></div>
-        </div>
-      </div>
-    </div>
+      </li>
+    </ol>
+    <button class="map-icon" type="button" title="下一章" aria-label="下一章" :disabled="currentIndex === chapters.length - 1" @click="$emit('next-chapter')"><ChevronRight :size="18" /></button>
+    <button class="map-icon autoplay" type="button" :aria-label="isAutoPlaying ? '停止连播' : '章节连播'" :aria-pressed="isAutoPlaying" @click="$emit('toggle-autoplay')">
+      <Pause v-if="isAutoPlaying" :size="16" /><Play v-else :size="16" />
+    </button>
   </nav>
 </template>
 
 <script setup>
-import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { nextTick, ref, watch } from 'vue';
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-vue-next';
 
-defineProps({
+const props = defineProps({
   chapters: { type: Array, required: true },
-  currentIndex: { type: Number, default: 0 },
-  isAutoPlaying: { type: Boolean, default: false },
-  currentMode: { type: String, default: 'macro' }
+  currentIndex: { type: Number, required: true },
+  isAutoPlaying: Boolean
 });
-
 defineEmits(['toggle-autoplay', 'prev-chapter', 'next-chapter', 'select-chapter']);
+const list = ref(null);
+watch(() => [props.currentIndex, props.chapters], async () => {
+  await nextTick();
+  const current = list.value?.querySelector('[aria-current="step"]');
+  current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+});
 </script>
 
 <style scoped>
-.bottom-timeline {
+.chapter-strip {
   position: absolute;
-  bottom: 18px;
-  left: 395px;
-  right: 18px;
-  max-width: 740px;
-  margin: 0 auto;
-  height: 72px;
+  z-index: 18;
+  inset: auto calc(var(--map-inline) + 60px) calc(var(--safe-bottom) + 13px) var(--content-left);
   display: flex;
+  gap: 5px;
   align-items: center;
-  padding: 6px 12px;
-  gap: 12px;
-  z-index: 20;
-  background: var(--bg-glass-heavy, rgba(11, 26, 43, 0.92));
-  border: 1px solid var(--border-light, rgba(56, 189, 248, 0.28));
-  border-radius: var(--radius-md, 14px);
-  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(2, 132, 199, 0.12);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  transition: all 0.25s ease;
+  padding: 4px 5px;
+  max-width: 900px;
+  margin-inline: auto;
 }
-
-.timeline-controls {
+.chapter-strip ol {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.play-all-btn {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #fff;
-  border-radius: var(--radius-sm, 8px);
-  padding: 6px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
-}
-
-.play-all-btn:hover {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.5);
-  transform: translateY(-1px);
-}
-
-.play-all-btn.active {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  border-color: rgba(245, 158, 11, 0.5);
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
-}
-
-.btn-symbol {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-text-group {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-}
-
-.main-label {
-  font-size: var(--text-sm, 12px);
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.sub-label {
-  font-size: 9.5px;
-  opacity: 0.85;
-}
-
-.nav-arrow-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.arrow-btn {
-  width: 26px;
-  height: 48px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-muted, #94a3b8);
-  border-radius: var(--radius-xs, 5px);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-
-.arrow-btn:hover:not(:disabled) {
-  background: rgba(56, 189, 248, 0.15);
-  color: #fff;
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
-.arrow-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* 横向滚动列表 */
-.cards-scroll-container {
   flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  padding: 4px 2px;
-}
-
-.chapter-card {
-  position: relative;
-  flex-shrink: 0;
-  width: 140px;
-  height: 52px;
-  background: rgba(10, 20, 36, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: var(--radius-sm, 8px);
-  padding: 4px 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.chapter-card:hover {
-  background: rgba(14, 28, 48, 0.9);
-  border-color: rgba(56, 189, 248, 0.45);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-.chapter-card.active {
-  width: 156px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(14, 30, 52, 0.95) 100%);
-  border-color: #f59e0b;
-  box-shadow: 0 0 18px rgba(245, 158, 11, 0.35), 0 6px 18px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-}
-
-.card-thumb {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 5px;
-  overflow: hidden;
-  flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.card-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.card-idx {
-  position: absolute;
-  top: 1px;
-  left: 2px;
-  font-family: var(--font-mono, monospace);
-  font-size: 8.5px;
-  font-weight: 800;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-.card-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
   min-width: 0;
-  gap: 1px;
+  gap: 3px;
+  overflow: auto;
+  list-style: none;
+  scrollbar-width: thin;
 }
-
-.card-title {
-  font-size: var(--text-xs, 11.5px);
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-subtitle {
-  font-size: 9.5px;
-  color: var(--text-muted, #94a3b8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-active-indicator {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2.5px;
-  background: rgba(245, 158, 11, 0.25);
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
-  animation: progressRun 12s linear infinite;
-}
-
-@keyframes progressRun {
-  from { width: 0%; }
-  to { width: 100%; }
-}
-
-@media (max-width: 1024px) {
-  .bottom-timeline {
-    left: 18px;
-    right: 18px;
-    max-width: none;
-    bottom: 12px;
-  }
-}
-
-@media (max-width: 768px) {
-  .bottom-timeline {
-    display: none; /* 移动端由 Bottom Sheet 接管 */
-  }
-}
+.chapter-strip li { flex: 1 0 auto; }
+.chapter-strip li button { width: 100%; border-top: 2px solid transparent; padding: 0 10px; color: var(--map-muted); font-size: 12px; }
+.chapter-strip button:hover, .chapter-strip button[aria-current="step"] { color: var(--map-text); background: #29474a; border-top-color: var(--map-gold); }
+.autoplay { border-inline-start: 1px solid var(--map-line); border-radius: 0; }
+@media (max-width: 760px) and (orientation: portrait) { .chapter-strip { display: none; } }
+@media (orientation: landscape) and (max-height: 520px) { .chapter-strip { right: calc(var(--map-inline) + 53px); bottom: calc(var(--safe-bottom) + 5px); } }
 </style>

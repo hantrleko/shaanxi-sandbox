@@ -1,9 +1,10 @@
 # scripts/generate_authentic_cards.py
 import math
-import os
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
-os.makedirs('public/images/chapters', exist_ok=True)
+CANDIDATES = Path(__file__).resolve().parent.parent / 'chapter-illustrations.local'
+CANDIDATES.mkdir(exist_ok=True)
 font_path = 'C:/Windows/Fonts/msyh.ttc'
 
 CARDS = [
@@ -164,7 +165,7 @@ for card in CARDS:
     draw.text((42, 31), card['tag'], fill=tc, font=font_tag)
 
     # Right coordinate badge
-    draw.text((w - 180, 32), "GIS DEM 30M ALIGNED", fill=(148, 163, 184), font=font_badge)
+    draw.text((w - 180, 32), "TEACHING ILLUSTRATION", fill=(148, 163, 184), font=font_badge)
 
     # 6. Bottom text card
     draw.rectangle([26, 265, w - 26, 375], fill=(8, 12, 18, 220), outline=(30, 41, 59), width=1)
@@ -173,8 +174,8 @@ for card in CARDS:
     draw.text((42, 280), card['title'], fill=(255, 255, 255), font=font_title)
     draw.text((42, 330), card['sub'], fill=(148, 163, 184), font=font_sub)
 
-    out_file = f"public/images/chapters/{card['id']}.jpg"
+    out_file = CANDIDATES / (card['id'] + '.jpg')
     img.save(out_file, 'JPEG', quality=95)
     print(f"Generated museum-grade card: {out_file}")
 
-print("All 12 authentic local chapter images successfully generated!")
+print("Generated 12 teaching illustrations for review.")
